@@ -25,20 +25,30 @@ interface ChangelogData {
 const parser = new Parser();
 const octokit = new Octokit();
 
+// コマンドライン引数から日付を取得
+function parseDate(args: string[]): Date {
+  const dateArg = args.find((arg) => arg.startsWith("--date="));
+  if (dateArg) {
+    const dateStr = dateArg.split("=")[1];
+    return new Date(dateStr + "T23:59:59Z"); // 指定日の終わりを基準に
+  }
+  return new Date();
+}
+
 // 過去24時間以内かチェック
 export function isRecent(dateString: string, now: Date = new Date()): boolean {
   const date = new Date(dateString);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  return date >= dayAgo;
+  return date >= dayAgo && date <= now;
 }
 
 // GitHub Changelog取得
-async function fetchGitHubChangelog(): Promise<ChangelogEntry[]> {
+async function fetchGitHubChangelog(targetDate: Date): Promise<ChangelogEntry[]> {
   const feed = await parser.parseURL("https://github.blog/changelog/feed/");
   const entries: ChangelogEntry[] = [];
 
   for (const item of feed.items) {
-    if (item.pubDate && isRecent(item.pubDate)) {
+    if (item.pubDate && isRecent(item.pubDate, targetDate)) {
       entries.push({
         title: item.title || "",
         url: item.link || "",
@@ -52,14 +62,14 @@ async function fetchGitHubChangelog(): Promise<ChangelogEntry[]> {
 }
 
 // AWS Changelog取得
-async function fetchAWSChangelog(): Promise<ChangelogEntry[]> {
+async function fetchAWSChangelog(targetDate: Date): Promise<ChangelogEntry[]> {
   const feed = await parser.parseURL(
     "https://aws.amazon.com/about-aws/whats-new/recent/feed/",
   );
   const entries: ChangelogEntry[] = [];
 
   for (const item of feed.items) {
-    if (item.pubDate && isRecent(item.pubDate)) {
+    if (item.pubDate && isRecent(item.pubDate, targetDate)) {
       entries.push({
         title: item.title || "",
         url: item.link || "",
@@ -73,7 +83,7 @@ async function fetchAWSChangelog(): Promise<ChangelogEntry[]> {
 }
 
 // Claude Code Releases取得
-async function fetchClaudeCodeReleases(): Promise<ReleaseEntry[]> {
+async function fetchClaudeCodeReleases(targetDate: Date): Promise<ReleaseEntry[]> {
   const { data: releases } = await octokit.repos.listReleases({
     owner: "anthropics",
     repo: "claude-code",
@@ -83,7 +93,7 @@ async function fetchClaudeCodeReleases(): Promise<ReleaseEntry[]> {
   const entries: ReleaseEntry[] = [];
 
   for (const release of releases) {
-    if (release.published_at && isRecent(release.published_at)) {
+    if (release.published_at && isRecent(release.published_at, targetDate)) {
       entries.push({
         version: release.tag_name,
         url: release.html_url,
@@ -100,10 +110,14 @@ async function fetchClaudeCodeReleases(): Promise<ReleaseEntry[]> {
 async function main() {
   console.log("Fetching changelogs...");
 
+  const targetDate = parseDate(Deno.args);
+  const dateString = targetDate.toISOString().split("T")[0];
+  console.log(`Target date: ${dateString}`);
+
   const [github, aws, claudeCode] = await Promise.all([
-    fetchGitHubChangelog(),
-    fetchAWSChangelog(),
-    fetchClaudeCodeReleases(),
+    fetchGitHubChangelog(targetDate),
+    fetchAWSChangelog(targetDate),
+    fetchClaudeCodeReleases(targetDate),
   ]);
 
   // 更新がない場合は終了
@@ -113,7 +127,7 @@ async function main() {
   }
 
   const data: ChangelogData = {
-    date: new Date().toISOString().split("T")[0],
+    date: dateString,
     github,
     aws,
     claudeCode,
