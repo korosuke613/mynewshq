@@ -306,7 +306,7 @@ async function main() {
 // ミュートされたエントリの折りたたみセクションを生成
 export function generateMutedSection<
   T extends { title?: string; version?: string; url: string; mutedBy?: string },
->(entries: T[], _sectionName: string): string {
+>(entries: T[]): string {
   const mutedEntries = entries.filter((e) => "muted" in e && e.muted);
   if (mutedEntries.length === 0) {
     return "";
@@ -340,7 +340,7 @@ export function generateDefaultBody(data: ChangelogData): string {
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
-    body += generateMutedSection(data.github, "GitHub Changelog");
+    body += generateMutedSection(data.github);
     if (activeEntries.length > 0 || data.github.some((e) => e.muted)) {
       body += "---\n\n";
     }
@@ -355,7 +355,7 @@ export function generateDefaultBody(data: ChangelogData): string {
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
-    body += generateMutedSection(data.aws, "AWS What's New");
+    body += generateMutedSection(data.aws);
     if (activeEntries.length > 0 || data.aws.some((e) => e.muted)) {
       body += "---\n\n";
     }
@@ -370,7 +370,7 @@ export function generateDefaultBody(data: ChangelogData): string {
         body += `*Published: ${item.publishedAt}*\n\n`;
       }
     }
-    body += generateMutedSection(data.claudeCode, "Claude Code");
+    body += generateMutedSection(data.claudeCode);
   }
 
   return body;

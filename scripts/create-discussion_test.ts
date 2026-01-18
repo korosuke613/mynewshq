@@ -104,7 +104,7 @@ Deno.test("generateMutedSection", async (t) => {
       },
     ];
 
-    const result = generateMutedSection(entries, "GitHub Changelog");
+    const result = generateMutedSection(entries);
     assertStringIncludes(result, "<details>");
     assertStringIncludes(
       result,
@@ -125,7 +125,7 @@ Deno.test("generateMutedSection", async (t) => {
       },
     ];
 
-    const result = generateMutedSection(entries, "GitHub Changelog");
+    const result = generateMutedSection(entries);
     assertEquals(result, "");
   });
 
@@ -141,7 +141,7 @@ Deno.test("generateMutedSection", async (t) => {
       },
     ];
 
-    const result = generateMutedSection(entries, "Claude Code");
+    const result = generateMutedSection(entries);
     assertStringIncludes(result, "[v1.0.0](https://example.com/1)");
     assertStringIncludes(result, "*(ミュートワード: Glue)*");
   });

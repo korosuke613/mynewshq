@@ -3,9 +3,27 @@ import { generateDefaultBody } from "./create-discussion.ts";
 
 interface ChangelogData {
   date: string;
-  github: Array<{ title: string; url: string; muted?: boolean }>;
-  aws: Array<{ title: string; url: string; muted?: boolean }>;
-  claudeCode: Array<{ version: string; url: string; muted?: boolean }>;
+  github: Array<{
+    title: string;
+    url: string;
+    content: string;
+    pubDate: string;
+    muted?: boolean;
+  }>;
+  aws: Array<{
+    title: string;
+    url: string;
+    content: string;
+    pubDate: string;
+    muted?: boolean;
+  }>;
+  claudeCode: Array<{
+    version: string;
+    url: string;
+    body: string;
+    publishedAt: string;
+    muted?: boolean;
+  }>;
 }
 
 async function preview(date?: string) {
