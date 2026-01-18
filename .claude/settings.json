@@ -1,3 +1,6 @@
 {
-  "plansDirectory": "./plans"
+  "plansDirectory": "./plans",
+  "enabledPlugins": {
+    "dev-standards@korosuke613": true
+  }
 }
