@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { generateDefaultBody } from "./create-discussion.ts";
+import { determineLabels, generateDefaultBody } from "./create-discussion.ts";
 
 const mockData = {
   date: "2026-01-18",
@@ -41,5 +41,42 @@ Deno.test("generateDefaultBody", async (t) => {
   await t.step("Markdownリンク形式で出力する", () => {
     const body = generateDefaultBody(mockData);
     assertStringIncludes(body, "[Feature A](https://example.com/a)");
+  });
+});
+
+Deno.test("determineLabels", async (t) => {
+  await t.step("すべてのエントリがある場合は3つのラベルを返す", () => {
+    const labels = determineLabels(mockData);
+    assertEquals(labels, ["github", "aws", "claude-code"]);
+  });
+
+  await t.step("githubのみの場合はgithubラベルのみ返す", () => {
+    const labels = determineLabels({ ...mockData, aws: [], claudeCode: [] });
+    assertEquals(labels, ["github"]);
+  });
+
+  await t.step("awsのみの場合はawsラベルのみ返す", () => {
+    const labels = determineLabels({ ...mockData, github: [], claudeCode: [] });
+    assertEquals(labels, ["aws"]);
+  });
+
+  await t.step("claudeCodeのみの場合はclaude-codeラベルのみ返す", () => {
+    const labels = determineLabels({ ...mockData, github: [], aws: [] });
+    assertEquals(labels, ["claude-code"]);
+  });
+
+  await t.step("すべて空の場合は空配列を返す", () => {
+    const labels = determineLabels({
+      ...mockData,
+      github: [],
+      aws: [],
+      claudeCode: [],
+    });
+    assertEquals(labels, []);
+  });
+
+  await t.step("githubとawsのみの場合は2つのラベルを返す", () => {
+    const labels = determineLabels({ ...mockData, claudeCode: [] });
+    assertEquals(labels, ["github", "aws"]);
   });
 });
