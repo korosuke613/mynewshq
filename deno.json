@@ -4,8 +4,8 @@
     "post": "deno run --allow-net --allow-read --allow-env scripts/create-discussion.ts"
   },
   "imports": {
-    "@octokit/rest": "npm:@octokit/rest@^21.0.2",
-    "@octokit/graphql": "npm:@octokit/graphql@^8.1.1",
-    "rss-parser": "npm:rss-parser@^3.13.0"
+    "@octokit/rest": "npm:@octokit/rest@21.0.2",
+    "@octokit/graphql": "npm:@octokit/graphql@8.1.1",
+    "rss-parser": "npm:rss-parser@3.13.0"
   }
 }

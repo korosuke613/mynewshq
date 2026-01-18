@@ -7,6 +7,49 @@ interface CreateDiscussionInput {
   body: string;
 }
 
+interface DiscussionCategory {
+  id: string;
+  name: string;
+}
+
+interface RepositoryData {
+  repository: {
+    id: string;
+    discussionCategories: {
+      nodes: DiscussionCategory[];
+    };
+  };
+}
+
+interface CreateDiscussionResult {
+  createDiscussion: {
+    discussion: {
+      url: string;
+    };
+  };
+}
+
+interface ChangelogEntry {
+  title: string;
+  url: string;
+  content: string;
+  pubDate: string;
+}
+
+interface ReleaseEntry {
+  version: string;
+  url: string;
+  body: string;
+  publishedAt: string;
+}
+
+interface ChangelogData {
+  date: string;
+  github: ChangelogEntry[];
+  aws: ChangelogEntry[];
+  claudeCode: ReleaseEntry[];
+}
+
 // GitHub GraphQL APIでDiscussion作成
 async function createDiscussion(
   token: string,
@@ -14,7 +57,7 @@ async function createDiscussion(
   repo: string,
   categoryName: string,
   title: string,
-  body: string
+  body: string,
 ): Promise<string> {
   const graphqlWithAuth = graphql.defaults({
     headers: {
@@ -23,7 +66,7 @@ async function createDiscussion(
   });
 
   // リポジトリIDとカテゴリIDを取得
-  const repoData: any = await graphqlWithAuth(
+  const repoData = await graphqlWithAuth<RepositoryData>(
     `
     query($owner: String!, $repo: String!) {
       repository(owner: $owner, name: $repo) {
@@ -37,24 +80,26 @@ async function createDiscussion(
       }
     }
   `,
-    { owner, repo }
+    { owner, repo },
   );
 
   const repositoryId = repoData.repository.id;
   const category = repoData.repository.discussionCategories.nodes.find(
-    (c: any) => c.name === categoryName
+    (c) => c.name === categoryName,
   );
 
   if (!category) {
     throw new Error(
-      `Category "${categoryName}" not found. Available categories: ${repoData.repository.discussionCategories.nodes
-        .map((c: any) => c.name)
-        .join(", ")}`
+      `Category "${categoryName}" not found. Available categories: ${
+        repoData.repository.discussionCategories.nodes
+          .map((c) => c.name)
+          .join(", ")
+      }`,
     );
   }
 
   // Discussion作成
-  const result: any = await graphqlWithAuth(
+  const result = await graphqlWithAuth<CreateDiscussionResult>(
     `
     mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
       createDiscussion(input: {
@@ -74,7 +119,7 @@ async function createDiscussion(
       categoryId: category.id,
       title,
       body,
-    }
+    },
   );
 
   return result.createDiscussion.discussion.url;
@@ -120,14 +165,14 @@ async function main() {
     repo,
     categoryName,
     title,
-    body
+    body,
   );
 
   console.log(`Discussion created: ${url}`);
 }
 
 // デフォルトのボディ生成（要約がない場合）
-function generateDefaultBody(data: any): string {
+function generateDefaultBody(data: ChangelogData): string {
   let body = `# 📰 Tech Changelog - ${data.date}\n\n`;
 
   if (data.github && data.github.length > 0) {

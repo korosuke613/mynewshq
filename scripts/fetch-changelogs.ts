@@ -55,7 +55,7 @@ async function fetchGitHubChangelog(): Promise<ChangelogEntry[]> {
 // AWS Changelog取得
 async function fetchAWSChangelog(): Promise<ChangelogEntry[]> {
   const feed = await parser.parseURL(
-    "https://aws.amazon.com/about-aws/whats-new/recent/feed/"
+    "https://aws.amazon.com/about-aws/whats-new/recent/feed/",
   );
   const entries: ChangelogEntry[] = [];
 
@@ -123,7 +123,11 @@ async function main() {
   const outputPath = `data/changelogs/${data.date}.json`;
   await Deno.writeTextFile(outputPath, JSON.stringify(data, null, 2));
 
-  console.log(`Saved ${github.length + aws.length + claudeCode.length} updates to ${outputPath}`);
+  console.log(
+    `Saved ${
+      github.length + aws.length + claudeCode.length
+    } updates to ${outputPath}`,
+  );
   console.log(`- GitHub: ${github.length}`);
   console.log(`- AWS: ${aws.length}`);
   console.log(`- Claude Code: ${claudeCode.length}`);

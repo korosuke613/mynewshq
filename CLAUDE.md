@@ -5,12 +5,13 @@
 ## プロジェクト概要
 
 毎日9:00 JSTに以下のChangelogを自動収集します：
+
 - GitHub Changelog (RSS)
 - AWS What's New (RSS)
 - Claude Code (GitHub Releases)
 
-収集したデータは `data/changelogs/YYYY-MM-DD.json` に保存され、
-Claude Code Actionで要約を生成してGitHub Discussionsに投稿します。
+収集したデータは `data/changelogs/YYYY-MM-DD.json` に保存され、 Claude Code
+Actionで要約を生成してGitHub Discussionsに投稿します。
 
 ## 使用技術
 
@@ -39,16 +40,19 @@ Changelogデータを読み込み、以下の形式で日本語要約を生成�
 ## GitHub Changelog
 
 ### [タイトル](URL)
+
 **要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
 
 ## AWS What's New
 
 ### [タイトル](URL)
+
 **要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
 
 ## Claude Code
 
 ### [バージョン](URL)
+
 **要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
 ```
 
@@ -63,5 +67,7 @@ Changelogデータを読み込み、以下の形式で日本語要約を生成�
 ### 実行手順
 
 要約を生成したら：
+
 1. `summary.md` に要約を保存
-2. `deno task post korosuke613 mynewshq General "$(cat summary.md)"` を実行してDiscussionに投稿
+2. `deno task post korosuke613 mynewshq General "$(cat summary.md)"`
+   を実行してDiscussionに投稿

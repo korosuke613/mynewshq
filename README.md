@@ -4,13 +4,16 @@
 
 ## 概要
 
-毎日9:00 JSTに以下のChangelogを自動収集し、Claude Code Actionで日本語要約を生成してGitHub Discussionsに投稿します。
+毎日9:00 JSTに以下のChangelogを自動収集し、Claude Code
+Actionで日本語要約を生成してGitHub Discussionsに投稿します。
 
 ### 対象Changelog
 
 - **GitHub Changelog** - [RSS](https://github.blog/changelog/feed/)
-- **AWS What's New** - [RSS](https://aws.amazon.com/about-aws/whats-new/recent/feed/)
-- **Claude Code** - [GitHub Releases](https://github.com/anthropics/claude-code/releases)
+- **AWS What's New** -
+  [RSS](https://aws.amazon.com/about-aws/whats-new/recent/feed/)
+- **Claude Code** -
+  [GitHub Releases](https://github.com/anthropics/claude-code/releases)
 
 ## アーキテクチャ
 
@@ -131,7 +134,7 @@ mynewshq/
 
 ```yaml
 schedule:
-  - cron: "0 0 * * *"  # UTC 0:00 = JST 9:00
+  - cron: "0 0 * * *" # UTC 0:00 = JST 9:00
 ```
 
 ### 要約フォーマットの変更
@@ -140,7 +143,8 @@ schedule:
 
 ### Discussionカテゴリの変更
 
-`scripts/create-discussion.ts` の引数を変更するか、ワークフローから渡すパラメータを調整してください。
+`scripts/create-discussion.ts`
+の引数を変更するか、ワークフローから渡すパラメータを調整してください。
 
 ## トラブルシューティング
 
