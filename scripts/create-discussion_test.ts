@@ -52,12 +52,85 @@ Deno.test("generateDefaultBody", async (t) => {
     const body = generateDefaultBody(mockData);
     assertStringIncludes(body, "[Feature A](https://example.com/a)");
   });
+
+  await t.step(
+    "GitHubエントリに複数のラベルがある場合にインラインコードとして表示する",
+    () => {
+      const dataWithGhLabels = {
+        date: "2026-01-18",
+        github: [{
+          title: "Feature A",
+          url: "https://example.com/a",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          labels: {
+            "changelog-label": ["copilot"],
+            "changelog-type": ["improvement"],
+          },
+        }],
+        aws: [],
+        claudeCode: [],
+        linear: [],
+      };
+      const body = generateDefaultBody(dataWithGhLabels);
+      assertStringIncludes(body, "[Feature A](https://example.com/a)");
+      assertStringIncludes(body, " `copilot`");
+      assertStringIncludes(body, "`improvement`");
+    },
+  );
+
+  await t.step(
+    "GitHubエントリにラベルがない場合はスペースやバッククォートを追加しない",
+    () => {
+      const dataWithoutGhLabels = {
+        date: "2026-01-18",
+        github: [{
+          title: "Feature A",
+          url: "https://example.com/a",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          labels: {}, // 空のlabels
+        }],
+        aws: [],
+        claudeCode: [],
+        linear: [],
+      };
+      const body = generateDefaultBody(dataWithoutGhLabels);
+      assertStringIncludes(body, "[Feature A](https://example.com/a)\n");
+      assertEquals(body.includes("`"), false);
+    },
+  );
+
+  await t.step(
+    "GitHubエントリにlabelsプロパティがない（undefined）場合もスペースやバッククォートを追加しない",
+    () => {
+      const dataWithUndefinedLabels = {
+        date: "2026-01-18",
+        github: [{
+          title: "Feature A",
+          url: "https://example.com/a",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          // labelsプロパティなし（undefined）
+        }],
+        aws: [],
+        claudeCode: [],
+        linear: [],
+      };
+      const body = generateDefaultBody(dataWithUndefinedLabels);
+      assertStringIncludes(body, "[Feature A](https://example.com/a)\n");
+      assertEquals(body.includes("`"), false);
+    },
+  );
 });
 
 Deno.test("determineLabels", async (t) => {
   await t.step("すべてのエントリがある場合は4つのラベルを返す", () => {
     const labels = determineLabels(mockData);
-    assertEquals(labels, ["github", "aws", "claude-code", "linear"]);
+    assertEquals(
+      labels.sort(),
+      ["github", "aws", "claude-code", "linear"].sort(),
+    );
   });
 
   await t.step("githubのみの場合はgithubラベルのみ返す", () => {
@@ -117,7 +190,67 @@ Deno.test("determineLabels", async (t) => {
       claudeCode: [],
       linear: [],
     });
-    assertEquals(labels, ["github", "aws"]);
+    assertEquals(labels.sort(), ["github", "aws"].sort());
+  });
+
+  await t.step(
+    "GitHubエントリのlabelsオブジェクトからプレフィックス付きラベルを生成する",
+    () => {
+      const dataWithGhLabels = {
+        ...mockData,
+        aws: [],
+        claudeCode: [],
+        linear: [],
+        github: [
+          {
+            title: "Feature A",
+            url: "https://example.com/a",
+            content: "",
+            pubDate: "2026-01-18T10:00:00Z",
+            labels: {
+              "changelog-label": ["copilot", "security"],
+              "changelog-type": ["improvement"],
+            },
+          },
+        ],
+      };
+      const labels = determineLabels(dataWithGhLabels);
+      assertEquals(
+        labels.sort(),
+        ["github", "gh:copilot", "gh:security", "gh:improvement"].sort(),
+      );
+    },
+  );
+
+  await t.step("GitHubのラベルが重複していてもユニークになる", () => {
+    const dataWithDuplicateGhLabels = {
+      ...mockData,
+      aws: [],
+      claudeCode: [],
+      linear: [],
+      github: [
+        {
+          title: "Feature A",
+          url: "https://example.com/a",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          labels: {
+            "changelog-label": ["copilot"],
+          },
+        },
+        {
+          title: "Feature B",
+          url: "https://example.com/b",
+          content: "",
+          pubDate: "2026-01-18T11:00:00Z",
+          labels: {
+            "changelog-label": ["copilot", "actions"],
+          },
+        },
+      ],
+    };
+    const labels = determineLabels(dataWithDuplicateGhLabels);
+    assertEquals(labels.sort(), ["github", "gh:copilot", "gh:actions"].sort());
   });
 });
 

@@ -1,5 +1,30 @@
-import Parser from "rss-parser";
+import Parser from "rss-parser"; // Used by fetchAWSChangelog and fetchLinearChangelog
 import { Octokit } from "@octokit/rest";
+import { parse } from "xml/mod.ts";
+
+interface XmlCategory {
+  "@domain"?: string;
+  "#text"?: string;
+}
+
+interface XmlItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  "content:encoded": string;
+  description: string;
+  category?: XmlCategory | XmlCategory[];
+}
+
+interface RssChannel {
+  item?: XmlItem[];
+}
+
+interface RssFeed {
+  rss: {
+    channel: RssChannel;
+  };
+}
 
 interface ChangelogEntry {
   title: string;
@@ -8,6 +33,7 @@ interface ChangelogEntry {
   pubDate: string;
   muted?: boolean;
   mutedBy?: string;
+  labels?: Record<string, string[]>;
 }
 
 interface ReleaseEntry {
@@ -47,25 +73,72 @@ export function isRecent(dateString: string, now: Date = new Date()): boolean {
   return date >= dayAgo && date <= now;
 }
 
+// XMLのカテゴリ情報からラベルを抽出
+export function extractLabelsFromCategories(
+  category?: XmlCategory | XmlCategory[],
+): Record<string, string[]> {
+  const labels: Record<string, string[]> = {};
+  const categories = Array.isArray(category)
+    ? category
+    : (category ? [category] : []);
+
+  for (const cat of categories) {
+    if (
+      typeof cat === "object" && cat !== null &&
+      cat["@domain"] && cat["#text"]
+    ) {
+      const domain = cat["@domain"];
+      const value = cat["#text"];
+      if (!labels[domain]) {
+        labels[domain] = [];
+      }
+      labels[domain].push(value);
+    }
+  }
+
+  return labels;
+}
+
 // GitHub Changelog取得
 async function fetchGitHubChangelog(
   targetDate: Date,
 ): Promise<ChangelogEntry[]> {
-  const feed = await parser.parseURL("https://github.blog/changelog/feed/");
-  const entries: ChangelogEntry[] = [];
-
-  for (const item of feed.items) {
-    if (item.pubDate && isRecent(item.pubDate, targetDate)) {
-      entries.push({
-        title: item.title || "",
-        url: item.link || "",
-        content: item.contentSnippet || item.content || "",
-        pubDate: item.pubDate,
-      });
+  try {
+    const response = await fetch("https://github.blog/changelog/feed/");
+    if (!response.ok) {
+      console.error(`Failed to fetch GitHub Changelog: ${response.statusText}`);
+      return [];
     }
-  }
+    const xmlText = await response.text();
+    const doc = parse(xmlText) as unknown as RssFeed;
 
-  return entries;
+    if (!doc?.rss?.channel?.item) {
+      console.error("Failed to parse GitHub Changelog: Invalid XML structure");
+      return [];
+    }
+
+    const entries: ChangelogEntry[] = [];
+    const items = doc.rss.channel.item;
+
+    for (const item of items) {
+      const pubDate = item.pubDate;
+      if (pubDate && isRecent(pubDate, targetDate)) {
+        const labels = extractLabelsFromCategories(item.category);
+
+        entries.push({
+          title: item.title,
+          url: item.link,
+          content: item["content:encoded"] || item.description || "",
+          pubDate: pubDate,
+          labels: Object.keys(labels).length > 0 ? labels : undefined,
+        });
+      }
+    }
+    return entries;
+  } catch (error) {
+    console.error("Failed to process GitHub Changelog feed:", error);
+    return [];
+  }
 }
 
 // AWS Changelog取得
