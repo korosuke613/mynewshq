@@ -87,23 +87,23 @@ GitHub Appに以下の権限を付与してください：
 ### 5. ローカルテスト
 
 ```bash
-# データ取得をテスト
-deno task fetch
+# データ取得をテスト（ミュートワード機能が自動で有効）
+GITHUB_TOKEN=$(gh auth token) deno task fetch
 
 # 過去の日付でデータ取得
-deno task fetch -- --date=2026-01-15
+GITHUB_TOKEN=$(gh auth token) deno task fetch -- --date=2026-01-15
 
-# ミュートワード機能付きでデータ取得
-export GITHUB_TOKEN=your_token
-export MUTE_WORDS_ISSUE_NUMBER=1
-deno task fetch
+# 特定のIssue番号からミュートワードを取得
+GITHUB_TOKEN=$(gh auth token) MUTE_WORDS_ISSUE_NUMBER=2 deno task fetch
 
 # Discussion投稿をテスト（GITHUB_TOKEN必要）
-export GITHUB_TOKEN=your_token
-deno task post korosuke613 mynewshq General "テストメッセージ"
+GITHUB_TOKEN=$(gh auth token) deno task post korosuke613 mynewshq General "テストメッセージ"
 
 # 過去の日付のデータで投稿
-deno task post -- --date=2026-01-15 korosuke613 mynewshq General "テストメッセージ"
+GITHUB_TOKEN=$(gh auth token) deno task post -- --date=2026-01-15 korosuke613 mynewshq General "テストメッセージ"
+
+# メンション先を変更して投稿
+GITHUB_TOKEN=$(gh auth token) MENTION_USER=your-username deno task post korosuke613 mynewshq General "テストメッセージ"
 
 # Discussion投稿内容をプレビュー
 deno task preview
@@ -142,8 +142,9 @@ mynewshq/
 ├── scripts/
 │   ├── fetch-changelogs.ts         # RSS/Releases取得 + ミュートフィルタ
 │   ├── fetch-changelogs_test.ts    # テストコード
-│   ├── create-discussion.ts        # Discussion投稿 + ラベル自動付与
-│   └── create-discussion_test.ts   # テストコード
+│   ├── create-discussion.ts        # Discussion投稿 + ラベル自動付与 + メンション
+│   ├── create-discussion_test.ts   # テストコード
+│   └── preview-discussion.ts       # Discussion投稿内容をプレビュー
 ├── data/changelogs/                # 収集データ（Git管理）
 │   └── YYYY-MM-DD.json
 ├── plans/                          # 実装計画ドキュメント
@@ -163,6 +164,18 @@ Discussion作成時に、changelogの内容に応じて自動的にラベルを�
 - `github` - GitHub Changelogが含まれる場合
 - `aws` - AWS What's Newが含まれる場合
 - `claude-code` - Claude Codeリリースが含まれる場合
+
+### 🔔 メンション通知機能
+
+Discussion投稿時に、本文の末尾に自動的にメンションを追加して通知を送ります：
+
+- **デフォルト**: `@korosuke613` にメンション
+- **カスタマイズ**: 環境変数 `MENTION_USER` でメンション先を変更可能
+- **表示形式**: 本文末尾に `---` 区切り線の後、`cc: @username` の形式で表示
+
+#### 環境変数
+
+- `MENTION_USER` - メンション先のGitHubユーザー名（デフォルト: korosuke613）
 
 ### 🔇 ミュートワード機能
 
@@ -188,10 +201,10 @@ Issue #1 の本文:
 
 #### 環境変数
 
-ミュートワード機能を使用する場合は以下を設定：
-
-- `GITHUB_TOKEN` - Issue取得に必要
+- `GITHUB_TOKEN` - Issue取得に必要（必須）
 - `MUTE_WORDS_ISSUE_NUMBER` - ミュートワード設定用のIssue番号（デフォルト: 1）
+
+**注意**: `GITHUB_TOKEN` が設定されていない場合、ミュート機能は動作しません。`MUTE_WORDS_ISSUE_NUMBER` は未設定時に自動的に Issue #1 を使用します。
 
 ## JSONデータフォーマット
 
@@ -317,9 +330,19 @@ deno check scripts/*.ts  # 型チェック
 **問題**: ミュートワードが適用されない
 
 **確認事項**:
-1. `GITHUB_TOKEN` と `MUTE_WORDS_ISSUE_NUMBER` が正しく設定されているか
-2. Issueの本文が箇条書き形式（`- keyword`）になっているか
-3. Issueが正しい番号で存在するか
+1. `GITHUB_TOKEN` が設定されているか（必須）
+2. `MUTE_WORDS_ISSUE_NUMBER` が正しい番号か（未設定時はデフォルトで Issue #1 を使用）
+3. Issueの本文が箇条書き形式（`- keyword`）になっているか
+4. Issueが存在するか
+
+**解決方法**:
+```bash
+# GITHUB_TOKENを設定して実行
+GITHUB_TOKEN=$(gh auth token) deno task fetch
+
+# 特定のIssue番号を指定
+GITHUB_TOKEN=$(gh auth token) MUTE_WORDS_ISSUE_NUMBER=1 deno task fetch
+```
 
 ### Claude Code Actionでツールが実行できない
 

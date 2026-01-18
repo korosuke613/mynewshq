@@ -1,9 +1,11 @@
-# Claude Code Action 設定
+# AGENT 設定
 
 このリポジトリは、技術系Changelogを自動収集・要約・投稿するシステムです。
 
 ./plans に作るプランファイルの命名規則は YYYY-MM-DD-説明.md です。ファイル作成時にこの形式にしてください。
 また、開発ルールは dev-standards skill に従います。
+
+日本語で回答しましょう。
 
 ## プロジェクト概要
 
