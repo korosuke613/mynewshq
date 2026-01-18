@@ -286,9 +286,8 @@ async function main() {
   const summary = otherArgs.slice(3).join(" ");
 
   const title = `📰 Tech Changelog - ${changelogData.date}`;
-  const mentionUser = Deno.env.get("MENTION_USER") || "korosuke613";
-  const mention = `\n\n---\ncc: @${mentionUser}`;
-  const body = (summary || generateDefaultBody(changelogData)) + mention;
+  const body = (summary || generateDefaultBody(changelogData)) +
+    generateMention();
 
   console.log(`Creating discussion: ${title}`);
 
@@ -303,6 +302,12 @@ async function main() {
   );
 
   console.log(`Discussion created: ${url}`);
+}
+
+// メンション文字列を生成
+export function generateMention(): string {
+  const mentionUser = Deno.env.get("MENTION_USER") || "korosuke613";
+  return `\n\n---\ncc: @${mentionUser}`;
 }
 
 // ミュートされたエントリの折りたたみセクションを生成

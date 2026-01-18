@@ -1,5 +1,5 @@
 // Discussion投稿内容をプレビューするスクリプト
-import { generateDefaultBody } from "./create-discussion.ts";
+import { generateDefaultBody, generateMention } from "./create-discussion.ts";
 
 interface ChangelogData {
   date: string;
@@ -69,9 +69,7 @@ async function preview(date?: string) {
 
   // デフォルトボディを生成
   const body = generateDefaultBody(data);
-  const mentionUser = Deno.env.get("MENTION_USER") || "korosuke613";
-  const mention = `\n\n---\ncc: @${mentionUser}`;
-  const bodyWithMention = body + mention;
+  const bodyWithMention = body + generateMention();
 
   // summary.mdに保存
   await Deno.writeTextFile("summary.md", bodyWithMention);
