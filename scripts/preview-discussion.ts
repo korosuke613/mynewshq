@@ -69,16 +69,19 @@ async function preview(date?: string) {
 
   // デフォルトボディを生成
   const body = generateDefaultBody(data);
+  const mentionUser = Deno.env.get("MENTION_USER") || "korosuke613";
+  const mention = `\n\n---\ncc: @${mentionUser}`;
+  const bodyWithMention = body + mention;
 
   // summary.mdに保存
-  await Deno.writeTextFile("summary.md", body);
+  await Deno.writeTextFile("summary.md", bodyWithMention);
   console.log(`✅ summary.md に保存しました`);
   console.log();
 
   // プレビューを表示
   console.log(`📄 プレビュー:`);
   console.log(`---`);
-  console.log(body);
+  console.log(bodyWithMention);
 }
 
 // メイン処理

@@ -286,7 +286,9 @@ async function main() {
   const summary = otherArgs.slice(3).join(" ");
 
   const title = `📰 Tech Changelog - ${changelogData.date}`;
-  const body = summary || generateDefaultBody(changelogData);
+  const mentionUser = Deno.env.get("MENTION_USER") || "korosuke613";
+  const mention = `\n\n---\ncc: @${mentionUser}`;
+  const body = (summary || generateDefaultBody(changelogData)) + mention;
 
   console.log(`Creating discussion: ${title}`);
 
