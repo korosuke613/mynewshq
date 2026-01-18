@@ -105,6 +105,10 @@ deno task post korosuke613 mynewshq General "テストメッセージ"
 # 過去の日付のデータで投稿
 deno task post -- --date=2026-01-15 korosuke613 mynewshq General "テストメッセージ"
 
+# Discussion投稿内容をプレビュー
+deno task preview
+deno task preview -- --date=2026-01-13
+
 # テストの実行
 deno task test
 ```
@@ -241,6 +245,23 @@ schedule:
 の引数を変更するか、ワークフローから渡すパラメータを調整してください。
 
 ## 開発
+
+### Discussion投稿内容のプレビュー
+
+Discussion投稿前に、生成されるMarkdownを確認できます：
+
+```bash
+# 最新のデータをプレビュー
+deno task preview
+
+# 特定の日付のデータをプレビュー
+deno task preview -- --date=2026-01-13
+```
+
+**出力内容:**
+- 📊 データ統計（アクティブ/ミュート件数）
+- ✅ `summary.md` に自動保存
+- 📄 ターミナルにプレビュー表示
 
 ### テストの実行
 
