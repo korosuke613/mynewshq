@@ -25,6 +25,12 @@ const mockData = {
     body: "",
     publishedAt: "2026-01-17T16:00:00Z",
   }],
+  linear: [{
+    title: "Linear Feature C",
+    url: "https://example.com/d",
+    content: "",
+    pubDate: "2026-01-18T12:00:00Z",
+  }],
 };
 
 Deno.test("generateDefaultBody", async (t) => {
@@ -49,24 +55,49 @@ Deno.test("generateDefaultBody", async (t) => {
 });
 
 Deno.test("determineLabels", async (t) => {
-  await t.step("すべてのエントリがある場合は3つのラベルを返す", () => {
+  await t.step("すべてのエントリがある場合は4つのラベルを返す", () => {
     const labels = determineLabels(mockData);
-    assertEquals(labels, ["github", "aws", "claude-code"]);
+    assertEquals(labels, ["github", "aws", "claude-code", "linear"]);
   });
 
   await t.step("githubのみの場合はgithubラベルのみ返す", () => {
-    const labels = determineLabels({ ...mockData, aws: [], claudeCode: [] });
+    const labels = determineLabels({
+      ...mockData,
+      aws: [],
+      claudeCode: [],
+      linear: [],
+    });
     assertEquals(labels, ["github"]);
   });
 
   await t.step("awsのみの場合はawsラベルのみ返す", () => {
-    const labels = determineLabels({ ...mockData, github: [], claudeCode: [] });
+    const labels = determineLabels({
+      ...mockData,
+      github: [],
+      claudeCode: [],
+      linear: [],
+    });
     assertEquals(labels, ["aws"]);
   });
 
   await t.step("claudeCodeのみの場合はclaude-codeラベルのみ返す", () => {
-    const labels = determineLabels({ ...mockData, github: [], aws: [] });
+    const labels = determineLabels({
+      ...mockData,
+      github: [],
+      aws: [],
+      linear: [],
+    });
     assertEquals(labels, ["claude-code"]);
+  });
+
+  await t.step("linearのみの場合はlinearラベルのみ返す", () => {
+    const labels = determineLabels({
+      ...mockData,
+      github: [],
+      aws: [],
+      claudeCode: [],
+    });
+    assertEquals(labels, ["linear"]);
   });
 
   await t.step("すべて空の場合は空配列を返す", () => {
@@ -75,12 +106,17 @@ Deno.test("determineLabels", async (t) => {
       github: [],
       aws: [],
       claudeCode: [],
+      linear: [],
     });
     assertEquals(labels, []);
   });
 
   await t.step("githubとawsのみの場合は2つのラベルを返す", () => {
-    const labels = determineLabels({ ...mockData, claudeCode: [] });
+    const labels = determineLabels({
+      ...mockData,
+      claudeCode: [],
+      linear: [],
+    });
     assertEquals(labels, ["github", "aws"]);
   });
 });
@@ -169,6 +205,7 @@ Deno.test("generateDefaultBody with muted entries", async (t) => {
       ],
       aws: [],
       claudeCode: [],
+      linear: [],
     };
 
     const body = generateDefaultBody(dataWithMuted);
@@ -196,6 +233,7 @@ Deno.test("generateDefaultBody with muted entries", async (t) => {
         ],
         aws: [],
         claudeCode: [],
+        linear: [],
       };
 
       const body = generateDefaultBody(dataWithMutedOnly);
@@ -228,6 +266,7 @@ Deno.test("generateDefaultBody with muted entries", async (t) => {
         },
       ],
       claudeCode: [],
+      linear: [],
     };
 
     const body = generateDefaultBody(allMuted);

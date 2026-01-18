@@ -71,6 +71,7 @@ interface ChangelogData {
   github: ChangelogEntry[];
   aws: ChangelogEntry[];
   claudeCode: ReleaseEntry[];
+  linear: ChangelogEntry[];
 }
 
 // changelogデータからラベル名を決定
@@ -85,6 +86,9 @@ export function determineLabels(data: ChangelogData): string[] {
   }
   if (data.claudeCode && data.claudeCode.length > 0) {
     labels.push("claude-code");
+  }
+  if (data.linear && data.linear.length > 0) {
+    labels.push("linear");
   }
 
   return labels;
@@ -379,6 +383,21 @@ export function generateDefaultBody(data: ChangelogData): string {
     }
     body += generateMutedSection(data.claudeCode);
     if (activeEntries.length > 0 || data.claudeCode.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
+  }
+
+  if (data.linear && data.linear.length > 0) {
+    const activeEntries = data.linear.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += "## Linear Changelog\n";
+      for (const item of activeEntries) {
+        body += `### [${item.title}](${item.url})\n`;
+        body += `*Published: ${item.pubDate}*\n\n`;
+      }
+    }
+    body += generateMutedSection(data.linear);
+    if (activeEntries.length > 0 || data.linear.some((e) => e.muted)) {
       body += "---\n\n";
     }
   }

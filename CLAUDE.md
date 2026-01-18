@@ -14,6 +14,7 @@
 - GitHub Changelog (RSS)
 - AWS What's New (RSS)
 - Claude Code (GitHub Releases)
+- Linear Changelog (RSS)
 
 収集したデータは `data/changelogs/YYYY-MM-DD.json` に保存され、 Claude Code
 Actionで要約を生成してGitHub Discussionsに投稿します。
@@ -57,6 +58,12 @@ Changelogデータを読み込み、以下の形式で日本語要約を生成�
 ## Claude Code
 
 ### [バージョン](URL)
+
+**要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
+
+## Linear Changelog
+
+### [タイトル](URL)
 
 **要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
 ```
