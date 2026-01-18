@@ -1,98 +1,39 @@
-name: Discussion Claude Mention
+name: Discussion Claude Mention Trigger
 
 on:
   discussion_comment:
     types: [created]
 
 permissions:
-  contents: read
-  id-token: write
+  actions: write
 
 jobs:
-  claude-mention:
+  trigger-claude:
     runs-on: ubuntu-latest
     if: contains(github.event.comment.body, '@claude') && github.event.comment.user.login == 'korosuke613'
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-
       - name: Parse mention content
         id: parse-mention
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           # @claude メンション後のテキストを抽出
-          question=$(echo "$COMMENT_BODY" | sed -n 's/.*@claude[[:space:]]*\(.*\)/\1/p' | head -1)
+          question=$(echo "$COMMENT_BODY" | sed -n 's/.*@claude[[:space:]]*\(.*\)/\1/p')
           if [ -z "$question" ]; then
-            echo "question=@claude メンションが見つかりましたが、質問が空です。" >> $GITHUB_OUTPUT
+            echo "question=質問内容が空です" >> $GITHUB_OUTPUT
           else
+            # 複数行対応とエスケープ処理
+            question=$(echo "$question" | tr '\n' ' ')
             echo "question=$question" >> $GITHUB_OUTPUT
           fi
 
-      - name: Login GitHub App
-        id: login-gh-app
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
-          private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-
-      - name: Answer with Claude Code
-        uses: anthropics/claude-code-action@v1
+      - name: Trigger Claude Code workflow
         env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
-        with:
-          github_token: ${{ steps.login-gh-app.outputs.token }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          settings: |
-            {
-              "permissions": {
-                "allow": ["Bash(deno task reply-discussion *)", "Read", "Write"]
-              }
-            }
-          prompt: |
-            ユーザーから以下の質問を受けました：
-            「${{ steps.parse-mention.outputs.question }}」
-
-            この質問について、このリポジトリのコンテキストを踏まえて回答してください。
-
-            ## リポジトリについて
-            - このリポジトリは技術系Changelogを自動収集・要約・投稿するシステムです
-            - データは data/changelogs/ に保存されています
-            - GitHub Changelog、AWS What's New、Claude Codeの情報を収集します
-            - Claude Code Actionで要約を生成してGitHub Discussionsに投稿します
-
-            ## 利用可能なデータ
-            - data/changelogs/ ディレクトリ内のJSONファイルを読み込んで参考にできます
-            - 最新のチェンジログデータを確認して回答に活用してください
-
-            ## 回答フォーマット
-            1. 質問に対する明確な回答を提供
-            2. 必要に応じてリポジトリ内のデータを参照・分析
-            3. 技術的な内容は日本語でわかりやすく説明
-            4. 最後に以下のコマンドを実行して回答をDiscussionに投稿：
-
-            ```bash
-            # 回答を一時ファイルに保存
-            cat > claude_answer.md << 'EOF'
-            # Claude からの回答
-
-            [ここに生成した回答を記載]
-
-            ---
-            *この回答は Claude Code Action によって生成されました*
-            [ワークフロー実行ログ](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            EOF
-
-            # GitHub CLI を使ってDiscussionにコメントを投稿
-            deno task reply-discussion ${{ github.event.discussion.number }} "$(cat claude_answer.md)"
-            ```
-
-            必ず最後のコマンドを実行して回答を投稿してください。
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run discussion-claude-answer.yml \
+            --repo ${{ github.repository }} \
+            --field question="${{ steps.parse-mention.outputs.question }}" \
+            --field discussion_number="${{ github.event.discussion.number }}" \
+            --field comment_url="${{ github.event.comment.html_url }}"

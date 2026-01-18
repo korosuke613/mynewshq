@@ -1,0 +1,100 @@
+name: Discussion Claude Answer
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "ユーザーからの質問"
+        required: true
+        type: string
+      discussion_number:
+        description: "Discussion番号"
+        required: true
+        type: string
+      comment_url:
+        description: "元のコメントURL"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  discussions: write
+  id-token: write
+
+jobs:
+  claude-answer:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Login GitHub App
+        id: login-gh-app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
+          private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Answer with Claude Code
+        uses: anthropics/claude-code-action@v1
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+        with:
+          github_token: ${{ steps.login-gh-app.outputs.token }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          settings: |
+            {
+              "permissions": {
+                "allow": ["Bash(deno task reply-discussion *)", "Read", "Write", "WebFetch", "WebSearch"]
+              }
+            }
+          allowed_bots: "github-actions[bot]"
+          prompt: |
+            Discussion #${{ inputs.discussion_number }} から以下の質問を受けました：
+
+            > ${{ inputs.question }}
+
+            ${{ inputs.comment_url && format('元のコメント: {0}', inputs.comment_url) || '' }}
+
+            この質問について、このリポジトリのコンテキストを踏まえて回答してください。
+
+            ## リポジトリについて
+            - このリポジトリは技術系Changelogを自動収集・要約・投稿するシステムです
+            - データは data/changelogs/ に保存されています
+            - GitHub Changelog、AWS What's New、Claude Codeの情報を収集します
+            - Claude Code Actionで要約を生成してGitHub Discussionsに投稿します
+
+            ## 利用可能なデータ
+            - data/changelogs/ ディレクトリ内のJSONファイルを読み込んで参考にできます
+            - 最新のチェンジログデータを確認して回答に活用してください
+
+            ## 回答タスク
+            1. 質問に対する明確な回答を提供
+            2. 必要に応じてリポジトリ内のデータを参照・分析
+            3. 技術的な内容は日本語でわかりやすく説明
+            4. 回答を一時ファイルに保存
+            5. 以下のコマンドを実行してDiscussionに投稿：
+
+            ```bash
+            # 回答を一時ファイルに保存
+            cat > claude_answer.md << 'EOF'
+            [ここにあなたの回答を記載]
+
+            ---
+            *この回答は Claude Code Action によって生成されました*
+            [ワークフロー実行ログ](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            EOF
+
+            # Discussionにコメントを投稿
+            deno task reply-discussion ${{ inputs.discussion_number }} "$(cat claude_answer.md)"
+            ```
+
+            必ず最後のコマンドを実行して回答を投稿してください。
