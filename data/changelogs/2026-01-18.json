@@ -1,0 +1,13 @@
+{
+  "date": "2026-01-18",
+  "github": [],
+  "aws": [],
+  "claudeCode": [
+    {
+      "version": "v2.1.12",
+      "url": "https://github.com/anthropics/claude-code/releases/tag/v2.1.12",
+      "body": "## What's changed\n\n- Fixed message rendering bug\n",
+      "publishedAt": "2026-01-17T16:18:21Z"
+    }
+  ]
+}
