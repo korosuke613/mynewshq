@@ -75,7 +75,16 @@ GitHub Appに以下の権限を付与してください：
 - `KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY` (Secrets): GitHub Appの秘密鍵
 - `CLAUDE_CODE_OAUTH_TOKEN` (Secrets): Claude Code OAuthトークン
 
-### 4. ローカルテスト
+### 4. ミュートワード機能の設定（オプション）
+
+ミュートワード機能を使用する場合は、Issue #1 を作成してください：
+
+1. リポジトリのIssuesタブで「New issue」をクリック
+2. タイトル: "ミュートワード設定"
+3. 本文に箇条書きでミュートワードを記載（上記の例を参照）
+4. Issueを作成
+
+### 5. ローカルテスト
 
 ```bash
 # データ取得をテスト
@@ -84,12 +93,20 @@ deno task fetch
 # 過去の日付でデータ取得
 deno task fetch -- --date=2026-01-15
 
+# ミュートワード機能付きでデータ取得
+export GITHUB_TOKEN=your_token
+export MUTE_WORDS_ISSUE_NUMBER=1
+deno task fetch
+
 # Discussion投稿をテスト（GITHUB_TOKEN必要）
 export GITHUB_TOKEN=your_token
 deno task post korosuke613 mynewshq General "テストメッセージ"
 
 # 過去の日付のデータで投稿
 deno task post -- --date=2026-01-15 korosuke613 mynewshq General "テストメッセージ"
+
+# テストの実行
+deno task test
 ```
 
 ## 使い方
@@ -116,17 +133,61 @@ GitHub Actionsページから手動でワークフローを実行できます：
 ```
 mynewshq/
 ├── .github/workflows/
-│   ├── daily-changelog.yml      # メインワークフロー（収集→要約→投稿）
-│   └── quality-check.yml        # コード品質チェック
+│   ├── daily-changelog.yml         # メインワークフロー（収集→要約→投稿）
+│   └── quality-check.yml           # コード品質チェック
 ├── scripts/
-│   ├── fetch-changelogs.ts      # RSS/Releases取得
-│   └── create-discussion.ts     # Discussion投稿
-├── data/changelogs/             # 収集データ（Git管理）
+│   ├── fetch-changelogs.ts         # RSS/Releases取得 + ミュートフィルタ
+│   ├── fetch-changelogs_test.ts    # テストコード
+│   ├── create-discussion.ts        # Discussion投稿 + ラベル自動付与
+│   └── create-discussion_test.ts   # テストコード
+├── data/changelogs/                # 収集データ（Git管理）
 │   └── YYYY-MM-DD.json
-├── deno.json                    # Denoタスク定義
-├── CLAUDE.md                    # Claude Code Action設定
+├── plans/                          # 実装計画ドキュメント
+│   └── YYYY-MM-DD-説明.md
+├── deno.json                       # Denoタスク定義
+├── deno.lock                       # 依存関係ロックファイル
+├── CLAUDE.md                       # Claude Code Action設定
 └── README.md
 ```
+
+## 機能
+
+### ✨ 自動ラベル付与
+
+Discussion作成時に、changelogの内容に応じて自動的にラベルを付与します：
+
+- `github` - GitHub Changelogが含まれる場合
+- `aws` - AWS What's Newが含まれる場合
+- `claude-code` - Claude Codeリリースが含まれる場合
+
+### 🔇 ミュートワード機能
+
+特定のキーワードを含むエントリを自動でミュートできます：
+
+- **設定方法**: Issue #1 の本文に箇条書きでミュートワードを記載
+- **動作**: タイトルに部分一致（大文字小文字無視）でマッチ
+- **表示**: AI要約対象外とし、Discussionでは折りたたみでタイトルとリンクのみ表示
+
+#### ミュートワード設定例
+
+Issue #1 の本文:
+
+```markdown
+## ミュートワード
+
+以下のワードを含むエントリは自動でミュートされます。
+
+- Amazon SageMaker
+- AWS Glue
+- Generative AI
+```
+
+#### 環境変数
+
+ミュートワード機能を使用する場合は以下を設定：
+
+- `GITHUB_TOKEN` - Issue取得に必要
+- `MUTE_WORDS_ISSUE_NUMBER` - ミュートワード設定用のIssue番号（デフォルト: 1）
 
 ## JSONデータフォーマット
 
@@ -138,7 +199,9 @@ mynewshq/
       "title": "...",
       "url": "...",
       "content": "...",
-      "pubDate": "..."
+      "pubDate": "...",
+      "muted": false,
+      "mutedBy": "keyword"
     }
   ],
   "aws": [...],
@@ -147,11 +210,15 @@ mynewshq/
       "version": "...",
       "url": "...",
       "body": "...",
-      "publishedAt": "..."
+      "publishedAt": "...",
+      "muted": false,
+      "mutedBy": "keyword"
     }
   ]
 }
 ```
+
+`muted` と `mutedBy` フィールドはミュートワード機能が有効な場合のみ含まれます。
 
 ## カスタマイズ
 
@@ -173,6 +240,33 @@ schedule:
 `scripts/create-discussion.ts`
 の引数を変更するか、ワークフローから渡すパラメータを調整してください。
 
+## 開発
+
+### テストの実行
+
+```bash
+deno task test
+```
+
+### コード品質チェック
+
+```bash
+deno fmt        # フォーマット
+deno lint       # リント
+deno check scripts/*.ts  # 型チェック
+```
+
+### 依存関係
+
+プロジェクトは以下のパッケージを使用しています：
+
+- `@octokit/rest` - GitHub REST API クライアント
+- `@octokit/graphql` - GitHub GraphQL API クライアント
+- `rss-parser` - RSSフィード解析
+- `@std/assert` - Deno標準アサーションライブラリ（テスト用）
+
+依存関係の更新は `deno.json` と `deno.lock` で管理されています。
+
 ## トラブルシューティング
 
 ### Discussion投稿が失敗する
@@ -184,6 +278,27 @@ schedule:
 **解決方法**:
 1. GitHub App設定でDiscussions権限が「Read and write」になっているか確認
 2. Settings > Installations > Configure で「Accept new permissions」をクリック
+
+### ラベル付与が失敗する
+
+**エラー**: ラベルが付与されない、またはエラーが発生
+
+**原因**: リポジトリに必要なラベルが存在しない
+
+**解決方法**:
+以下のラベルを手動で作成してください：
+- `github`
+- `aws`
+- `claude-code`
+
+### ミュートワード機能が動作しない
+
+**問題**: ミュートワードが適用されない
+
+**確認事項**:
+1. `GITHUB_TOKEN` と `MUTE_WORDS_ISSUE_NUMBER` が正しく設定されているか
+2. Issueの本文が箇条書き形式（`- keyword`）になっているか
+3. Issueが正しい番号で存在するか
 
 ### Claude Code Actionでツールが実行できない
 
