@@ -102,9 +102,23 @@ export function determineLabels(data: ChangelogData): string[] {
   return Array.from(labels); // Setを配列に変換して返す
 }
 
-// ランダムな16進数の色を生成
+// ランダムな16進数の色を生成（アクセシブルな色のリストから選択）
+const ACCESSIBLE_LABEL_COLORS: string[] = [
+  "0e8a16", // green
+  "1d76db", // blue
+  "d93f0b", // orange
+  "6f42c1", // purple
+  "0052cc", // dark blue
+  "b60205", // dark red
+  "5319e7", // indigo
+  "0366d6", // bright blue
+  "22863a", // dark green
+  "b31d28", // dark crimson
+];
+
 function getRandomHexColor(): string {
-  return Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
+  const index = Math.floor(Math.random() * ACCESSIBLE_LABEL_COLORS.length);
+  return ACCESSIBLE_LABEL_COLORS[index];
 }
 
 // 新しいラベルを作成し、そのIDを返す
@@ -285,17 +299,38 @@ async function createDiscussion(
                 `Warning: Failed to create label "${name}":`,
                 error.message,
               );
+              if (error.stack) {
+                console.error(
+                  `Stack trace for failure while creating label "${name}":`,
+                  error.stack,
+                );
+              }
             } else {
-              console.warn(`Warning: Failed to create label "${name}":`, error);
+              console.warn(
+                `Warning: Failed to create label "${name}" with unknown error:`,
+                error,
+              );
             }
             return null;
           }
         }
       });
 
-      const labelIds = (await Promise.all(labelIdPromises)).filter((
+      const labelIdResults = await Promise.all(labelIdPromises);
+      const labelIds = labelIdResults.filter((
         id,
       ): id is string => id !== null);
+
+      const failedLabelNames = labelNames.filter(
+        (_labelName, index) => labelIdResults[index] === null,
+      );
+      if (failedLabelNames.length > 0) {
+        console.error(
+          `The following labels could not be created and will not be added to the discussion: ${failedLabelNames.join(
+            ", ",
+          )}`,
+        );
+      }
 
       if (labelIds.length > 0) {
         try {

@@ -100,6 +100,28 @@ Deno.test("generateDefaultBody", async (t) => {
       assertEquals(body.includes("`"), false);
     },
   );
+
+  await t.step(
+    "GitHubエントリにlabelsプロパティがない（undefined）場合もスペースやバッククォートを追加しない",
+    () => {
+      const dataWithUndefinedLabels = {
+        date: "2026-01-18",
+        github: [{
+          title: "Feature A",
+          url: "https://example.com/a",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          // labelsプロパティなし（undefined）
+        }],
+        aws: [],
+        claudeCode: [],
+        linear: [],
+      };
+      const body = generateDefaultBody(dataWithUndefinedLabels);
+      assertStringIncludes(body, "[Feature A](https://example.com/a)\n");
+      assertEquals(body.includes("`"), false);
+    },
+  );
 });
 
 Deno.test("determineLabels", async (t) => {

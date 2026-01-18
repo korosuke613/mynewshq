@@ -1,4 +1,4 @@
-import Parser from "rss-parser";
+import Parser from "rss-parser"; // Used by fetchAWSChangelog and fetchLinearChangelog
 import { Octokit } from "@octokit/rest";
 import { parse } from "xml/mod.ts";
 
@@ -13,7 +13,7 @@ interface XmlItem {
   pubDate: string;
   "content:encoded": string;
   description: string;
-  category: XmlCategory | XmlCategory[];
+  category?: XmlCategory | XmlCategory[];
 }
 
 interface RssChannel {
@@ -73,6 +73,32 @@ export function isRecent(dateString: string, now: Date = new Date()): boolean {
   return date >= dayAgo && date <= now;
 }
 
+// XMLのカテゴリ情報からラベルを抽出
+export function extractLabelsFromCategories(
+  category?: XmlCategory | XmlCategory[],
+): Record<string, string[]> {
+  const labels: Record<string, string[]> = {};
+  const categories = Array.isArray(category)
+    ? category
+    : (category ? [category] : []);
+
+  for (const cat of categories) {
+    if (
+      typeof cat === "object" && cat !== null &&
+      cat["@domain"] && cat["#text"]
+    ) {
+      const domain = cat["@domain"];
+      const value = cat["#text"];
+      if (!labels[domain]) {
+        labels[domain] = [];
+      }
+      labels[domain].push(value);
+    }
+  }
+
+  return labels;
+}
+
 // GitHub Changelog取得
 async function fetchGitHubChangelog(
   targetDate: Date,
@@ -97,24 +123,7 @@ async function fetchGitHubChangelog(
     for (const item of items) {
       const pubDate = item.pubDate;
       if (pubDate && isRecent(pubDate, targetDate)) {
-        const labels: Record<string, string[]> = {};
-        const categories = Array.isArray(item.category)
-          ? item.category
-          : (item.category ? [item.category] : []);
-
-        for (const category of categories) {
-          if (
-            typeof category === "object" && category !== null &&
-            category["@domain"]
-          ) {
-            const domain = category["@domain"];
-            const value = category["#text"];
-            if (!labels[domain]) {
-              labels[domain] = [];
-            }
-            labels[domain].push(value);
-          }
-        }
+        const labels = extractLabelsFromCategories(item.category);
 
         entries.push({
           title: item.title,

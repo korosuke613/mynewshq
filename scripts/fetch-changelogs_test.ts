@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import {
   applyMuteFilter,
+  extractLabelsFromCategories,
   isMuted,
   isRecent,
   parseMuteWords,
@@ -165,5 +166,95 @@ Deno.test("applyMuteFilter", async (t) => {
     const result = applyMuteFilter(entries, []);
     assertEquals(result[0].muted, undefined);
     assertEquals(result[0].mutedBy, undefined);
+  });
+});
+
+Deno.test("extractLabelsFromCategories", async (t) => {
+  await t.step("単一のカテゴリからラベルを抽出する", () => {
+    const category = {
+      "@domain": "changelog-label",
+      "#text": "copilot",
+    };
+    const result = extractLabelsFromCategories(category);
+    assertEquals(result, {
+      "changelog-label": ["copilot"],
+    });
+  });
+
+  await t.step("複数のカテゴリからラベルを抽出する", () => {
+    const categories = [
+      {
+        "@domain": "changelog-label",
+        "#text": "copilot",
+      },
+      {
+        "@domain": "changelog-type",
+        "#text": "improvement",
+      },
+    ];
+    const result = extractLabelsFromCategories(categories);
+    assertEquals(result, {
+      "changelog-label": ["copilot"],
+      "changelog-type": ["improvement"],
+    });
+  });
+
+  await t.step("同じドメインの複数のカテゴリを集約する", () => {
+    const categories = [
+      {
+        "@domain": "changelog-label",
+        "#text": "copilot",
+      },
+      {
+        "@domain": "changelog-label",
+        "#text": "security",
+      },
+    ];
+    const result = extractLabelsFromCategories(categories);
+    assertEquals(result, {
+      "changelog-label": ["copilot", "security"],
+    });
+  });
+
+  await t.step("カテゴリがundefinedの場合は空のオブジェクトを返す", () => {
+    const result = extractLabelsFromCategories(undefined);
+    assertEquals(result, {});
+  });
+
+  await t.step("@domainがないカテゴリは無視する", () => {
+    const categories = [
+      {
+        "@domain": "changelog-label",
+        "#text": "copilot",
+      },
+      {
+        "#text": "invalid",
+      },
+    ];
+    const result = extractLabelsFromCategories(categories as any);
+    assertEquals(result, {
+      "changelog-label": ["copilot"],
+    });
+  });
+
+  await t.step("#textがないカテゴリは無視する", () => {
+    const categories = [
+      {
+        "@domain": "changelog-label",
+        "#text": "copilot",
+      },
+      {
+        "@domain": "invalid-domain",
+      },
+    ];
+    const result = extractLabelsFromCategories(categories as any);
+    assertEquals(result, {
+      "changelog-label": ["copilot"],
+    });
+  });
+
+  await t.step("空の配列の場合は空のオブジェクトを返す", () => {
+    const result = extractLabelsFromCategories([]);
+    assertEquals(result, {});
   });
 });
