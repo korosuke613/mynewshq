@@ -16,6 +16,7 @@ Actionで日本語要約を生成してGitHub Discussionsに投稿します。
   [RSS](https://aws.amazon.com/about-aws/whats-new/recent/feed/)
 - **Claude Code** -
   [GitHub Releases](https://github.com/anthropics/claude-code/releases)
+- **Linear Changelog** - [RSS](https://linear.app/rss/changelog.xml)
 
 ## アーキテクチャ
 
@@ -164,6 +165,7 @@ Discussion作成時に、changelogの内容に応じて自動的にラベルを�
 - `github` - GitHub Changelogが含まれる場合
 - `aws` - AWS What's Newが含まれる場合
 - `claude-code` - Claude Codeリリースが含まれる場合
+- `linear` - Linear Changelogが含まれる場合
 
 ### 🔔 メンション通知機能
 
@@ -228,6 +230,16 @@ Issue #1 の本文:
       "url": "...",
       "body": "...",
       "publishedAt": "...",
+      "muted": false,
+      "mutedBy": "keyword"
+    }
+  ],
+  "linear": [
+    {
+      "title": "...",
+      "url": "...",
+      "content": "...",
+      "pubDate": "...",
       "muted": false,
       "mutedBy": "keyword"
     }
@@ -324,6 +336,7 @@ deno check scripts/*.ts  # 型チェック
 - `github`
 - `aws`
 - `claude-code`
+- `linear`
 
 ### ミュートワード機能が動作しない
 

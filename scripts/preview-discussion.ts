@@ -27,6 +27,14 @@ interface ChangelogData {
     muted?: boolean;
     mutedBy?: string;
   }>;
+  linear: Array<{
+    title: string;
+    url: string;
+    content: string;
+    pubDate: string;
+    muted?: boolean;
+    mutedBy?: string;
+  }>;
 }
 
 async function preview(date?: string) {
@@ -62,8 +70,12 @@ async function preview(date?: string) {
     `Claude Code: ${claudeActive} 件 (ミュート: ${claudeMuted} 件)`,
   );
 
-  const totalActive = githubActive + awsActive + claudeActive;
-  const totalMuted = githubMuted + awsMuted + claudeMuted;
+  const linearActive = data.linear.filter((e) => !e.muted).length;
+  const linearMuted = data.linear.filter((e) => e.muted).length;
+  console.log(`Linear: ${linearActive} 件 (ミュート: ${linearMuted} 件)`);
+
+  const totalActive = githubActive + awsActive + claudeActive + linearActive;
+  const totalMuted = githubMuted + awsMuted + claudeMuted + linearMuted;
   console.log(`合計: ${totalActive} 件 (ミュート: ${totalMuted} 件)`);
   console.log();
 

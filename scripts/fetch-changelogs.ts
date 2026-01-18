@@ -24,6 +24,7 @@ interface ChangelogData {
   github: ChangelogEntry[];
   aws: ChangelogEntry[];
   claudeCode: ReleaseEntry[];
+  linear: ChangelogEntry[];
 }
 
 const parser = new Parser();
@@ -107,6 +108,27 @@ async function fetchClaudeCodeReleases(
         url: release.html_url,
         body: release.body || "",
         publishedAt: release.published_at,
+      });
+    }
+  }
+
+  return entries;
+}
+
+// Linear Changelog取得
+async function fetchLinearChangelog(
+  targetDate: Date,
+): Promise<ChangelogEntry[]> {
+  const feed = await parser.parseURL("https://linear.app/rss/changelog.xml");
+  const entries: ChangelogEntry[] = [];
+
+  for (const item of feed.items) {
+    if (item.pubDate && isRecent(item.pubDate, targetDate)) {
+      entries.push({
+        title: item.title || "",
+        url: item.link || "",
+        content: item.contentSnippet || item.content || "",
+        pubDate: item.pubDate,
       });
     }
   }
@@ -231,10 +253,11 @@ async function main() {
     }
   }
 
-  let [github, aws, claudeCode] = await Promise.all([
+  let [github, aws, claudeCode, linear] = await Promise.all([
     fetchGitHubChangelog(targetDate),
     fetchAWSChangelog(targetDate),
     fetchClaudeCodeReleases(targetDate),
+    fetchLinearChangelog(targetDate),
   ]);
 
   // ミュートフィルタを適用
@@ -242,17 +265,22 @@ async function main() {
     github = applyMuteFilter(github, muteWords);
     aws = applyMuteFilter(aws, muteWords);
     claudeCode = applyMuteFilter(claudeCode, muteWords);
+    linear = applyMuteFilter(linear, muteWords);
 
     const mutedCount = [
       ...github.filter((e) => e.muted),
       ...aws.filter((e) => e.muted),
       ...claudeCode.filter((e) => e.muted),
+      ...linear.filter((e) => e.muted),
     ].length;
     console.log(`Muted ${mutedCount} entries`);
   }
 
   // 更新がない場合は終了
-  if (github.length === 0 && aws.length === 0 && claudeCode.length === 0) {
+  if (
+    github.length === 0 && aws.length === 0 && claudeCode.length === 0 &&
+    linear.length === 0
+  ) {
     console.log("No updates found in the last 24 hours.");
     Deno.exit(0);
   }
@@ -262,6 +290,7 @@ async function main() {
     github,
     aws,
     claudeCode,
+    linear,
   };
 
   const outputPath = `data/changelogs/${data.date}.json`;
@@ -270,12 +299,13 @@ async function main() {
 
   console.log(
     `Saved ${
-      github.length + aws.length + claudeCode.length
+      github.length + aws.length + claudeCode.length + linear.length
     } updates to ${outputPath}`,
   );
   console.log(`- GitHub: ${github.length}`);
   console.log(`- AWS: ${aws.length}`);
   console.log(`- Claude Code: ${claudeCode.length}`);
+  console.log(`- Linear: ${linear.length}`);
 }
 
 if (import.meta.main) {
