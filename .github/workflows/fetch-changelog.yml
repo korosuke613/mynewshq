@@ -24,46 +24,6 @@ jobs:
           deno-version: v2.x
 
       - name: Fetch and post changelogs
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { exec } = require('child_process');
-            const { promisify } = require('util');
-            const execAsync = promisify(exec);
-
-            // Fetch changelogs
-            console.log('Fetching changelogs...');
-            const { stdout, stderr } = await execAsync('deno task fetch');
-            console.log(stdout);
-            if (stderr) console.error(stderr);
-
-            // Read the generated JSON file
-            const fs = require('fs');
-            const files = fs.readdirSync('data/changelogs').filter(f => f.endsWith('.json'));
-
-            if (files.length === 0) {
-              console.log('No changelog files found');
-              return;
-            }
-
-            // Get the latest file
-            const sortedFiles = files.sort().reverse();
-            const latestFile = `data/changelogs/${sortedFiles[0]}`;
-            const changelogData = fs.readFileSync(latestFile, 'utf8');
-
-            // Post to Issue
-            const issueNumber = 1;
-            const today = new Date().toISOString().split('T')[0];
-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              body: `📰 ${today}のChangelogを要約してください。\n\n<details>\n<summary>Changelog Data</summary>\n\n\`\`\`json\n${changelogData}\n\`\`\`\n\n</details>`
-            });
-
-            console.log(`Posted changelog data to Issue #${issueNumber}`);
-
-            // Clean up - remove the temporary file
-            fs.unlinkSync(latestFile);
-            console.log(`Cleaned up temporary file: ${latestFile}`);
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: deno run --allow-net --allow-read --allow-write --allow-env scripts/fetch-changelogs.ts --post-to-issue 1 korosuke613 mynewshq
