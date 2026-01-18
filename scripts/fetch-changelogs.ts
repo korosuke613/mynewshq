@@ -26,9 +26,8 @@ const parser = new Parser();
 const octokit = new Octokit();
 
 // 過去24時間以内かチェック
-function isRecent(dateString: string): boolean {
+export function isRecent(dateString: string, now: Date = new Date()): boolean {
   const date = new Date(dateString);
-  const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   return date >= dayAgo;
 }

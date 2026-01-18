@@ -172,7 +172,7 @@ async function main() {
 }
 
 // デフォルトのボディ生成（要約がない場合）
-function generateDefaultBody(data: ChangelogData): string {
+export function generateDefaultBody(data: ChangelogData): string {
   let body = `# 📰 Tech Changelog - ${data.date}\n\n`;
 
   if (data.github && data.github.length > 0) {
