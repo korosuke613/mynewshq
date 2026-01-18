@@ -1,23 +1,32 @@
 name: Summarize and Post Changelog
 
 on:
-  push:
-    paths:
-      - "data/changelogs/*.json"
+  issue_comment:
+    types: [created]
   workflow_dispatch: # 手動実行も可能
 
 permissions:
   contents: write
   discussions: write
   pull-requests: write
+  issues: write
 
 jobs:
   summarize:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'issue_comment' &&
+        contains(github.event.comment.body, 'Changelogを要約してください') &&
+        github.event.comment.user.login == 'github-actions[bot]'
+      )
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2

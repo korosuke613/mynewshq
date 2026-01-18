@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   fetch:
@@ -30,6 +31,8 @@ jobs:
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
+            FILE=$(ls -t data/changelogs/*.json | head -1)
+            echo "changelog_file=$FILE" >> $GITHUB_OUTPUT
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
           fi
@@ -42,6 +45,21 @@ jobs:
           git add data/changelogs/*.json
           git commit -m "chore: update changelogs $(date +%Y-%m-%d)"
           git push
+
+      - name: Trigger summarize workflow via Issue comment
+        if: steps.check_changes.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // TODO: トリガー用Issueを作成後、以下の<ISSUE_NUMBER>を実際のIssue番号に置き換えてください
+            const issueNumber = <ISSUE_NUMBER>;
+            const today = new Date().toISOString().split('T')[0];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `📰 ${today}のChangelogを要約してください。`
+            });
 
       - name: No updates
         if: steps.check_changes.outputs.has_changes == 'false'
