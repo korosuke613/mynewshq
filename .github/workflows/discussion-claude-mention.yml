@@ -31,9 +31,10 @@ jobs:
       - name: Trigger Claude Code workflow
         env:
           GH_TOKEN: ${{ github.token }}
+          QUESTION: ${{ steps.parse-mention.outputs.question }}
         run: |
           gh workflow run discussion-claude-answer.yml \
             --repo ${{ github.repository }} \
-            --field question="${{ steps.parse-mention.outputs.question }}" \
+            --field question="$QUESTION" \
             --field discussion_number="${{ github.event.discussion.number }}" \
             --field comment_url="${{ github.event.comment.html_url }}"
