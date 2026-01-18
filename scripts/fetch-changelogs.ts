@@ -208,7 +208,7 @@ async function main() {
 
   // ミュートワード機能の準備
   const token = Deno.env.get("GITHUB_TOKEN");
-  const muteWordsIssueNumber = Deno.env.get("MUTE_WORDS_ISSUE_NUMBER");
+  const muteWordsIssueNumber = Deno.env.get("MUTE_WORDS_ISSUE_NUMBER") || "1";
   const repositoryOwner = Deno.env.get("GITHUB_REPOSITORY_OWNER") ||
     "korosuke613";
   const repositoryName = Deno.env.get("GITHUB_REPOSITORY_NAME") || "mynewshq";
