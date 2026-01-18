@@ -1,5 +1,5 @@
 // Discussion投稿内容をプレビューするスクリプト
-import { generateDefaultBody } from "./create-discussion.ts";
+import { generateDefaultBody, generateMention } from "./create-discussion.ts";
 
 interface ChangelogData {
   date: string;
@@ -69,16 +69,17 @@ async function preview(date?: string) {
 
   // デフォルトボディを生成
   const body = generateDefaultBody(data);
+  const bodyWithMention = body + generateMention();
 
   // summary.mdに保存
-  await Deno.writeTextFile("summary.md", body);
+  await Deno.writeTextFile("summary.md", bodyWithMention);
   console.log(`✅ summary.md に保存しました`);
   console.log();
 
   // プレビューを表示
   console.log(`📄 プレビュー:`);
   console.log(`---`);
-  console.log(body);
+  console.log(bodyWithMention);
 }
 
 // メイン処理
