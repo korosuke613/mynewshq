@@ -1,0 +1,48 @@
+name: Fetch Changelogs
+
+on:
+  schedule:
+    # 毎日 9:00 JST (UTC 0:00)
+    - cron: "0 0 * * *"
+  workflow_dispatch: # 手動実行も可能
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Fetch changelogs
+        run: deno task fetch
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/changelogs/*.json
+          git commit -m "chore: update changelogs $(date +%Y-%m-%d)"
+          git push
+
+      - name: No updates
+        if: steps.check_changes.outputs.has_changes == 'false'
+        run: echo "No updates found in the last 24 hours."

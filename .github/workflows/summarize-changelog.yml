@@ -1,0 +1,53 @@
+name: Summarize and Post Changelog
+
+on:
+  push:
+    paths:
+      - "data/changelogs/*.json"
+  workflow_dispatch: # 手動実行も可能
+
+permissions:
+  contents: write
+  discussions: write
+  pull-requests: write
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Get latest changelog file
+        id: get_file
+        run: |
+          LATEST_FILE=$(ls -t data/changelogs/*.json | head -1)
+          echo "file=$LATEST_FILE" >> $GITHUB_OUTPUT
+          echo "Latest changelog file: $LATEST_FILE"
+
+      - name: Summarize with Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            以下のchangelog JSONファイルを読み込んで、日本語で要約を生成してください。
+
+            ファイルパス: ${{ steps.get_file.outputs.file }}
+
+            要約のルール：
+            1. GitHub Changelog、AWS What's New、Claude Codeの3つのセクションに分ける
+            2. 各エントリについて、タイトルとURLをリンク形式で表示
+            3. 内容を2-3文で簡潔に日本語で要約
+            4. 技術者向けにわかりやすく、重要なポイントを強調
+
+            要約が完成したら、以下のコマンドを実行してDiscussionに投稿してください：
+            ```bash
+            deno task post korosuke613 mynewshq General "$(cat summary.md)"
+            ```
+
+            summary.mdには生成した要約を保存してください。

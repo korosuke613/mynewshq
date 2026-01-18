@@ -1,0 +1,24 @@
+# Deno
+.deno/
+deno.lock
+
+# Environment variables
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+summary.md
