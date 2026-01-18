@@ -4,7 +4,7 @@ import { parse } from "xml/mod.ts";
 
 interface XmlCategory {
   "@domain"?: string;
-  "#text": string;
+  "#text"?: string;
 }
 
 interface XmlItem {
@@ -17,7 +17,7 @@ interface XmlItem {
 }
 
 interface RssChannel {
-  item: XmlItem[];
+  item?: XmlItem[];
 }
 
 interface RssFeed {
