@@ -125,6 +125,21 @@ async function createDiscussion(
   return result.createDiscussion.discussion.url;
 }
 
+// コマンドライン引数から日付を取得し、フラグ以外の引数を返す
+function parseArgs(args: string[]): { date: string; otherArgs: string[] } {
+  const dateArg = args.find((arg) => arg.startsWith("--date="));
+  const otherArgs = args.filter((arg) => !arg.startsWith("--date="));
+
+  let date: string;
+  if (dateArg) {
+    date = dateArg.split("=")[1];
+  } else {
+    date = new Date().toISOString().split("T")[0];
+  }
+
+  return { date, otherArgs };
+}
+
 // メイン処理
 async function main() {
   const token = Deno.env.get("GITHUB_TOKEN");
@@ -134,13 +149,13 @@ async function main() {
   }
 
   // 引数からリポジトリ情報を取得（デフォルト: korosuke613/mynewshq）
-  const owner = Deno.args[0] || "korosuke613";
-  const repo = Deno.args[1] || "mynewshq";
-  const categoryName = Deno.args[2] || "General";
+  const { date, otherArgs } = parseArgs(Deno.args);
+  const owner = otherArgs[0] || "korosuke613";
+  const repo = otherArgs[1] || "mynewshq";
+  const categoryName = otherArgs[2] || "General";
 
-  // 最新のchangelog JSONファイルを取得
-  const today = new Date().toISOString().split("T")[0];
-  const changelogPath = `data/changelogs/${today}.json`;
+  // 指定された日付のchangelog JSONファイルを取得
+  const changelogPath = `data/changelogs/${date}.json`;
 
   let changelogData;
   try {
@@ -152,7 +167,7 @@ async function main() {
   }
 
   // 引数から要約を取得（4番目以降の引数をすべて結合）
-  const summary = Deno.args.slice(3).join(" ");
+  const summary = otherArgs.slice(3).join(" ");
 
   const title = `📰 Tech Changelog - ${changelogData.date}`;
   const body = summary || generateDefaultBody(changelogData);

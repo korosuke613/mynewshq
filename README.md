@@ -81,9 +81,15 @@ GitHub Appに以下の権限を付与してください：
 # データ取得をテスト
 deno task fetch
 
+# 過去の日付でデータ取得
+deno task fetch -- --date=2026-01-15
+
 # Discussion投稿をテスト（GITHUB_TOKEN必要）
 export GITHUB_TOKEN=your_token
 deno task post korosuke613 mynewshq General "テストメッセージ"
+
+# 過去の日付のデータで投稿
+deno task post -- --date=2026-01-15 korosuke613 mynewshq General "テストメッセージ"
 ```
 
 ## 使い方
@@ -99,8 +105,11 @@ GitHub Actionsページから手動でワークフローを実行できます：
 1. Actions タブを開く
 2. "Daily Changelog" を選択
 3. "Run workflow" をクリック
+4. （オプション）特定の日付のデータを処理する場合は、「対象日付」に `YYYY-MM-DD` 形式で入力
 
 実行後、[Discussions](../../discussions)で要約が投稿されているか確認できます。
+
+**注意**: 過去の日付を指定してもRSSフィードは最新のエントリのみを返すため、新しい記事しか取得できません。GitHub Releasesは過去データも取得可能です。
 
 ## ファイル構造
 
