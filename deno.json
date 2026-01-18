@@ -3,6 +3,7 @@
     "fetch": "deno run --allow-net --allow-read --allow-write --allow-env scripts/fetch-changelogs.ts",
     "post": "deno run --allow-net --allow-read --allow-env scripts/create-discussion.ts",
     "preview": "deno run --allow-read --allow-write --allow-env scripts/preview-discussion.ts",
+    "reply-discussion": "deno run --allow-net --allow-env scripts/reply-discussion.ts",
     "test": "deno test --allow-read"
   },
   "imports": {
@@ -12,6 +13,8 @@
     "@std/assert": "jsr:@std/assert@1.0.11"
   },
   "fmt": {
-    "exclude": ["**/*.md"]
+    "exclude": [
+      "**/*.md"
+    ]
   }
 }
