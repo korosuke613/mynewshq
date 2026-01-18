@@ -38,6 +38,8 @@ jobs:
 
       - name: Summarize and post with Claude Code
         uses: anthropics/claude-code-action@v1
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         with:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -48,19 +50,16 @@ jobs:
               }
             }
           prompt: |
-            data/changelogs/ ディレクトリにある最新のJSONファイルを読み込んで、
-            日本語で要約を生成してください。
+            以下のタスクを実行してください：
 
-            要約のルール：
-            1. GitHub Changelog、AWS What's New、Claude Codeの3つのセクションに分ける
-            2. 各エントリについて、タイトルとURLをリンク形式で表示
-            3. 内容を2-3文で簡潔に日本語で要約
-            4. 技術者向けにわかりやすく、重要なポイントを強調
-            5. 更新がないセクションは省略する
+            1. data/changelogs/ ディレクトリにある最新のJSONファイルを読み込む
+            2. 以下のルールで日本語要約を生成する：
+               - GitHub Changelog、AWS What's New、Claude Codeの3つのセクションに分ける
+               - 各エントリについて、タイトルとURLをリンク形式で表示
+               - 内容を2-3文で簡潔に日本語で要約
+               - 技術者向けにわかりやすく、重要なポイントを強調
+               - 更新がないセクションは省略する
+            3. 生成した要約をsummary.mdファイルに書き込む
+            4. `deno task post korosuke613 mynewshq General "$(cat summary.md)"` を実行してDiscussionに投稿する
 
-            要約が完成したら、以下のコマンドを実行してDiscussionに投稿してください：
-            ```bash
-            deno task post korosuke613 mynewshq General "$(cat summary.md)"
-            ```
-
-            summary.mdには生成した要約を保存してください。
+            必ず最後のステップまで実行してください。
