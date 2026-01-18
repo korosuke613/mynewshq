@@ -7,6 +7,8 @@
 毎日9:00 JSTに以下のChangelogを自動収集し、Claude Code
 Actionで日本語要約を生成してGitHub Discussionsに投稿します。
 
+📰 **投稿された要約**: [Discussions](../../discussions)
+
 ### 対象Changelog
 
 - **GitHub Changelog** - [RSS](https://github.blog/changelog/feed/)
@@ -21,19 +23,13 @@ Actionで日本語要約を生成してGitHub Discussionsに投稿します。
 [cron 9:00 JST]
       │
       ▼
-┌─────────────────────────────┐
-│ fetch-changelog.yml         │
-│ - RSS/Releases取得          │
-│ - JSONファイルに保存        │
-│ - 更新があればコミット      │
-└─────────────────────────────┘
-      │
-      ▼ (push をトリガー)
-┌─────────────────────────────┐
-│ summarize-changelog.yml     │
-│ - claude-code-actionで要約  │
-│ - Discussionに投稿          │
-└─────────────────────────────┘
+┌─────────────────────────────────────┐
+│ daily-changelog.yml                 │
+│ 1. RSS/Releases取得                 │
+│ 2. JSONファイルに保存               │
+│ 3. Claude Code Actionで要約生成     │
+│ 4. GitHub Discussionに投稿          │
+└─────────────────────────────────────┘
 ```
 
 ## セットアップ
@@ -48,16 +44,36 @@ curl -fsSL https://deno.land/install.sh | sh
 
 リポジトリの Settings > General > Features で Discussions を有効化してください。
 
-### 3. claude-code-actionのセットアップ
+### 3. Claude Code Actionのセットアップ
+
+#### GitHub Appの作成とインストール
 
 ターミナルで以下を実行：
 
 ```bash
-claude
-/install-github-app
+claude /install-github-app
 ```
 
-画面の指示に従ってGitHub Appをインストールしてください。
+画面の指示に従ってGitHub Appを作成・インストールしてください。
+
+#### 必要な権限
+
+GitHub Appに以下の権限を付与してください：
+
+- **Repository permissions:**
+  - Contents: Read and write
+  - Discussions: Read and write
+  - Metadata: Read-only
+
+権限変更後は、リポジトリのInstallationページで「Accept new permissions」をクリックして承認してください。
+
+#### シークレットの設定
+
+リポジトリのSettings > Secrets and variables > Actionsで以下を設定：
+
+- `KIBA_CLAUDE_CODE_GH_APP_ID` (Variables): GitHub App ID
+- `KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY` (Secrets): GitHub Appの秘密鍵
+- `CLAUDE_CODE_OAUTH_TOKEN` (Secrets): Claude Code OAuthトークン
 
 ### 4. ローカルテスト
 
@@ -81,22 +97,24 @@ GitHub Actionsが毎日9:00 JSTに自動実行します。何もする必要は�
 GitHub Actionsページから手動でワークフローを実行できます：
 
 1. Actions タブを開く
-2. "Fetch Changelogs" を選択
+2. "Daily Changelog" を選択
 3. "Run workflow" をクリック
+
+実行後、[Discussions](../../discussions)で要約が投稿されているか確認できます。
 
 ## ファイル構造
 
 ```
 mynewshq/
 ├── .github/workflows/
-│   ├── fetch-changelog.yml      # データ取得ワークフロー
-│   └── summarize-changelog.yml  # 要約・投稿ワークフロー
+│   ├── daily-changelog.yml      # メインワークフロー（収集→要約→投稿）
+│   └── quality-check.yml        # コード品質チェック
 ├── scripts/
 │   ├── fetch-changelogs.ts      # RSS/Releases取得
 │   └── create-discussion.ts     # Discussion投稿
 ├── data/changelogs/             # 収集データ（Git管理）
 │   └── YYYY-MM-DD.json
-├── deno.json                    # Deno設定
+├── deno.json                    # Denoタスク定義
 ├── CLAUDE.md                    # Claude Code Action設定
 └── README.md
 ```
@@ -130,7 +148,7 @@ mynewshq/
 
 ### 実行時刻の変更
 
-`.github/workflows/fetch-changelog.yml` の `cron` を編集：
+`.github/workflows/daily-changelog.yml` の `cron` を編集：
 
 ```yaml
 schedule:
@@ -148,16 +166,51 @@ schedule:
 
 ## トラブルシューティング
 
-### 更新が投稿されない
+### Discussion投稿が失敗する
 
-- GitHub Actionsのログを確認してください
-- Discussionsが有効化されているか確認してください
-- claude-code-actionが正しくセットアップされているか確認してください
+**エラー**: `Resource not accessible by integration`
+
+**原因**: GitHub Appに `discussions: write` 権限が不足している、または権限変更後に再承認していない
+
+**解決方法**:
+1. GitHub App設定でDiscussions権限が「Read and write」になっているか確認
+2. Settings > Installations > Configure で「Accept new permissions」をクリック
+
+### Claude Code Actionでツールが実行できない
+
+**エラー**: `permission_denials`
+
+**原因**: ワークフローの`settings`で必要なツールが許可されていない
+
+**解決方法**:
+`.github/workflows/daily-changelog.yml`の`settings`を確認：
+```yaml
+settings: |
+  {
+    "permissions": {
+      "allow": ["Bash", "Write"]
+    }
+  }
+```
 
 ### データ取得エラー
 
 - RSS URLが変更されていないか確認してください
 - GitHub APIのレート制限に達していないか確認してください
+
+### GITHUB_TOKEN環境変数エラー
+
+**エラー**: `GITHUB_TOKEN environment variable is required`
+
+**原因**: Claude Code Actionから実行されるBashコマンドにGITHUB_TOKENが渡されていない
+
+**解決方法**:
+ワークフローで`env`を設定：
+```yaml
+- name: Summarize and post with Claude Code
+  env:
+    GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+```
 
 ## ライセンス
 
