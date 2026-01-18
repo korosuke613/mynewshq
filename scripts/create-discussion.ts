@@ -216,8 +216,15 @@ async function createDiscussion(
       .filter((id): id is string => id !== undefined);
 
     if (labelIds.length > 0) {
-      await addLabelsToDiscussion(graphqlWithAuth, discussionId, labelIds);
-      console.log(`Labels added: ${labelNames.join(", ")}`);
+      try {
+        await addLabelsToDiscussion(graphqlWithAuth, discussionId, labelIds);
+        console.log(`Labels added: ${labelNames.join(", ")}`);
+      } catch (error) {
+        console.error(
+          `Failed to add labels to discussion ${discussionId}:`,
+          error,
+        );
+      }
     } else if (labelNames.length > 0) {
       const missingLabels = labelNames.filter(
         (name) =>
