@@ -371,6 +371,9 @@ export function generateDefaultBody(data: ChangelogData): string {
       }
     }
     body += generateMutedSection(data.claudeCode);
+    if (activeEntries.length > 0 || data.claudeCode.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
   }
 
   return body;

@@ -209,6 +209,9 @@ async function main() {
   // ミュートワード機能の準備
   const token = Deno.env.get("GITHUB_TOKEN");
   const muteWordsIssueNumber = Deno.env.get("MUTE_WORDS_ISSUE_NUMBER");
+  const repositoryOwner = Deno.env.get("GITHUB_REPOSITORY_OWNER") ||
+    "korosuke613";
+  const repositoryName = Deno.env.get("GITHUB_REPOSITORY_NAME") || "mynewshq";
   let muteWords: string[] = [];
 
   if (token && muteWordsIssueNumber) {
@@ -217,8 +220,8 @@ async function main() {
     if (!isNaN(issueNumber)) {
       muteWords = await fetchMuteWords(
         authenticatedOctokit,
-        "korosuke613",
-        "mynewshq",
+        repositoryOwner,
+        repositoryName,
         issueNumber,
       );
     } else {
