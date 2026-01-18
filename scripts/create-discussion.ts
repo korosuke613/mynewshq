@@ -53,6 +53,8 @@ interface ChangelogEntry {
   url: string;
   content: string;
   pubDate: string;
+  muted?: boolean;
+  mutedBy?: string;
 }
 
 interface ReleaseEntry {
@@ -60,6 +62,8 @@ interface ReleaseEntry {
   url: string;
   body: string;
   publishedAt: string;
+  muted?: boolean;
+  mutedBy?: string;
 }
 
 interface ChangelogData {
@@ -299,33 +303,76 @@ async function main() {
   console.log(`Discussion created: ${url}`);
 }
 
+// ミュートされたエントリの折りたたみセクションを生成
+export function generateMutedSection<
+  T extends { title?: string; version?: string; url: string; mutedBy?: string },
+>(entries: T[]): string {
+  const mutedEntries = entries.filter((e) => "muted" in e && e.muted);
+  if (mutedEntries.length === 0) {
+    return "";
+  }
+
+  let section =
+    `<details>\n<summary>ミュートされたエントリ (${mutedEntries.length}件)</summary>\n\n`;
+  for (const entry of mutedEntries) {
+    const title = "title" in entry && entry.title
+      ? entry.title
+      : "version" in entry && entry.version
+      ? entry.version
+      : "Untitled";
+    const mutedBy = entry.mutedBy || "unknown";
+    section += `- [${title}](${entry.url}) *(ミュートワード: ${mutedBy})*\n`;
+  }
+  section += `</details>\n\n`;
+  return section;
+}
+
 // デフォルトのボディ生成（要約がない場合）
 export function generateDefaultBody(data: ChangelogData): string {
   let body = `# 📰 Tech Changelog - ${data.date}\n\n`;
 
   if (data.github && data.github.length > 0) {
-    body += "## GitHub Changelog\n";
-    for (const item of data.github) {
-      body += `### [${item.title}](${item.url})\n`;
-      body += `*Published: ${item.pubDate}*\n\n`;
+    const activeEntries = data.github.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += "## GitHub Changelog\n";
+      for (const item of activeEntries) {
+        body += `### [${item.title}](${item.url})\n`;
+        body += `*Published: ${item.pubDate}*\n\n`;
+      }
     }
-    body += "---\n\n";
+    body += generateMutedSection(data.github);
+    if (activeEntries.length > 0 || data.github.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
   }
 
   if (data.aws && data.aws.length > 0) {
-    body += "## AWS What's New\n";
-    for (const item of data.aws) {
-      body += `### [${item.title}](${item.url})\n`;
-      body += `*Published: ${item.pubDate}*\n\n`;
+    const activeEntries = data.aws.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += "## AWS What's New\n";
+      for (const item of activeEntries) {
+        body += `### [${item.title}](${item.url})\n`;
+        body += `*Published: ${item.pubDate}*\n\n`;
+      }
     }
-    body += "---\n\n";
+    body += generateMutedSection(data.aws);
+    if (activeEntries.length > 0 || data.aws.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
   }
 
   if (data.claudeCode && data.claudeCode.length > 0) {
-    body += "## Claude Code\n";
-    for (const item of data.claudeCode) {
-      body += `### [${item.version}](${item.url})\n`;
-      body += `*Published: ${item.publishedAt}*\n\n`;
+    const activeEntries = data.claudeCode.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += "## Claude Code\n";
+      for (const item of activeEntries) {
+        body += `### [${item.version}](${item.url})\n`;
+        body += `*Published: ${item.publishedAt}*\n\n`;
+      }
+    }
+    body += generateMutedSection(data.claudeCode);
+    if (activeEntries.length > 0 || data.claudeCode.some((e) => e.muted)) {
+      body += "---\n\n";
     }
   }
 

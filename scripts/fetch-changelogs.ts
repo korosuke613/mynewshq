@@ -6,6 +6,8 @@ interface ChangelogEntry {
   url: string;
   content: string;
   pubDate: string;
+  muted?: boolean;
+  mutedBy?: string;
 }
 
 interface ReleaseEntry {
@@ -13,6 +15,8 @@ interface ReleaseEntry {
   url: string;
   body: string;
   publishedAt: string;
+  muted?: boolean;
+  mutedBy?: string;
 }
 
 interface ChangelogData {
@@ -110,6 +114,90 @@ async function fetchClaudeCodeReleases(
   return entries;
 }
 
+// Issue本文から箇条書きのミュートワードを抽出
+export function parseMuteWords(issueBody: string): string[] {
+  const lines = issueBody.split("\n");
+  const muteWords: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // "- " で始まる行を箇条書きとして抽出
+    if (trimmed.startsWith("- ")) {
+      const word = trimmed.slice(2).trim();
+      if (word) {
+        muteWords.push(word);
+      }
+    }
+  }
+
+  return muteWords;
+}
+
+// GitHub Issueからミュートワードのリストを取得
+export async function fetchMuteWords(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+): Promise<string[]> {
+  try {
+    const { data: issue } = await octokit.issues.get({
+      owner,
+      repo,
+      issue_number: issueNumber,
+    });
+
+    if (!issue.body) {
+      console.warn(`Issue #${issueNumber} has no body`);
+      return [];
+    }
+
+    const muteWords = parseMuteWords(issue.body);
+    console.log(
+      `Loaded ${muteWords.length} mute words from issue #${issueNumber}`,
+    );
+    return muteWords;
+  } catch (error) {
+    console.warn(
+      `Failed to fetch mute words from issue #${issueNumber}:`,
+      error,
+    );
+    return [];
+  }
+}
+
+// タイトルがミュートワードに一致するかチェック（部分一致・大文字小文字無視）
+export function isMuted(title: string, muteWords: string[]): string | null {
+  const lowerTitle = title.toLowerCase();
+  for (const word of muteWords) {
+    if (lowerTitle.includes(word.toLowerCase())) {
+      return word;
+    }
+  }
+  return null;
+}
+
+// エントリ配列にミュートフラグを適用
+export function applyMuteFilter<
+  T extends { title?: string; version?: string },
+>(
+  entries: T[],
+  muteWords: string[],
+): (T & { muted?: boolean; mutedBy?: string })[] {
+  return entries.map((entry) => {
+    const titleToCheck = "title" in entry && entry.title
+      ? entry.title
+      : "version" in entry && entry.version
+      ? entry.version
+      : "";
+    const mutedBy = isMuted(titleToCheck, muteWords);
+    if (mutedBy) {
+      return { ...entry, muted: true, mutedBy };
+    }
+    return entry;
+  });
+}
+
 // メイン処理
 async function main() {
   console.log("Fetching changelogs...");
@@ -118,11 +206,50 @@ async function main() {
   const dateString = targetDate.toISOString().split("T")[0];
   console.log(`Target date: ${dateString}`);
 
-  const [github, aws, claudeCode] = await Promise.all([
+  // ミュートワード機能の準備
+  const token = Deno.env.get("GITHUB_TOKEN");
+  const muteWordsIssueNumber = Deno.env.get("MUTE_WORDS_ISSUE_NUMBER");
+  const repositoryOwner = Deno.env.get("GITHUB_REPOSITORY_OWNER") ||
+    "korosuke613";
+  const repositoryName = Deno.env.get("GITHUB_REPOSITORY_NAME") || "mynewshq";
+  let muteWords: string[] = [];
+
+  if (token && muteWordsIssueNumber) {
+    const authenticatedOctokit = new Octokit({ auth: token });
+    const issueNumber = parseInt(muteWordsIssueNumber, 10);
+    if (!isNaN(issueNumber)) {
+      muteWords = await fetchMuteWords(
+        authenticatedOctokit,
+        repositoryOwner,
+        repositoryName,
+        issueNumber,
+      );
+    } else {
+      console.warn(
+        `Invalid MUTE_WORDS_ISSUE_NUMBER: ${muteWordsIssueNumber}`,
+      );
+    }
+  }
+
+  let [github, aws, claudeCode] = await Promise.all([
     fetchGitHubChangelog(targetDate),
     fetchAWSChangelog(targetDate),
     fetchClaudeCodeReleases(targetDate),
   ]);
+
+  // ミュートフィルタを適用
+  if (muteWords.length > 0) {
+    github = applyMuteFilter(github, muteWords);
+    aws = applyMuteFilter(aws, muteWords);
+    claudeCode = applyMuteFilter(claudeCode, muteWords);
+
+    const mutedCount = [
+      ...github.filter((e) => e.muted),
+      ...aws.filter((e) => e.muted),
+      ...claudeCode.filter((e) => e.muted),
+    ].length;
+    console.log(`Muted ${mutedCount} entries`);
+  }
 
   // 更新がない場合は終了
   if (github.length === 0 && aws.length === 0 && claudeCode.length === 0) {
