@@ -96,33 +96,6 @@ async function fetchClaudeCodeReleases(): Promise<ReleaseEntry[]> {
   return entries;
 }
 
-// Issueにコメントを投稿
-async function postToIssue(
-  data: ChangelogData,
-  issueNumber: number,
-  owner: string,
-  repo: string,
-): Promise<void> {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) {
-    throw new Error("GITHUB_TOKEN environment variable is not set");
-  }
-
-  const octokit = new Octokit({ auth: token });
-  const changelogJson = JSON.stringify(data, null, 2);
-  const today = data.date;
-
-  await octokit.issues.createComment({
-    owner,
-    repo,
-    issue_number: issueNumber,
-    body:
-      `📰 ${today}のChangelogを要約してください。\n\n<details>\n<summary>Changelog Data</summary>\n\n\`\`\`json\n${changelogJson}\n\`\`\`\n\n</details>`,
-  });
-
-  console.log(`Posted changelog data to Issue #${issueNumber}`);
-}
-
 // メイン処理
 async function main() {
   console.log("Fetching changelogs...");
@@ -146,31 +119,18 @@ async function main() {
     claudeCode,
   };
 
+  const outputPath = `data/changelogs/${data.date}.json`;
+  await Deno.mkdir("data/changelogs", { recursive: true });
+  await Deno.writeTextFile(outputPath, JSON.stringify(data, null, 2));
+
   console.log(
-    `Found ${github.length + aws.length + claudeCode.length} updates:`,
+    `Saved ${
+      github.length + aws.length + claudeCode.length
+    } updates to ${outputPath}`,
   );
   console.log(`- GitHub: ${github.length}`);
   console.log(`- AWS: ${aws.length}`);
   console.log(`- Claude Code: ${claudeCode.length}`);
-
-  // コマンドライン引数をチェック
-  const args = Deno.args;
-  const postToIssueFlag = args.indexOf("--post-to-issue");
-
-  if (postToIssueFlag !== -1 && args[postToIssueFlag + 1]) {
-    // Issueに投稿
-    const issueNumber = parseInt(args[postToIssueFlag + 1]);
-    const owner = args[postToIssueFlag + 2] || "korosuke613";
-    const repo = args[postToIssueFlag + 3] || "mynewshq";
-
-    await postToIssue(data, issueNumber, owner, repo);
-  } else {
-    // ローカルファイルに保存
-    const outputPath = `data/changelogs/${data.date}.json`;
-    await Deno.mkdir("data/changelogs", { recursive: true });
-    await Deno.writeTextFile(outputPath, JSON.stringify(data, null, 2));
-    console.log(`Saved to ${outputPath}`);
-  }
 }
 
 if (import.meta.main) {

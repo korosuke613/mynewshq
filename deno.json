@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "fetch": "deno run --allow-net --allow-read --allow-write --allow-env scripts/fetch-changelogs.ts",
+    "fetch": "deno run --allow-net --allow-read --allow-write scripts/fetch-changelogs.ts",
     "post": "deno run --allow-net --allow-read --allow-env scripts/create-discussion.ts",
     "test": "deno test --allow-read"
   },

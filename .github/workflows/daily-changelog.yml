@@ -1,64 +1,45 @@
-name: Summarize and Post Changelog
+name: Daily Changelog
 
 on:
-  issue_comment:
-    types: [created]
+  schedule:
+    # 毎日 9:00 JST (UTC 0:00)
+    - cron: "0 0 * * *"
   workflow_dispatch: # 手動実行も可能
 
 permissions:
   contents: read
   discussions: write
   pull-requests: write
-  issues: write
 
 jobs:
-  summarize:
+  changelog:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'issue_comment' &&
-        contains(github.event.comment.body, 'Changelogを要約してください') &&
-        github.event.comment.user.login == 'github-actions[bot]'
-      )
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - name: Summarize with Claude Code
+      - name: Fetch changelogs
+        run: deno task fetch
+
+      - name: Summarize and post with Claude Code
         uses: anthropics/claude-code-action@v1
         with:
           prompt: |
-            Issue #1 (https://github.com/korosuke613/mynewshq/issues/1) の最新コメントから、
-            Changelog JSONデータを読み込んで、日本語で要約を生成してください。
-
-            コメントは以下の形式になっています：
-            ```
-            📰 YYYY-MM-DDのChangelogを要約してください。
-
-            <details>
-            <summary>Changelog Data</summary>
-
-            ```json
-            { ... JSONデータ ... }
-            ```
-
-            </details>
-            ```
+            data/changelogs/ ディレクトリにある最新のJSONファイルを読み込んで、
+            日本語で要約を生成してください。
 
             要約のルール：
             1. GitHub Changelog、AWS What's New、Claude Codeの3つのセクションに分ける
             2. 各エントリについて、タイトルとURLをリンク形式で表示
             3. 内容を2-3文で簡潔に日本語で要約
             4. 技術者向けにわかりやすく、重要なポイントを強調
+            5. 更新がないセクションは省略する
 
             要約が完成したら、以下のコマンドを実行してDiscussionに投稿してください：
             ```bash
