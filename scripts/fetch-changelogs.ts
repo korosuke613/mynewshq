@@ -43,7 +43,9 @@ export function isRecent(dateString: string, now: Date = new Date()): boolean {
 }
 
 // GitHub Changelog取得
-async function fetchGitHubChangelog(targetDate: Date): Promise<ChangelogEntry[]> {
+async function fetchGitHubChangelog(
+  targetDate: Date,
+): Promise<ChangelogEntry[]> {
   const feed = await parser.parseURL("https://github.blog/changelog/feed/");
   const entries: ChangelogEntry[] = [];
 
@@ -83,7 +85,9 @@ async function fetchAWSChangelog(targetDate: Date): Promise<ChangelogEntry[]> {
 }
 
 // Claude Code Releases取得
-async function fetchClaudeCodeReleases(targetDate: Date): Promise<ReleaseEntry[]> {
+async function fetchClaudeCodeReleases(
+  targetDate: Date,
+): Promise<ReleaseEntry[]> {
   const { data: releases } = await octokit.repos.listReleases({
     owner: "anthropics",
     repo: "claude-code",
