@@ -29,7 +29,19 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Login GitHub App (for fetching changelogs)
+        id: login-gh-app-fetch
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
+          private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
       - name: Fetch changelogs
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
+          MUTE_WORDS_ISSUE_NUMBER: "1"
         run: |
           if [ -n "${{ inputs.date }}" ]; then
             deno task fetch -- --date=${{ inputs.date }}
@@ -66,9 +78,18 @@ jobs:
             2. 以下のルールで日本語要約を生成する：
                - GitHub Changelog、AWS What's New、Claude Codeの3つのセクションに分ける
                - 各エントリについて、タイトルとURLをリンク形式で表示
-               - 内容を2-3文で簡潔に日本語で要約
+               - **重要**: `muted: true` のエントリはAI要約の対象外とする（スキップする）
+               - アクティブなエントリ（muted !== true）のみ、内容を2-3文で簡潔に日本語で要約
                - 技術者向けにわかりやすく、重要なポイントを強調
                - 更新がないセクションは省略する
+               - ミュートされたエントリがある場合は、以下の形式で折りたたみ表示する：
+                 ```
+                 <details>
+                 <summary>ミュートされたエントリ (N件)</summary>
+
+                 - [タイトル](URL) *(ミュートワード: xxx)*
+                 </details>
+                 ```
             3. 生成した要約をsummary.mdファイルに書き込む
             4. ${{ inputs.date && format('`deno task post --date={0} korosuke613 mynewshq General "$(cat summary.md)"`', inputs.date) || '`deno task post korosuke613 mynewshq General "$(cat summary.md)"`' }}を実行してDiscussionに投稿する
 

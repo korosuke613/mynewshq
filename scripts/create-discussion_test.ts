@@ -1,5 +1,9 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { determineLabels, generateDefaultBody } from "./create-discussion.ts";
+import {
+  determineLabels,
+  generateDefaultBody,
+  generateMutedSection,
+} from "./create-discussion.ts";
 
 const mockData = {
   date: "2026-01-18",
@@ -78,5 +82,157 @@ Deno.test("determineLabels", async (t) => {
   await t.step("githubとawsのみの場合は2つのラベルを返す", () => {
     const labels = determineLabels({ ...mockData, claudeCode: [] });
     assertEquals(labels, ["github", "aws"]);
+  });
+});
+
+Deno.test("generateMutedSection", async (t) => {
+  await t.step("ミュートされたエントリがある場合は折りたたみを生成する", () => {
+    const entries = [
+      {
+        title: "Active Entry",
+        url: "https://example.com/1",
+        content: "",
+        pubDate: "2026-01-18T10:00:00Z",
+      },
+      {
+        title: "Muted Entry",
+        url: "https://example.com/2",
+        content: "",
+        pubDate: "2026-01-18T11:00:00Z",
+        muted: true,
+        mutedBy: "SageMaker",
+      },
+    ];
+
+    const result = generateMutedSection(entries, "GitHub Changelog");
+    assertStringIncludes(result, "<details>");
+    assertStringIncludes(
+      result,
+      "<summary>ミュートされたエントリ (1件)</summary>",
+    );
+    assertStringIncludes(result, "[Muted Entry](https://example.com/2)");
+    assertStringIncludes(result, "*(ミュートワード: SageMaker)*");
+    assertStringIncludes(result, "</details>");
+  });
+
+  await t.step("ミュートされたエントリがない場合は空文字を返す", () => {
+    const entries = [
+      {
+        title: "Active Entry",
+        url: "https://example.com/1",
+        content: "",
+        pubDate: "2026-01-18T10:00:00Z",
+      },
+    ];
+
+    const result = generateMutedSection(entries, "GitHub Changelog");
+    assertEquals(result, "");
+  });
+
+  await t.step("ReleaseEntryでも動作する", () => {
+    const entries = [
+      {
+        version: "v1.0.0",
+        url: "https://example.com/1",
+        body: "",
+        publishedAt: "2026-01-18T10:00:00Z",
+        muted: true,
+        mutedBy: "Glue",
+      },
+    ];
+
+    const result = generateMutedSection(entries, "Claude Code");
+    assertStringIncludes(result, "[v1.0.0](https://example.com/1)");
+    assertStringIncludes(result, "*(ミュートワード: Glue)*");
+  });
+});
+
+Deno.test("generateDefaultBody with muted entries", async (t) => {
+  await t.step("ミュートされたエントリを折りたたみで表示する", () => {
+    const dataWithMuted = {
+      date: "2026-01-18",
+      github: [
+        {
+          title: "Active Feature",
+          url: "https://example.com/1",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+        },
+        {
+          title: "Muted Feature",
+          url: "https://example.com/2",
+          content: "",
+          pubDate: "2026-01-18T11:00:00Z",
+          muted: true,
+          mutedBy: "SageMaker",
+        },
+      ],
+      aws: [],
+      claudeCode: [],
+    };
+
+    const body = generateDefaultBody(dataWithMuted);
+    assertStringIncludes(body, "## GitHub Changelog");
+    assertStringIncludes(body, "[Active Feature](https://example.com/1)");
+    assertStringIncludes(body, "<details>");
+    assertStringIncludes(body, "ミュートされたエントリ (1件)");
+    assertStringIncludes(body, "[Muted Feature](https://example.com/2)");
+  });
+
+  await t.step(
+    "アクティブなエントリがない場合はセクションヘッダーを表示しない",
+    () => {
+      const dataWithMutedOnly = {
+        date: "2026-01-18",
+        github: [
+          {
+            title: "Muted Feature",
+            url: "https://example.com/1",
+            content: "",
+            pubDate: "2026-01-18T10:00:00Z",
+            muted: true,
+            mutedBy: "SageMaker",
+          },
+        ],
+        aws: [],
+        claudeCode: [],
+      };
+
+      const body = generateDefaultBody(dataWithMutedOnly);
+      assertEquals(body.includes("## GitHub Changelog"), false);
+      assertStringIncludes(body, "<details>");
+      assertStringIncludes(body, "ミュートされたエントリ (1件)");
+    },
+  );
+
+  await t.step("すべてミュートの場合でも折りたたみを表示する", () => {
+    const allMuted = {
+      date: "2026-01-18",
+      github: [],
+      aws: [
+        {
+          title: "Muted AWS 1",
+          url: "https://example.com/1",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          muted: true,
+          mutedBy: "Glue",
+        },
+        {
+          title: "Muted AWS 2",
+          url: "https://example.com/2",
+          content: "",
+          pubDate: "2026-01-18T11:00:00Z",
+          muted: true,
+          mutedBy: "SageMaker",
+        },
+      ],
+      claudeCode: [],
+    };
+
+    const body = generateDefaultBody(allMuted);
+    assertStringIncludes(body, "ミュートされたエントリ (2件)");
+    assertStringIncludes(body, "[Muted AWS 1](https://example.com/1)");
+    assertStringIncludes(body, "[Muted AWS 2](https://example.com/2)");
   });
 });
