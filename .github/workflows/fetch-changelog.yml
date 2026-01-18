@@ -51,8 +51,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // TODO: トリガー用Issueを作成後、以下の<ISSUE_NUMBER>を実際のIssue番号に置き換えてください
-            const issueNumber = <ISSUE_NUMBER>;
+            const issueNumber = 1;
             const today = new Date().toISOString().split('T')[0];
             await github.rest.issues.createComment({
               owner: context.repo.owner,
