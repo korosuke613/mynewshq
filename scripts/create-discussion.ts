@@ -423,7 +423,9 @@ export function generateDefaultBody(data: ChangelogData): string {
             labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
           }
         }
-        body += `### [${item.title}](${item.url}) ${labelsString}\n`;
+        body += `### [${item.title}](${item.url})${
+          labelsString ? " " + labelsString : ""
+        }\n`;
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
