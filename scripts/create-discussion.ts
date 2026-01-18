@@ -326,9 +326,11 @@ async function createDiscussion(
       );
       if (failedLabelNames.length > 0) {
         console.error(
-          `The following labels could not be created and will not be added to the discussion: ${failedLabelNames.join(
-            ", ",
-          )}`,
+          `The following labels could not be created and will not be added to the discussion: ${
+            failedLabelNames.join(
+              ", ",
+            )
+          }`,
         );
       }
 

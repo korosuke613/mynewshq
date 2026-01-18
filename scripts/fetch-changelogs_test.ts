@@ -230,8 +230,8 @@ Deno.test("extractLabelsFromCategories", async (t) => {
       {
         "#text": "invalid",
       },
-    ];
-    const result = extractLabelsFromCategories(categories as any);
+    ] as unknown as Parameters<typeof extractLabelsFromCategories>[0];
+    const result = extractLabelsFromCategories(categories);
     assertEquals(result, {
       "changelog-label": ["copilot"],
     });
@@ -246,8 +246,8 @@ Deno.test("extractLabelsFromCategories", async (t) => {
       {
         "@domain": "invalid-domain",
       },
-    ];
-    const result = extractLabelsFromCategories(categories as any);
+    ] as unknown as Parameters<typeof extractLabelsFromCategories>[0];
+    const result = extractLabelsFromCategories(categories);
     assertEquals(result, {
       "changelog-label": ["copilot"],
     });
