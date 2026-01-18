@@ -1,5 +1,30 @@
 import Parser from "rss-parser";
 import { Octokit } from "@octokit/rest";
+import { parse } from "xml/mod.ts";
+
+interface XmlCategory {
+  "@domain"?: string;
+  "#text": string;
+}
+
+interface XmlItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  "content:encoded": string;
+  description: string;
+  category: XmlCategory | XmlCategory[];
+}
+
+interface RssChannel {
+  item: XmlItem[];
+}
+
+interface RssFeed {
+  rss: {
+    channel: RssChannel;
+  };
+}
 
 interface ChangelogEntry {
   title: string;
@@ -8,6 +33,7 @@ interface ChangelogEntry {
   pubDate: string;
   muted?: boolean;
   mutedBy?: string;
+  labels?: Record<string, string[]>;
 }
 
 interface ReleaseEntry {
@@ -27,7 +53,11 @@ interface ChangelogData {
   linear: ChangelogEntry[];
 }
 
-const parser = new Parser();
+const parser = new Parser({
+  customFields: {
+    item: ["category"], // categoryタグをカスタムフィールドとして取得
+  },
+});
 const octokit = new Octokit();
 
 // コマンドライン引数から日付を取得
@@ -48,23 +78,48 @@ export function isRecent(dateString: string, now: Date = new Date()): boolean {
 }
 
 // GitHub Changelog取得
+// GitHub Changelog取得
 async function fetchGitHubChangelog(
   targetDate: Date,
 ): Promise<ChangelogEntry[]> {
-  const feed = await parser.parseURL("https://github.blog/changelog/feed/");
-  const entries: ChangelogEntry[] = [];
+  const response = await fetch("https://github.blog/changelog/feed/");
+  const xmlText = await response.text();
+  const doc = parse(xmlText) as unknown as RssFeed;
 
-  for (const item of feed.items) {
-    if (item.pubDate && isRecent(item.pubDate, targetDate)) {
+  const entries: ChangelogEntry[] = [];
+  const items = doc.rss.channel.item;
+
+  for (const item of items) {
+    const pubDate = item.pubDate;
+    if (pubDate && isRecent(pubDate, targetDate)) {
+      const labels: Record<string, string[]> = {};
+      const categories = Array.isArray(item.category)
+        ? item.category
+        : (item.category ? [item.category] : []);
+
+      for (const category of categories) {
+        if (
+          typeof category === "object" && category !== null &&
+          category["@domain"]
+        ) {
+          const domain = category["@domain"];
+          const value = category["#text"];
+          if (!labels[domain]) {
+            labels[domain] = [];
+          }
+          labels[domain].push(value);
+        }
+      }
+
       entries.push({
-        title: item.title || "",
-        url: item.link || "",
-        content: item.contentSnippet || item.content || "",
-        pubDate: item.pubDate,
+        title: item.title,
+        url: item.link,
+        content: item["content:encoded"] || item.description || "",
+        pubDate: pubDate,
+        labels: Object.keys(labels).length > 0 ? labels : undefined,
       });
     }
   }
-
   return entries;
 }
 

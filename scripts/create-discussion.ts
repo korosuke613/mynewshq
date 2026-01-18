@@ -55,6 +55,7 @@ interface ChangelogEntry {
   pubDate: string;
   muted?: boolean;
   mutedBy?: string;
+  labels?: Record<string, string[]>;
 }
 
 interface ReleaseEntry {
@@ -76,22 +77,65 @@ interface ChangelogData {
 
 // changelogデータからラベル名を決定
 export function determineLabels(data: ChangelogData): string[] {
-  const labels: string[] = [];
+  const labels = new Set<string>(); // Setを使用して重複を避ける
 
   if (data.github && data.github.length > 0) {
-    labels.push("github");
+    labels.add("github"); // サービス名ラベルはプレフィックスなし
+    for (const entry of data.github) {
+      if (entry.labels) {
+        Object.values(entry.labels).flat().forEach((label) =>
+          labels.add(`gh:${label}`)
+        ); // サブカテゴリラベルにプレフィックスを付与
+      }
+    }
   }
   if (data.aws && data.aws.length > 0) {
-    labels.push("aws");
+    labels.add("aws");
   }
   if (data.claudeCode && data.claudeCode.length > 0) {
-    labels.push("claude-code");
+    labels.add("claude-code");
   }
   if (data.linear && data.linear.length > 0) {
-    labels.push("linear");
+    labels.add("linear");
   }
 
-  return labels;
+  return Array.from(labels); // Setを配列に変換して返す
+}
+
+// ランダムな16進数の色を生成
+function getRandomHexColor(): string {
+  return Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
+}
+
+// 新しいラベルを作成し、そのIDを返す
+async function createNewLabel(
+  graphqlWithAuth: typeof graphql,
+  repositoryId: string,
+  name: string,
+): Promise<string> {
+  const { createLabel } = await graphqlWithAuth<{
+    createLabel: { label: { id: string } };
+  }>(
+    `
+    mutation($repositoryId: ID!, $name: String!, $color: String!) {
+      createLabel(input: {
+        repositoryId: $repositoryId
+        name: $name
+        color: $color
+      }) {
+        label {
+          id
+        }
+      }
+    }
+  `,
+    {
+      repositoryId,
+      name,
+      color: getRandomHexColor(),
+    },
+  );
+  return createLabel.label.id;
 }
 
 // DiscussionにラベルIDsを追加
@@ -217,28 +261,53 @@ async function createDiscussion(
   // ラベル付与処理
   if (changelogData) {
     const labelNames = determineLabels(changelogData);
-    const labelIds = labelNames
-      .map((name) =>
-        repoData.repository.labels.nodes.find((l) => l.name === name)?.id
-      )
-      .filter((id): id is string => id !== undefined);
-
-    if (labelIds.length > 0) {
-      try {
-        await addLabelsToDiscussion(graphqlWithAuth, discussionId, labelIds);
-        console.log(`Labels added: ${labelNames.join(", ")}`);
-      } catch (error) {
-        console.error(
-          `Failed to add labels to discussion ${discussionId}:`,
-          error,
-        );
-      }
-    } else if (labelNames.length > 0) {
-      const missingLabels = labelNames.filter(
-        (name) =>
-          !repoData.repository.labels.nodes.find((l) => l.name === name),
+    if (labelNames.length > 0) {
+      const existingLabels = new Map(
+        repoData.repository.labels.nodes.map((l) => [l.name, l.id]),
       );
-      console.warn(`Warning: Labels not found: ${missingLabels.join(", ")}`);
+
+      const labelIdPromises = labelNames.map(async (name) => {
+        if (existingLabels.has(name)) {
+          return existingLabels.get(name)!;
+        } else {
+          try {
+            console.log(`Label "${name}" not found. Creating it...`);
+            const newLabelId = await createNewLabel(
+              graphqlWithAuth,
+              repositoryId,
+              name,
+            );
+            existingLabels.set(name, newLabelId); // 後続の重複作成を防ぐためマップに追加
+            return newLabelId;
+          } catch (error) {
+            if (error instanceof Error) {
+              console.warn(
+                `Warning: Failed to create label "${name}":`,
+                error.message,
+              );
+            } else {
+              console.warn(`Warning: Failed to create label "${name}":`, error);
+            }
+            return null;
+          }
+        }
+      });
+
+      const labelIds = (await Promise.all(labelIdPromises)).filter((
+        id,
+      ): id is string => id !== null);
+
+      if (labelIds.length > 0) {
+        try {
+          await addLabelsToDiscussion(graphqlWithAuth, discussionId, labelIds);
+          console.log(`Labels added: ${labelNames.join(", ")}`);
+        } catch (error) {
+          console.error(
+            `Failed to add labels to discussion ${discussionId}:`,
+            error,
+          );
+        }
+      }
     }
   }
 
@@ -347,7 +416,14 @@ export function generateDefaultBody(data: ChangelogData): string {
     if (activeEntries.length > 0) {
       body += "## GitHub Changelog\n";
       for (const item of activeEntries) {
-        body += `### [${item.title}](${item.url})\n`;
+        let labelsString = "";
+        if (item.labels) {
+          const allLabels = Object.values(item.labels).flat();
+          if (allLabels.length > 0) {
+            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
+          }
+        }
+        body += `### [${item.title}](${item.url}) ${labelsString}\n`;
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
