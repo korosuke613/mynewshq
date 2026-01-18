@@ -7,7 +7,7 @@ on:
   workflow_dispatch: # 手動実行も可能
 
 permissions:
-  contents: write
+  contents: read
   issues: write
 
 jobs:
@@ -23,43 +23,47 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Fetch changelogs
-        run: deno task fetch
-
-      - name: Check for changes
-        id: check_changes
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            FILE=$(ls -t data/changelogs/*.json | head -1)
-            echo "changelog_file=$FILE" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Commit and push changes
-        if: steps.check_changes.outputs.has_changes == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/changelogs/*.json
-          git commit -m "chore: update changelogs $(date +%Y-%m-%d)"
-          git push
-
-      - name: Trigger summarize workflow via Issue comment
-        if: steps.check_changes.outputs.has_changes == 'true'
+      - name: Fetch and post changelogs
         uses: actions/github-script@v7
         with:
           script: |
+            const { exec } = require('child_process');
+            const { promisify } = require('util');
+            const execAsync = promisify(exec);
+
+            // Fetch changelogs
+            console.log('Fetching changelogs...');
+            const { stdout, stderr } = await execAsync('deno task fetch');
+            console.log(stdout);
+            if (stderr) console.error(stderr);
+
+            // Read the generated JSON file
+            const fs = require('fs');
+            const files = fs.readdirSync('data/changelogs').filter(f => f.endsWith('.json'));
+
+            if (files.length === 0) {
+              console.log('No changelog files found');
+              return;
+            }
+
+            // Get the latest file
+            const sortedFiles = files.sort().reverse();
+            const latestFile = `data/changelogs/${sortedFiles[0]}`;
+            const changelogData = fs.readFileSync(latestFile, 'utf8');
+
+            // Post to Issue
             const issueNumber = 1;
             const today = new Date().toISOString().split('T')[0];
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `📰 ${today}のChangelogを要約してください。`
+              body: `📰 ${today}のChangelogを要約してください。\n\n<details>\n<summary>Changelog Data</summary>\n\n\`\`\`json\n${changelogData}\n\`\`\`\n\n</details>`
             });
 
-      - name: No updates
-        if: steps.check_changes.outputs.has_changes == 'false'
-        run: echo "No updates found in the last 24 hours."
+            console.log(`Posted changelog data to Issue #${issueNumber}`);
+
+            // Clean up - remove the temporary file
+            fs.unlinkSync(latestFile);
+            console.log(`Cleaned up temporary file: ${latestFile}`);

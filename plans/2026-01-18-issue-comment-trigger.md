@@ -2,7 +2,9 @@
 
 ## 背景
 
-GitHub Actionsの仕様により、`GITHUB_TOKEN`（actions bot）によるコミットでは別のワークフローのpushトリガーが発火しない。このため、`fetch-changelog.yml` → `summarize-changelog.yml` の連携が動作していない。
+GitHub Actionsの仕様により、`GITHUB_TOKEN`（actions
+bot）によるコミットでは別のワークフローのpushトリガーが発火しない。このため、`fetch-changelog.yml`
+→ `summarize-changelog.yml` の連携が動作していない。
 
 ## 解決策
 
@@ -25,6 +27,7 @@ GitHub Actionsの仕様により、`GITHUB_TOKEN`（actions bot）によるコ�
 **ファイル**: `.github/workflows/fetch-changelog.yml`
 
 変更点:
+
 1. `permissions` に `issues: write` を追加
 2. `check_changes` ステップで作成されたファイルパスを出力
 3. コミット＆プッシュ後、Issueにコメントを書き込むステップを追加
@@ -59,6 +62,7 @@ echo "changelog_file=$FILE" >> $GITHUB_OUTPUT
 **ファイル**: `.github/workflows/summarize-changelog.yml`
 
 変更点:
+
 1. トリガーを `push` から `issue_comment` に変更
 2. `permissions` に `issues: write` を追加
 3. `if` 条件でフィルタリング（actions botからのコメントのみ処理）
@@ -74,7 +78,7 @@ permissions:
   contents: write
   discussions: write
   pull-requests: write
-  issues: write  # 追加
+  issues: write # 追加
 
 jobs:
   summarize:
@@ -91,15 +95,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: main  # 追加: 最新のmainを取得
+          ref: main # 追加: 最新のmainを取得
 ```
 
 ## 修正対象ファイル
 
-| ファイル | 変更内容 |
-|---------|---------|
-| `.github/workflows/fetch-changelog.yml` | Issue comment追加ステップ |
-| `.github/workflows/summarize-changelog.yml` | トリガー条件変更 |
+| ファイル                                    | 変更内容                  |
+| ------------------------------------------- | ------------------------- |
+| `.github/workflows/fetch-changelog.yml`     | Issue comment追加ステップ |
+| `.github/workflows/summarize-changelog.yml` | トリガー条件変更          |
 
 ## 検証方法
 
