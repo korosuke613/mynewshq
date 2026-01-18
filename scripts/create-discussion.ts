@@ -12,11 +12,19 @@ interface DiscussionCategory {
   name: string;
 }
 
+interface Label {
+  id: string;
+  name: string;
+}
+
 interface RepositoryData {
   repository: {
     id: string;
     discussionCategories: {
       nodes: DiscussionCategory[];
+    };
+    labels: {
+      nodes: Label[];
     };
   };
 }
@@ -24,7 +32,18 @@ interface RepositoryData {
 interface CreateDiscussionResult {
   createDiscussion: {
     discussion: {
+      id: string;
       url: string;
+    };
+  };
+}
+
+interface AddLabelsResult {
+  addLabelsToLabelable: {
+    labelable: {
+      labels: {
+        nodes: Label[];
+      };
     };
   };
 }
@@ -50,6 +69,60 @@ interface ChangelogData {
   claudeCode: ReleaseEntry[];
 }
 
+// changelogデータからラベル名を決定
+export function determineLabels(data: ChangelogData): string[] {
+  const labels: string[] = [];
+
+  if (data.github && data.github.length > 0) {
+    labels.push("github");
+  }
+  if (data.aws && data.aws.length > 0) {
+    labels.push("aws");
+  }
+  if (data.claudeCode && data.claudeCode.length > 0) {
+    labels.push("claude-code");
+  }
+
+  return labels;
+}
+
+// DiscussionにラベルIDsを追加
+async function addLabelsToDiscussion(
+  graphqlWithAuth: typeof graphql,
+  discussionId: string,
+  labelIds: string[],
+): Promise<void> {
+  if (labelIds.length === 0) {
+    return;
+  }
+
+  await graphqlWithAuth<AddLabelsResult>(
+    `
+    mutation($labelableId: ID!, $labelIds: [ID!]!) {
+      addLabelsToLabelable(input: {
+        labelableId: $labelableId
+        labelIds: $labelIds
+      }) {
+        labelable {
+          ... on Discussion {
+            id
+            labels(first: 10) {
+              nodes {
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+  `,
+    {
+      labelableId: discussionId,
+      labelIds,
+    },
+  );
+}
+
 // GitHub GraphQL APIでDiscussion作成
 async function createDiscussion(
   token: string,
@@ -58,6 +131,7 @@ async function createDiscussion(
   categoryName: string,
   title: string,
   body: string,
+  changelogData?: ChangelogData,
 ): Promise<string> {
   const graphqlWithAuth = graphql.defaults({
     headers: {
@@ -65,13 +139,19 @@ async function createDiscussion(
     },
   });
 
-  // リポジトリIDとカテゴリIDを取得
+  // リポジトリIDとカテゴリID、ラベル一覧を取得
   const repoData = await graphqlWithAuth<RepositoryData>(
     `
     query($owner: String!, $repo: String!) {
       repository(owner: $owner, name: $repo) {
         id
         discussionCategories(first: 10) {
+          nodes {
+            id
+            name
+          }
+        }
+        labels(first: 100) {
           nodes {
             id
             name
@@ -109,6 +189,7 @@ async function createDiscussion(
         body: $body
       }) {
         discussion {
+          id
           url
         }
       }
@@ -122,7 +203,38 @@ async function createDiscussion(
     },
   );
 
-  return result.createDiscussion.discussion.url;
+  const discussionId = result.createDiscussion.discussion.id;
+  const discussionUrl = result.createDiscussion.discussion.url;
+
+  // ラベル付与処理
+  if (changelogData) {
+    const labelNames = determineLabels(changelogData);
+    const labelIds = labelNames
+      .map((name) =>
+        repoData.repository.labels.nodes.find((l) => l.name === name)?.id
+      )
+      .filter((id): id is string => id !== undefined);
+
+    if (labelIds.length > 0) {
+      try {
+        await addLabelsToDiscussion(graphqlWithAuth, discussionId, labelIds);
+        console.log(`Labels added: ${labelNames.join(", ")}`);
+      } catch (error) {
+        console.error(
+          `Failed to add labels to discussion ${discussionId}:`,
+          error,
+        );
+      }
+    } else if (labelNames.length > 0) {
+      const missingLabels = labelNames.filter(
+        (name) =>
+          !repoData.repository.labels.nodes.find((l) => l.name === name),
+      );
+      console.warn(`Warning: Labels not found: ${missingLabels.join(", ")}`);
+    }
+  }
+
+  return discussionUrl;
 }
 
 // コマンドライン引数から日付を取得し、フラグ以外の引数を返す
@@ -181,6 +293,7 @@ async function main() {
     categoryName,
     title,
     body,
+    changelogData,
   );
 
   console.log(`Discussion created: ${url}`);
