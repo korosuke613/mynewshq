@@ -27,9 +27,19 @@ jobs:
       - name: Fetch changelogs
         run: deno task fetch
 
+      - name: Login GitHub App
+        id: login-gh-app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
+          private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
       - name: Summarize and post with Claude Code
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             data/changelogs/ ディレクトリにある最新のJSONファイルを読み込んで、
