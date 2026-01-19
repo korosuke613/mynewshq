@@ -221,6 +221,13 @@ Discussion内のコメントで `@claude` とメンションすると、Claude C
 - **動作**: タイトルに部分一致（大文字小文字無視）でマッチ
 - **表示**: AI要約対象外とし、Discussionでは折りたたみでタイトルとリンクのみ表示
 
+### 🔗 URL正規化機能
+
+AWS RSSフィードなどで稀に発生するURL破損（`.com` の後の `/` が欠落）を自動修正します：
+
+- **入力**: `https://aws.amazon.comabout-aws/...`
+- **出力**: `https://aws.amazon.com/about-aws/...`
+
 #### ミュートワード設定例
 
 Issue #1 の本文:
@@ -357,6 +364,7 @@ deno check scripts/*.ts  # 型チェック
 - `@octokit/rest` - GitHub REST API クライアント
 - `@octokit/graphql` - GitHub GraphQL API クライアント
 - `rss-parser` - RSSフィード解析
+- `xml` - XMLパーサー（GitHub Changelog用）
 - `@std/assert` - Deno標準アサーションライブラリ（テスト用）
 
 依存関係の更新は `deno.json` と `deno.lock` で管理されています。
@@ -412,7 +420,7 @@ GITHUB_TOKEN=$(gh auth token) MUTE_WORDS_ISSUE_NUMBER=1 deno task fetch
 **原因**: ワークフローの`settings`で必要なツールが許可されていない
 
 **解決方法**:
-現在のワークフローでは `--output-format json` を使用して構造化出力を取得しているため、`settings` は不要です。
+現在のワークフローでは `--json-schema` を使用して構造化出力を取得しているため、`settings` は不要です。
 
 ### データ取得エラー
 

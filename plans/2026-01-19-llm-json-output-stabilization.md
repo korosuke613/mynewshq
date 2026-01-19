@@ -107,7 +107,20 @@ Discussion #19 で以下の問題が発生:
 |------|------|
 | JSON パースエラー | LLM が不正な JSON を出力した場合のエラーハンドリングを実装 |
 | 要約の欠落 | 要約がないエントリは要約なしで表示（フォールバック） |
-| URL の正規化 | 末尾スラッシュの有無など、URL の微妙な違いに注意 |
+| URL の正規化 | `normalizeUrl()` 関数で破損URLを自動修正（下記参照） |
+
+### URL 正規化機能
+
+AWS RSSフィードで稀に発生するURL破損（`.com` の後の `/` が欠落）を自動修正する機能を実装。
+
+**問題の例:**
+- 破損URL: `https://aws.amazon.comabout-aws/whats-new/...`
+- 正常URL: `https://aws.amazon.com/about-aws/whats-new/...`
+
+**実装:**
+- `scripts/fetch-changelogs.ts` に `normalizeUrl()` 関数を追加
+- `fetchAWSChangelog()` でURL取得時に正規化を適用
+- 正規表現 `/\.com([a-z])/i` で `.com` 直後のアルファベットを検出し `/` を挿入
 
 ## 検証方法
 
