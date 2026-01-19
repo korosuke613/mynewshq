@@ -396,7 +396,11 @@ async function main() {
   const summary = otherArgs.slice(3).join(" ");
 
   const title = `📰 Tech Changelog - ${changelogData.date}`;
-  const body = (summary || generateDefaultBody(changelogData)) +
+  // 対象期間は常に先頭に追加（LLMの要約でも確実に含める）
+  const coveragePeriod = generateCoveragePeriod(changelogData.date);
+  const mainBody = summary || generateDefaultBody(changelogData);
+  // summaryの場合は対象期間を追加、generateDefaultBodyの場合は既に含まれているのでスキップ
+  const body = (summary ? coveragePeriod + "\n\n" + mainBody : mainBody) +
     generateMention();
 
   console.log(`Creating discussion: ${title}`);
@@ -444,9 +448,24 @@ export function generateMutedSection<
   return section;
 }
 
+// 対象期間の文字列を生成（UTC 3:00 基準の24時間ウィンドウ）
+export function generateCoveragePeriod(dateStr: string): string {
+  const endDate = new Date(dateStr + "T03:00:00Z");
+  const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+
+  const formatDateTime = (date: Date): string => {
+    return date.toISOString().replace("T", " ").replace(":00.000Z", " UTC");
+  };
+
+  return `📅 **対象期間**: ${formatDateTime(startDate)} ~ ${
+    formatDateTime(endDate)
+  }`;
+}
+
 // デフォルトのボディ生成（要約がない場合）
 export function generateDefaultBody(data: ChangelogData): string {
   let body = `# 📰 Tech Changelog - ${data.date}\n\n`;
+  body += generateCoveragePeriod(data.date) + "\n\n";
 
   if (data.github && data.github.length > 0) {
     const activeEntries = data.github.filter((e) => !e.muted);

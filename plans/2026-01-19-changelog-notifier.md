@@ -15,7 +15,7 @@
 
 ### 実行環境
 
-- GitHub Actions（cron で毎日 9:00 JST に実行）
+- GitHub Actions（cron で毎日 12:00 JST（アメリカ西海岸時間の夜）に実行）
 
 ### 表示形式
 
@@ -32,7 +32,7 @@
 ### アーキテクチャ
 
 ```
-[cron 9:00 JST]
+[cron 12:00 JST]
       │
       ▼
 ┌─────────────────────────────┐
@@ -125,7 +125,7 @@ mynewshq/
 
 ### Step 3: fetch-changelog.yml 作成
 
-- cron: `0 0 * * *`（UTC 0:00 = JST 9:00）
+- cron: `0 3 * * *`（UTC 3:00 = JST 12:00 = PST 19:00/PDT 20:00）
 - データ取得スクリプト実行
 - 更新があれば `data/changelogs/YYYY-MM-DD.json` をコミット&プッシュ
 - 更新がなければ何もしない

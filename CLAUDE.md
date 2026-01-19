@@ -9,7 +9,7 @@
 
 ## プロジェクト概要
 
-毎日9:00 JSTに以下のChangelogを自動収集します：
+毎日12:00 JST（アメリカ西海岸時間の夜）に以下のChangelogを自動収集します：
 
 - GitHub Changelog (RSS)
 - AWS What's New (RSS)
@@ -45,7 +45,7 @@ Changelogデータを読み込み、以下の形式で日本語要約を生成�
 
 ## GitHub Changelog
 
-### [タイトル](URL)
+### [タイトル](URL) `ラベル1` `ラベル2`
 
 **要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
 
@@ -66,6 +66,23 @@ Changelogデータを読み込み、以下の形式で日本語要約を生成�
 ### [タイトル](URL)
 
 **要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
+```
+
+### ラベルについて
+
+GitHub Changelogのエントリには`labels`フィールドがあります。このラベルを見出しの後ろにインラインコード（バッククォート）で表示してください。
+
+例: JSONに以下のようなラベルがある場合：
+```json
+"labels": {
+  "changelog-type": ["Improvement"],
+  "changelog-label": ["copilot", "security"]
+}
+```
+
+見出しは以下のように表示：
+```markdown
+### [タイトル](URL) `Improvement` `copilot` `security`
 ```
 
 ### 要約のルール

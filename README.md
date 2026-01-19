@@ -4,7 +4,7 @@
 
 ## 概要
 
-毎日9:00 JSTに以下のChangelogを自動収集し、Claude Code
+毎日12:00 JST（アメリカ西海岸時間の夜）に以下のChangelogを自動収集し、Claude Code
 Actionで日本語要約を生成してGitHub Discussionsに投稿します。
 
 📰 **投稿された要約**: [Discussions](../../discussions)
@@ -21,7 +21,7 @@ Actionで日本語要約を生成してGitHub Discussionsに投稿します。
 ## アーキテクチャ
 
 ```
-[cron 9:00 JST]
+[cron 12:00 JST]
       │
       ▼
 ┌─────────────────────────────────────┐
@@ -110,6 +110,9 @@ GITHUB_TOKEN=$(gh auth token) MENTION_USER=your-username deno task post korosuke
 deno task preview
 deno task preview -- --date=2026-01-13
 
+# Discussionにコメントを投稿
+GITHUB_TOKEN=$(gh auth token) deno task reply-discussion 1 korosuke613 mynewshq "コメント内容"
+
 # テストの実行
 deno task test
 ```
@@ -118,7 +121,7 @@ deno task test
 
 ### 自動実行
 
-GitHub Actionsが毎日9:00 JSTに自動実行します。何もする必要はありません。
+GitHub Actionsが毎日12:00 JST（アメリカ西海岸時間の夜）に自動実行します。何もする必要はありません。
 
 ### 手動実行
 
@@ -139,13 +142,16 @@ GitHub Actionsページから手動でワークフローを実行できます：
 mynewshq/
 ├── .github/workflows/
 │   ├── daily-changelog.yml         # メインワークフロー（収集→要約→投稿）
+│   ├── discussion-claude-answer.yml # Claudeによる質問回答
+│   ├── discussion-claude-mention.yml # @claudeメンションのトリガー
 │   └── quality-check.yml           # コード品質チェック
 ├── scripts/
 │   ├── fetch-changelogs.ts         # RSS/Releases取得 + ミュートフィルタ
 │   ├── fetch-changelogs_test.ts    # テストコード
 │   ├── create-discussion.ts        # Discussion投稿 + ラベル自動付与 + メンション
 │   ├── create-discussion_test.ts   # テストコード
-│   └── preview-discussion.ts       # Discussion投稿内容をプレビュー
+│   ├── preview-discussion.ts       # Discussion投稿内容をプレビュー
+│   └── reply-discussion.ts         # Discussionにコメントを投稿
 ├── data/changelogs/                # 収集データ（Git管理）
 │   └── YYYY-MM-DD.json
 ├── plans/                          # 実装計画ドキュメント
@@ -178,6 +184,20 @@ Discussion投稿時に、本文の末尾に自動的にメンションを追加�
 #### 環境変数
 
 - `MENTION_USER` - メンション先のGitHubユーザー名（デフォルト: korosuke613）
+
+### 🤖 @claudeメンション機能
+
+Discussion内のコメントで `@claude` とメンションすると、Claude Code Actionが質問に回答します：
+
+- **使い方**: Discussionのコメントに `@claude 質問内容` と入力
+- **対象ユーザー**: 現在は `korosuke613` のみ有効
+- **動作**: メンションを検知 → Claude Codeワークフロー起動 → 自動回答を投稿
+
+#### 例
+
+```
+@claude このリポジトリの最新のAWS更新は何ですか？
+```
 
 ### 🔇 ミュートワード機能
 
@@ -257,7 +277,7 @@ Issue #1 の本文:
 
 ```yaml
 schedule:
-  - cron: "0 0 * * *" # UTC 0:00 = JST 9:00
+  - cron: "0 3 * * *" # UTC 3:00 = JST 12:00 = PST 19:00/PDT 20:00
 ```
 
 ### 要約フォーマットの変更
