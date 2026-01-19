@@ -49,14 +49,27 @@
    - `plans/2025-01-18-changelog-notifier.md` - 初期プランの時刻を更新
    - `plans/2026-01-18-single-workflow.md` - ワークフロー統合時の時刻を更新
 
+4. **`scripts/fetch-changelogs.ts`**
+   - `parseDate()`関数を更新：`--date`指定時に`T03:00:00Z`を使用
+   - これにより、workflow_dispatchで過去の日付を指定した場合も、cronと同じUTC 3:00の24時間ウィンドウを使用
+
+### 日付指定時の動作
+
+**重要**: workflow_dispatchで過去の日付を指定する場合、UTC 3:00基準の24時間ウィンドウを使用します。
+
+- **変更前**: `--date=2026-01-15` → `2026-01-15T23:59:59Z`基準で過去24時間
+- **変更後**: `--date=2026-01-15` → `2026-01-15T03:00:00Z`基準で過去24時間
+
+これにより、手動実行時もcronスケジュールと同じ時刻基準でデータを収集できます。
+
 ### コードへの影響
 
-スケジュール変更のため、以下のコードは変更不要：
+スケジュール変更に伴い、以下のコードを変更：
 
-- `scripts/fetch-changelogs.ts` - 日付処理ロジックは現在時刻または指定日付に基づく
-- `scripts/create-discussion.ts` - Discussionタイトルは日付から生成される
-- `scripts/preview-discussion.ts` - プレビュー機能は影響を受けない
-- テストコード - 時刻に依存しないテストのため変更不要
+- `scripts/fetch-changelogs.ts` - `parseDate()`関数を更新して、`--date`指定時にUTC 3:00を使用（cronスケジュールと一致）
+- `scripts/create-discussion.ts` - 変更不要。Discussionタイトルは日付から生成される
+- `scripts/preview-discussion.ts` - 変更不要。プレビュー機能は影響を受けない
+- テストコード - 変更不要。時刻に依存しないテストのため
 
 ## 検証
 
