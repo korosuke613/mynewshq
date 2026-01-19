@@ -59,39 +59,68 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      - name: Summarize and post with Claude Code
+      - name: Determine target date
+        id: target-date
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            echo "date=${{ inputs.date }}" >> $GITHUB_OUTPUT
+          else
+            echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate summaries with Claude Code
+        id: summarize
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         with:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          settings: |
+          claude_args: |
+            -p
+            --output-format json
+          prompt: |
+            data/changelogs/${{ steps.target-date.outputs.date }}.json を読み込み、各エントリの要約を生成してください。
+
+            ## ルール
+            - `muted: true` のエントリはスキップしてください
+            - 各エントリについて、2-3文で簡潔に日本語で要約してください
+            - 技術者向けにわかりやすく、重要なポイントを強調してください
+
+            ## 出力形式
+            以下の JSON 形式で出力してください。キーはエントリの URL、値は要約文です。
+
+            ```json
             {
-              "permissions": {
-                "allow": ["Bash", "Write"]
+              "github": {
+                "https://github.blog/changelog/...": "要約文...",
+                "https://github.blog/changelog/...": "要約文..."
+              },
+              "aws": {
+                "https://aws.amazon.com/...": "要約文..."
+              },
+              "claudeCode": {
+                "https://github.com/.../releases/...": "要約文..."
+              },
+              "linear": {
+                "https://linear.app/changelog/...": "要約文..."
               }
             }
-          prompt: |
-            以下のタスクを実行してください：
+            ```
 
-            1. data/changelogs/ ディレクトリにある${{ inputs.date && format('「{0}」', inputs.date) || '最新の' }}JSONファイルを読み込む
-            2. 以下のルールで日本語要約を生成する：
-               - GitHub Changelog、AWS What's New、Claude Codeの3つのセクションに分ける
-               - 各エントリについて、タイトルとURLをリンク形式で表示
-               - **重要**: `muted: true` のエントリはAI要約の対象外とする（スキップする）
-               - アクティブなエントリ（muted !== true）のみ、内容を2-3文で簡潔に日本語で要約
-               - 技術者向けにわかりやすく、重要なポイントを強調
-               - 更新がないセクションは省略する
-               - ミュートされたエントリがある場合は、以下の形式で折りたたみ表示する：
-                 ```
-                 <details>
-                 <summary>ミュートされたエントリ (N件)</summary>
+            該当するエントリがないカテゴリは空オブジェクト `{}` としてください。
 
-                 - [タイトル](URL) *(ミュートワード: xxx)*
-                 </details>
-                 ```
-            3. 生成した要約をsummary.mdファイルに書き込む
-            4. ${{ inputs.date && format('`deno task post --date={0} korosuke613 mynewshq General "$(cat summary.md)"`', inputs.date) || '`deno task post korosuke613 mynewshq General "$(cat summary.md)"`' }}を実行してDiscussionに投稿する
+      - name: Post to Discussion
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+        run: |
+          # Claude Code の出力から JSON を抽出
+          SUMMARIES_JSON='${{ steps.summarize.outputs.result }}'
 
-            必ず最後のステップまで実行してください。
+          # JSON が空や無効な場合のフォールバック
+          if [ -z "$SUMMARIES_JSON" ] || [ "$SUMMARIES_JSON" = "null" ]; then
+            echo "Warning: No valid summaries JSON from Claude Code, using default body"
+            deno task post --date=${{ steps.target-date.outputs.date }} korosuke613 mynewshq General
+          else
+            deno task post --date=${{ steps.target-date.outputs.date }} --summaries-json="$SUMMARIES_JSON" korosuke613 mynewshq General
+          fi

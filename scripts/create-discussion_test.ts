@@ -1,8 +1,11 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import {
   determineLabels,
+  generateBodyWithSummaries,
   generateDefaultBody,
   generateMutedSection,
+  parseArgs,
+  type SummaryData,
 } from "./create-discussion.ts";
 
 const mockData = {
@@ -406,5 +409,204 @@ Deno.test("generateDefaultBody with muted entries", async (t) => {
     assertStringIncludes(body, "ミュートされたエントリ (2件)");
     assertStringIncludes(body, "[Muted AWS 1](https://example.com/1)");
     assertStringIncludes(body, "[Muted AWS 2](https://example.com/2)");
+  });
+});
+
+Deno.test("parseArgs", async (t) => {
+  await t.step("日付なしの場合は今日の日付を返す", () => {
+    const result = parseArgs(["owner", "repo"]);
+    assertEquals(result.otherArgs, ["owner", "repo"]);
+    assertEquals(result.summariesJson, null);
+    // 日付は動的なのでフォーマットのみチェック
+    assertEquals(/^\d{4}-\d{2}-\d{2}$/.test(result.date), true);
+  });
+
+  await t.step("--date オプションで日付を指定できる", () => {
+    const result = parseArgs(["--date=2026-01-15", "owner", "repo"]);
+    assertEquals(result.date, "2026-01-15");
+    assertEquals(result.otherArgs, ["owner", "repo"]);
+    assertEquals(result.summariesJson, null);
+  });
+
+  await t.step("--summaries-json オプションで要約JSONを指定できる", () => {
+    const json = '{"github":{"https://example.com":"要約"}}';
+    const result = parseArgs([`--summaries-json=${json}`, "owner", "repo"]);
+    assertEquals(result.summariesJson, json);
+    assertEquals(result.otherArgs, ["owner", "repo"]);
+  });
+
+  await t.step("--date と --summaries-json を同時に指定できる", () => {
+    const json = '{"github":{}}';
+    const result = parseArgs([
+      "--date=2026-01-20",
+      `--summaries-json=${json}`,
+      "owner",
+      "repo",
+    ]);
+    assertEquals(result.date, "2026-01-20");
+    assertEquals(result.summariesJson, json);
+    assertEquals(result.otherArgs, ["owner", "repo"]);
+  });
+});
+
+Deno.test("generateBodyWithSummaries", async (t) => {
+  const mockDataWithLabels = {
+    date: "2026-01-18",
+    github: [
+      {
+        title: "Copilot SDK in Technical Preview",
+        url: "https://github.blog/changelog/copilot-sdk",
+        content: "",
+        pubDate: "2026-01-18T10:00:00Z",
+        labels: {
+          "changelog-type": ["Release"],
+          "changelog-label": ["copilot"],
+        },
+      },
+      {
+        title: "Muted Feature",
+        url: "https://github.blog/changelog/muted",
+        content: "",
+        pubDate: "2026-01-18T11:00:00Z",
+        muted: true,
+        mutedBy: "SageMaker",
+      },
+    ],
+    aws: [
+      {
+        title: "Amazon S3 Update",
+        url: "https://aws.amazon.com/about-aws/whats-new/s3",
+        content: "",
+        pubDate: "2026-01-18T12:00:00Z",
+      },
+    ],
+    claudeCode: [
+      {
+        version: "v2.1.12",
+        url: "https://github.com/anthropics/claude-code/releases/v2.1.12",
+        body: "",
+        publishedAt: "2026-01-17T16:00:00Z",
+      },
+    ],
+    linear: [],
+  };
+
+  const summaries: SummaryData = {
+    github: {
+      "https://github.blog/changelog/copilot-sdk":
+        "Copilot SDKがテクニカルプレビューとして公開されました。開発者はこのSDKを使用してCopilot機能をアプリケーションに統合できます。",
+    },
+    aws: {
+      "https://aws.amazon.com/about-aws/whats-new/s3":
+        "Amazon S3に新機能が追加されました。ストレージ管理がより効率的になります。",
+    },
+    claudeCode: {
+      "https://github.com/anthropics/claude-code/releases/v2.1.12":
+        "Claude Code v2.1.12がリリースされました。パフォーマンス改善とバグ修正が含まれています。",
+    },
+    linear: {},
+  };
+
+  await t.step("要約付きで正しいMarkdownを生成する", () => {
+    const body = generateBodyWithSummaries(mockDataWithLabels, summaries);
+
+    // タイトルと対象期間
+    assertStringIncludes(body, "# 📰 Tech Changelog - 2026-01-18");
+    assertStringIncludes(body, "📅 **対象期間**:");
+
+    // GitHub Changelog セクション
+    assertStringIncludes(body, "## GitHub Changelog");
+    assertStringIncludes(
+      body,
+      "[Copilot SDK in Technical Preview](https://github.blog/changelog/copilot-sdk)",
+    );
+    assertStringIncludes(
+      body,
+      "**要約**: Copilot SDKがテクニカルプレビューとして公開されました",
+    );
+
+    // AWS セクション
+    assertStringIncludes(body, "## AWS What's New");
+    assertStringIncludes(
+      body,
+      "[Amazon S3 Update](https://aws.amazon.com/about-aws/whats-new/s3)",
+    );
+    assertStringIncludes(body, "**要約**: Amazon S3に新機能が追加されました");
+
+    // Claude Code セクション
+    assertStringIncludes(body, "## Claude Code");
+    assertStringIncludes(
+      body,
+      "[v2.1.12](https://github.com/anthropics/claude-code/releases/v2.1.12)",
+    );
+    assertStringIncludes(
+      body,
+      "**要約**: Claude Code v2.1.12がリリースされました",
+    );
+  });
+
+  await t.step("ラベルがインラインコードとして表示される", () => {
+    const body = generateBodyWithSummaries(mockDataWithLabels, summaries);
+
+    // ラベルが見出しの後にバッククォートで表示される
+    assertStringIncludes(body, "`Release`");
+    assertStringIncludes(body, "`copilot`");
+  });
+
+  await t.step("mutedエントリは折りたたみセクションに表示される", () => {
+    const body = generateBodyWithSummaries(mockDataWithLabels, summaries);
+
+    assertStringIncludes(body, "<details>");
+    assertStringIncludes(
+      body,
+      "<summary>ミュートされたエントリ (1件)</summary>",
+    );
+    assertStringIncludes(
+      body,
+      "[Muted Feature](https://github.blog/changelog/muted)",
+    );
+    assertStringIncludes(body, "*(ミュートワード: SageMaker)*");
+  });
+
+  await t.step("URLでマッチングする（タイトルのブレに影響されない）", () => {
+    const summariesWithDifferentKey: SummaryData = {
+      github: {
+        // URL でマッチするので、タイトルが違っても問題ない
+        "https://github.blog/changelog/copilot-sdk": "URLでマッチした要約",
+      },
+      aws: {},
+      claudeCode: {},
+      linear: {},
+    };
+
+    const body = generateBodyWithSummaries(
+      mockDataWithLabels,
+      summariesWithDifferentKey,
+    );
+    assertStringIncludes(body, "**要約**: URLでマッチした要約");
+  });
+
+  await t.step("要約がないエントリは要約なしで表示される", () => {
+    const emptySummaries: SummaryData = {
+      github: {},
+      aws: {},
+      claudeCode: {},
+      linear: {},
+    };
+
+    const body = generateBodyWithSummaries(mockDataWithLabels, emptySummaries);
+
+    // エントリは表示されるが、要約は表示されない
+    assertStringIncludes(
+      body,
+      "[Copilot SDK in Technical Preview](https://github.blog/changelog/copilot-sdk)",
+    );
+    assertEquals(body.includes("**要約**:"), false);
+  });
+
+  await t.step("空のカテゴリはセクションに含めない", () => {
+    const body = generateBodyWithSummaries(mockDataWithLabels, summaries);
+    // linear は空なのでセクションがない
+    assertEquals(body.includes("## Linear Changelog"), false);
   });
 });

@@ -75,6 +75,14 @@ interface ChangelogData {
   linear: ChangelogEntry[];
 }
 
+// 要約データの型定義（キーはURL、値は要約文）
+export interface SummaryData {
+  github: Record<string, string>;
+  aws: Record<string, string>;
+  claudeCode: Record<string, string>;
+  linear: Record<string, string>;
+}
+
 // changelogデータからラベル名を決定
 export function determineLabels(data: ChangelogData): string[] {
   const labels = new Set<string>(); // Setを使用して重複を避ける
@@ -351,10 +359,17 @@ async function createDiscussion(
   return discussionUrl;
 }
 
-// コマンドライン引数から日付を取得し、フラグ以外の引数を返す
-function parseArgs(args: string[]): { date: string; otherArgs: string[] } {
+// コマンドライン引数から日付と要約JSONを取得し、フラグ以外の引数を返す
+export function parseArgs(
+  args: string[],
+): { date: string; summariesJson: string | null; otherArgs: string[] } {
   const dateArg = args.find((arg) => arg.startsWith("--date="));
-  const otherArgs = args.filter((arg) => !arg.startsWith("--date="));
+  const summariesJsonArg = args.find((arg) =>
+    arg.startsWith("--summaries-json=")
+  );
+  const otherArgs = args.filter(
+    (arg) => !arg.startsWith("--date=") && !arg.startsWith("--summaries-json="),
+  );
 
   let date: string;
   if (dateArg) {
@@ -363,7 +378,12 @@ function parseArgs(args: string[]): { date: string; otherArgs: string[] } {
     date = new Date().toISOString().split("T")[0];
   }
 
-  return { date, otherArgs };
+  let summariesJson: string | null = null;
+  if (summariesJsonArg) {
+    summariesJson = summariesJsonArg.substring("--summaries-json=".length);
+  }
+
+  return { date, summariesJson, otherArgs };
 }
 
 // メイン処理
@@ -375,7 +395,7 @@ async function main() {
   }
 
   // 引数からリポジトリ情報を取得（デフォルト: korosuke613/mynewshq）
-  const { date, otherArgs } = parseArgs(Deno.args);
+  const { date, summariesJson, otherArgs } = parseArgs(Deno.args);
   const owner = otherArgs[0] || "korosuke613";
   const repo = otherArgs[1] || "mynewshq";
   const categoryName = otherArgs[2] || "General";
@@ -383,7 +403,7 @@ async function main() {
   // 指定された日付のchangelog JSONファイルを取得
   const changelogPath = `data/changelogs/${date}.json`;
 
-  let changelogData;
+  let changelogData: ChangelogData;
   try {
     const content = await Deno.readTextFile(changelogPath);
     changelogData = JSON.parse(content);
@@ -392,16 +412,32 @@ async function main() {
     Deno.exit(1);
   }
 
-  // 引数から要約を取得（4番目以降の引数をすべて結合）
-  const summary = otherArgs.slice(3).join(" ");
+  // 引数から要約を取得（4番目以降の引数をすべて結合）- 後方互換性のため維持
+  const legacySummary = otherArgs.slice(3).join(" ");
 
   const title = `📰 Tech Changelog - ${changelogData.date}`;
-  // 対象期間は常に先頭に追加（LLMの要約でも確実に含める）
-  const coveragePeriod = generateCoveragePeriod(changelogData.date);
-  const mainBody = summary || generateDefaultBody(changelogData);
-  // summaryの場合は対象期間を追加、generateDefaultBodyの場合は既に含まれているのでスキップ
-  const body = (summary ? coveragePeriod + "\n\n" + mainBody : mainBody) +
-    generateMention();
+  let body: string;
+
+  if (summariesJson) {
+    // 構造化要約JSONが指定された場合
+    try {
+      const summaries: SummaryData = JSON.parse(summariesJson);
+      body = generateBodyWithSummaries(changelogData, summaries) +
+        generateMention();
+      console.log("Using structured summaries JSON");
+    } catch (error) {
+      console.error("Failed to parse summaries JSON:", error);
+      console.error("Falling back to default body generation");
+      body = generateDefaultBody(changelogData) + generateMention();
+    }
+  } else if (legacySummary) {
+    // 従来の要約文字列が指定された場合（後方互換性）
+    const coveragePeriod = generateCoveragePeriod(changelogData.date);
+    body = coveragePeriod + "\n\n" + legacySummary + generateMention();
+  } else {
+    // 要約なしの場合
+    body = generateDefaultBody(changelogData) + generateMention();
+  }
 
   console.log(`Creating discussion: ${title}`);
 
@@ -528,6 +564,98 @@ export function generateDefaultBody(data: ChangelogData): string {
       for (const item of activeEntries) {
         body += `### [${item.title}](${item.url})\n`;
         body += `*Published: ${item.pubDate}*\n\n`;
+      }
+    }
+    body += generateMutedSection(data.linear);
+    if (activeEntries.length > 0 || data.linear.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
+  }
+
+  return body;
+}
+
+// 要約データ付きのボディ生成
+export function generateBodyWithSummaries(
+  data: ChangelogData,
+  summaries: SummaryData,
+): string {
+  let body = `# 📰 Tech Changelog - ${data.date}\n\n`;
+  body += generateCoveragePeriod(data.date) + "\n\n";
+
+  if (data.github && data.github.length > 0) {
+    const activeEntries = data.github.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += "## GitHub Changelog\n\n";
+      for (const item of activeEntries) {
+        let labelsString = "";
+        if (item.labels) {
+          const allLabels = Object.values(item.labels).flat();
+          if (allLabels.length > 0) {
+            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
+          }
+        }
+        body += `### [${item.title}](${item.url})${
+          labelsString ? " " + labelsString : ""
+        }\n\n`;
+        const summary = summaries.github?.[item.url];
+        if (summary) {
+          body += `**要約**: ${summary}\n\n`;
+        }
+      }
+    }
+    body += generateMutedSection(data.github);
+    if (activeEntries.length > 0 || data.github.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
+  }
+
+  if (data.aws && data.aws.length > 0) {
+    const activeEntries = data.aws.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += "## AWS What's New\n\n";
+      for (const item of activeEntries) {
+        body += `### [${item.title}](${item.url})\n\n`;
+        const summary = summaries.aws?.[item.url];
+        if (summary) {
+          body += `**要約**: ${summary}\n\n`;
+        }
+      }
+    }
+    body += generateMutedSection(data.aws);
+    if (activeEntries.length > 0 || data.aws.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
+  }
+
+  if (data.claudeCode && data.claudeCode.length > 0) {
+    const activeEntries = data.claudeCode.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += "## Claude Code\n\n";
+      for (const item of activeEntries) {
+        body += `### [${item.version}](${item.url})\n\n`;
+        const summary = summaries.claudeCode?.[item.url];
+        if (summary) {
+          body += `**要約**: ${summary}\n\n`;
+        }
+      }
+    }
+    body += generateMutedSection(data.claudeCode);
+    if (activeEntries.length > 0 || data.claudeCode.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
+  }
+
+  if (data.linear && data.linear.length > 0) {
+    const activeEntries = data.linear.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += "## Linear Changelog\n\n";
+      for (const item of activeEntries) {
+        body += `### [${item.title}](${item.url})\n\n`;
+        const summary = summaries.linear?.[item.url];
+        if (summary) {
+          body += `**要約**: ${summary}\n\n`;
+        }
       }
     }
     body += generateMutedSection(data.linear);
