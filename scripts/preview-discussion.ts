@@ -1,5 +1,10 @@
 // Discussion投稿内容をプレビューするスクリプト
-import { generateDefaultBody, generateMention } from "./create-discussion.ts";
+import {
+  generateBodyWithSummaries,
+  generateDefaultBody,
+  generateMention,
+  type SummaryData,
+} from "./create-discussion.ts";
 
 interface ChangelogData {
   date: string;
@@ -37,7 +42,7 @@ interface ChangelogData {
   }>;
 }
 
-async function preview(date?: string) {
+async function preview(date?: string, summariesJson?: string) {
   // 日付を取得
   const targetDate = date || new Date().toISOString().split("T")[0];
   const changelogPath = `data/changelogs/${targetDate}.json`;
@@ -79,8 +84,21 @@ async function preview(date?: string) {
   console.log(`合計: ${totalActive} 件 (ミュート: ${totalMuted} 件)`);
   console.log();
 
-  // デフォルトボディを生成
-  const body = generateDefaultBody(data);
+  // ボディを生成
+  let body: string;
+  if (summariesJson) {
+    try {
+      const summaries: SummaryData = JSON.parse(summariesJson);
+      body = generateBodyWithSummaries(data, summaries);
+      console.log(`📝 要約JSON を使用してボディを生成`);
+    } catch (error) {
+      console.error(`Failed to parse summaries JSON:`, error);
+      console.log(`⚠️ デフォルトボディにフォールバック`);
+      body = generateDefaultBody(data);
+    }
+  } else {
+    body = generateDefaultBody(data);
+  }
   const bodyWithMention = body + generateMention();
 
   // summary.mdに保存
@@ -98,5 +116,13 @@ async function preview(date?: string) {
 if (import.meta.main) {
   const dateArg = Deno.args.find((arg) => arg.startsWith("--date="));
   const date = dateArg ? dateArg.split("=")[1] : undefined;
-  await preview(date);
+
+  const summariesJsonArg = Deno.args.find((arg) =>
+    arg.startsWith("--summaries-json=")
+  );
+  const summariesJson = summariesJsonArg
+    ? summariesJsonArg.substring("--summaries-json=".length)
+    : undefined;
+
+  await preview(date, summariesJson);
 }

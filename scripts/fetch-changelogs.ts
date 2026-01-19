@@ -69,6 +69,14 @@ function parseDate(args: string[]): Date {
   return new Date();
 }
 
+// URLを正規化（破損したURLを修正）
+export function normalizeUrl(url: string): string {
+  // AWS RSSフィードで `aws.amazon.comabout-aws` のように
+  // TLDの後にスラッシュなしでパスが続くケースを修正
+  // 例: .comの直後にアルファベットが続く場合に `/` を挿入
+  return url.replace(/\.com([a-z])/i, ".com/$1");
+}
+
 // 過去24時間以内かチェック
 export function isRecent(dateString: string, now: Date = new Date()): boolean {
   const date = new Date(dateString);
@@ -155,7 +163,7 @@ async function fetchAWSChangelog(targetDate: Date): Promise<ChangelogEntry[]> {
     if (item.pubDate && isRecent(item.pubDate, targetDate)) {
       entries.push({
         title: item.title || "",
-        url: item.link || "",
+        url: normalizeUrl(item.link || ""),
         content: item.contentSnippet || item.content || "",
         pubDate: item.pubDate,
       });
