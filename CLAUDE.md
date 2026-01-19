@@ -9,7 +9,7 @@
 
 ## プロジェクト概要
 
-毎日9:00 JSTに以下のChangelogを自動収集します：
+毎日12:00 JST（アメリカ西海岸時間の夜）に以下のChangelogを自動収集します：
 
 - GitHub Changelog (RSS)
 - AWS What's New (RSS)
