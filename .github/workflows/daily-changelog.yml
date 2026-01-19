@@ -76,7 +76,8 @@ jobs:
         with:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "-p --output-format json"
+          claude_args: >-
+            --json-schema '{"type":"object","properties":{"github":{"type":"object","additionalProperties":{"type":"string"}},"aws":{"type":"object","additionalProperties":{"type":"string"}},"claudeCode":{"type":"object","additionalProperties":{"type":"string"}},"linear":{"type":"object","additionalProperties":{"type":"string"}}},"required":["github","aws","claudeCode","linear"]}'
           prompt: |
             data/changelogs/${{ steps.target-date.outputs.date }}.json を読み込み、各エントリの要約を生成してください。
 
@@ -86,34 +87,15 @@ jobs:
             - 技術者向けにわかりやすく、重要なポイントを強調してください
 
             ## 出力形式
-            以下の JSON 形式で出力してください。キーはエントリの URL、値は要約文です。
-
-            ```json
-            {
-              "github": {
-                "https://github.blog/changelog/...": "要約文...",
-                "https://github.blog/changelog/...": "要約文..."
-              },
-              "aws": {
-                "https://aws.amazon.com/...": "要約文..."
-              },
-              "claudeCode": {
-                "https://github.com/.../releases/...": "要約文..."
-              },
-              "linear": {
-                "https://linear.app/changelog/...": "要約文..."
-              }
-            }
-            ```
-
+            各カテゴリ（github, aws, claudeCode, linear）について、エントリのURLをキー、要約文を値とするオブジェクトを返してください。
             該当するエントリがないカテゴリは空オブジェクト `{}` としてください。
 
       - name: Post to Discussion
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
-          # Claude Code の出力から JSON を抽出
-          SUMMARIES_JSON='${{ steps.summarize.outputs.result }}'
+          # Claude Code の structured_output から JSON を取得
+          SUMMARIES_JSON='${{ steps.summarize.outputs.structured_output }}'
 
           # JSON が空や無効な場合のフォールバック
           if [ -z "$SUMMARIES_JSON" ] || [ "$SUMMARIES_JSON" = "null" ]; then
