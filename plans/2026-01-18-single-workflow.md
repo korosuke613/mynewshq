@@ -29,7 +29,7 @@ name: Daily Changelog
 
 on:
   schedule:
-    - cron: "0 0 * * *" # 毎日 9:00 JST
+    - cron: "0 3 * * *" # 毎日 12:00 JST (アメリカ西海岸時間の夜)
   workflow_dispatch:
     inputs:
       date:
