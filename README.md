@@ -26,12 +26,20 @@ Actionで日本語要約を生成してGitHub Discussionsに投稿します。
       ▼
 ┌─────────────────────────────────────┐
 │ daily-changelog.yml                 │
-│ 1. RSS/Releases取得                 │
-│ 2. JSONファイルに保存               │
-│ 3. Claude Code Actionで要約生成     │
-│ 4. GitHub Discussionに投稿          │
+│                                     │
+│ Step 1: データ取得                  │
+│   RSS/Releases取得 → JSON保存       │
+│                                     │
+│ Step 2: 要約生成（Claude Code）     │
+│   JSON読込 → 構造化要約JSON出力     │
+│                                     │
+│ Step 3: Discussion投稿              │
+│   要約JSON + データ → Markdown生成  │
+│   → GitHub Discussionに投稿         │
 └─────────────────────────────────────┘
 ```
+
+**ポイント**: Claude Code Actionは要約JSONのみを出力し、Markdownの構造はコードで生成。これによりラベル表示やmuted処理が確実に行われます。
 
 ## セットアップ
 
@@ -98,17 +106,23 @@ GITHUB_TOKEN=$(gh auth token) deno task fetch -- --date=2026-01-15
 GITHUB_TOKEN=$(gh auth token) MUTE_WORDS_ISSUE_NUMBER=2 deno task fetch
 
 # Discussion投稿をテスト（GITHUB_TOKEN必要）
-GITHUB_TOKEN=$(gh auth token) deno task post korosuke613 mynewshq General "テストメッセージ"
+GITHUB_TOKEN=$(gh auth token) deno task post korosuke613 mynewshq General
 
 # 過去の日付のデータで投稿
-GITHUB_TOKEN=$(gh auth token) deno task post -- --date=2026-01-15 korosuke613 mynewshq General "テストメッセージ"
+GITHUB_TOKEN=$(gh auth token) deno task post --date=2026-01-15 korosuke613 mynewshq General
+
+# 構造化要約JSONを指定して投稿（新機能）
+GITHUB_TOKEN=$(gh auth token) deno task post --date=2026-01-15 --summaries-json='{"github":{},"aws":{},"claudeCode":{},"linear":{}}' korosuke613 mynewshq General
 
 # メンション先を変更して投稿
-GITHUB_TOKEN=$(gh auth token) MENTION_USER=your-username deno task post korosuke613 mynewshq General "テストメッセージ"
+GITHUB_TOKEN=$(gh auth token) MENTION_USER=your-username deno task post korosuke613 mynewshq General
 
 # Discussion投稿内容をプレビュー
 deno task preview
-deno task preview -- --date=2026-01-13
+deno task preview --date=2026-01-13
+
+# 構造化要約JSONを指定してプレビュー（新機能）
+deno task preview --date=2026-01-13 --summaries-json='{"github":{"https://example.com":"テスト要約"},"aws":{},"claudeCode":{},"linear":{}}'
 
 # Discussionにコメントを投稿
 GITHUB_TOKEN=$(gh auth token) deno task reply-discussion 1 korosuke613 mynewshq "コメント内容"
@@ -300,13 +314,27 @@ Discussion投稿前に、生成されるMarkdownを確認できます：
 deno task preview
 
 # 特定の日付のデータをプレビュー
-deno task preview -- --date=2026-01-13
+deno task preview --date=2026-01-13
+
+# 構造化要約JSONを指定してプレビュー
+deno task preview --date=2026-01-13 --summaries-json='{"github":{"https://example.com":"テスト要約"},"aws":{},"claudeCode":{},"linear":{}}'
 ```
 
 **出力内容:**
 - 📊 データ統計（アクティブ/ミュート件数）
+- 📝 要約JSON使用時はその旨を表示
 - ✅ `summary.md` に自動保存
 - 📄 ターミナルにプレビュー表示
+
+**要約JSONフォーマット:**
+```json
+{
+  "github": { "エントリのURL": "要約文", ... },
+  "aws": { "エントリのURL": "要約文", ... },
+  "claudeCode": { "エントリのURL": "要約文", ... },
+  "linear": { "エントリのURL": "要約文", ... }
+}
+```
 
 ### テストの実行
 
@@ -384,15 +412,7 @@ GITHUB_TOKEN=$(gh auth token) MUTE_WORDS_ISSUE_NUMBER=1 deno task fetch
 **原因**: ワークフローの`settings`で必要なツールが許可されていない
 
 **解決方法**:
-`.github/workflows/daily-changelog.yml`の`settings`を確認：
-```yaml
-settings: |
-  {
-    "permissions": {
-      "allow": ["Bash", "Write"]
-    }
-  }
-```
+現在のワークフローでは `--output-format json` を使用して構造化出力を取得しているため、`settings` は不要です。
 
 ### データ取得エラー
 
