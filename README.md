@@ -4,7 +4,7 @@
 
 ## 概要
 
-毎日9:00 JSTに以下のChangelogを自動収集し、Claude Code
+毎日12:00 JST（アメリカ西海岸時間の夜）に以下のChangelogを自動収集し、Claude Code
 Actionで日本語要約を生成してGitHub Discussionsに投稿します。
 
 📰 **投稿された要約**: [Discussions](../../discussions)
@@ -21,7 +21,7 @@ Actionで日本語要約を生成してGitHub Discussionsに投稿します。
 ## アーキテクチャ
 
 ```
-[cron 9:00 JST]
+[cron 12:00 JST]
       │
       ▼
 ┌─────────────────────────────────────┐
@@ -118,7 +118,7 @@ deno task test
 
 ### 自動実行
 
-GitHub Actionsが毎日9:00 JSTに自動実行します。何もする必要はありません。
+GitHub Actionsが毎日12:00 JST（アメリカ西海岸時間の夜）に自動実行します。何もする必要はありません。
 
 ### 手動実行
 
@@ -257,7 +257,7 @@ Issue #1 の本文:
 
 ```yaml
 schedule:
-  - cron: "0 0 * * *" # UTC 0:00 = JST 9:00
+  - cron: "0 3 * * *" # UTC 3:00 = JST 12:00 = PST 19:00/PDT 20:00
 ```
 
 ### 要約フォーマットの変更
