@@ -62,6 +62,8 @@ function parseDate(args: string[]): Date {
   if (dateArg) {
     const dateStr = dateArg.split("=")[1];
     // cronスケジュール（UTC 3:00）と同じ時刻を使用
+    // これにより、workflow_dispatchで過去の日付を指定した場合も
+    // cronと同じ24時間ウィンドウでデータを収集できる
     return new Date(dateStr + "T03:00:00Z");
   }
   return new Date();
