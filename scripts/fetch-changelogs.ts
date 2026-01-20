@@ -58,6 +58,9 @@ interface ChangelogData {
 const parser = new Parser();
 const octokit = new Octokit();
 
+// 1日のミリ秒数
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
 // コマンドライン引数からオプションを取得
 interface ParsedArgs {
   targetDate: Date;
@@ -93,11 +96,11 @@ function parseArgs(args: string[]): ParsedArgs {
 }
 
 // コマンドライン引数から日付を取得（後方互換性のため）
-function _parseDate(args: string[]): Date {
+function parseTargetDate(args: string[]): Date {
   return parseArgs(args).targetDate;
 }
 // エクスポートしてテストから使用可能にする
-export { _parseDate as parseDate };
+export { parseTargetDate as parseDate };
 
 // URLを正規化（破損したURLを修正）
 export function normalizeUrl(url: string): string {
@@ -110,7 +113,7 @@ export function normalizeUrl(url: string): string {
 // 過去24時間以内かチェック
 export function isRecent(dateString: string, now: Date = new Date()): boolean {
   const date = new Date(dateString);
-  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const dayAgo = new Date(now.getTime() - MILLISECONDS_PER_DAY);
   return date >= dayAgo && date <= now;
 }
 
@@ -121,7 +124,7 @@ export function isWithinDays(
   now: Date = new Date(),
 ): boolean {
   const date = new Date(dateString);
-  const daysAgo = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const daysAgo = new Date(now.getTime() - days * MILLISECONDS_PER_DAY);
   return date >= daysAgo && date <= now;
 }
 
@@ -460,7 +463,7 @@ async function main() {
   let data: ChangelogData;
   if (weekly || days > 1) {
     const startDate = new Date(
-      targetDate.getTime() - days * 24 * 60 * 60 * 1000,
+      targetDate.getTime() - days * MILLISECONDS_PER_DAY,
     );
     const startDateString = startDate.toISOString().split("T")[0];
     data = {
