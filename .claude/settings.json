@@ -2,5 +2,26 @@
   "plansDirectory": "./plans",
   "enabledPlugins": {
     "dev-standards@korosuke613": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(deno task preview:*)",
+      "Bash(deno task fetch:*)",
+      "Bash(deno test:*)",
+      "Bash(deno fmt:*)",
+      "Bash(deno lint:*)",
+      "Bash(deno check:*)",
+      "Bash(gh run view:*)",
+      "Skill(dev-standards)",
+      "mcp__github__get_file_contents",
+      "mcp__github__pull_request_read",
+      "mcp__github__issue_read",
+      "mcp__github__list_issues",
+      "mcp__github__search_code",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:aws.amazon.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
   }
 }
