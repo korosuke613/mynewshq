@@ -912,17 +912,16 @@ export function generateWeeklyBodyWithSummaries(
 
   // 2. 🌟 今週のハイライト（3-5件）
   body += "## 🌟 今週のハイライト\n\n";
-  for (let i = 0; i < summaries.weeklyHighlights.length; i++) {
-    const highlight = summaries.weeklyHighlights[i];
+  summaries.weeklyHighlights.forEach((highlight, index, highlights) => {
     const emoji = getCategoryEmoji(highlight.category);
     body += `### ${emoji} [${highlight.title}](${highlight.url})\n\n`;
     body += `**選定理由**: ${highlight.reason}\n\n`;
     body += `**技術者への影響**: ${highlight.impact}\n\n`;
     // 最後のハイライト以外は区切り線を追加
-    if (i < summaries.weeklyHighlights.length - 1) {
+    if (index < highlights.length - 1) {
       body += "---\n\n";
     }
-  }
+  });
   body += "\n";
 
   // 3. 🔮 傾向分析

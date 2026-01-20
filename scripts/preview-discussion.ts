@@ -156,7 +156,8 @@ async function preview(
   let body: string;
   if (weekly) {
     // 週次モード: WeeklySummaryData を使用
-    let summaries: WeeklySummaryData;
+    // デフォルトでダミーデータを設定し、JSONが指定されていれば上書き
+    let summaries: WeeklySummaryData = DUMMY_WEEKLY_SUMMARIES;
     if (summariesJson) {
       try {
         summaries = JSON.parse(summariesJson);
@@ -166,8 +167,6 @@ async function preview(
         Deno.exit(1);
       }
     } else {
-      // --summaries-json がない場合はダミーデータを使用
-      summaries = DUMMY_WEEKLY_SUMMARIES;
       console.log(`📝 ダミーデータを使用してボディを生成（プレビュー用）`);
     }
     // プレビュー時はDailyリンクは空（APIアクセスなし）

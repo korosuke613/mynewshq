@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   type DailyLink,
   determineLabels,
@@ -962,7 +962,7 @@ Deno.test("generateWeeklyBodyWithSummaries", async (t) => {
     // 2026-01-20が2026-01-18より前に出現することを確認
     const pos20 = body.indexOf("[2026-01-20]");
     const pos18 = body.indexOf("[2026-01-18]");
-    assertEquals(pos20 < pos18, true);
+    assert(pos20 < pos18);
   });
 
   await t.step("Dailyリンクがない場合はセクションを表示しない", () => {
