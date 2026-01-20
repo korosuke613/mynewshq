@@ -84,6 +84,36 @@ export function isRecent(dateString: string, now: Date = new Date()): boolean {
   return date >= dayAgo && date <= now;
 }
 
+// AWSカテゴリ文字列からラベルを抽出
+// 形式: "general:products/amazon-connect" → { "general:products": ["amazon-connect"] }
+// general:products系のみを抽出（marketing:marchitectureなどは除外）
+// rss-parserはカテゴリをカンマ区切りの文字列として返す場合があるため、分割処理を行う
+export function extractLabelsFromAWSCategory(
+  categories?: string[],
+): Record<string, string[]> {
+  const labels: Record<string, string[]> = {};
+  if (!categories) return labels;
+
+  for (const rawCat of categories) {
+    // カンマ区切りの場合は分割
+    const splitCategories = rawCat.split(",").map((c) => c.trim());
+
+    for (const cat of splitCategories) {
+      // general:products/xxx のみを抽出
+      const match = cat.match(/^general:products\/(.+)$/);
+      if (match) {
+        const [, value] = match;
+        if (!labels["general:products"]) {
+          labels["general:products"] = [];
+        }
+        labels["general:products"].push(value);
+      }
+    }
+  }
+
+  return labels;
+}
+
 // XMLのカテゴリ情報からラベルを抽出
 export function extractLabelsFromCategories(
   category?: XmlCategory | XmlCategory[],
@@ -161,11 +191,14 @@ async function fetchAWSChangelog(targetDate: Date): Promise<ChangelogEntry[]> {
 
   for (const item of feed.items) {
     if (item.pubDate && isRecent(item.pubDate, targetDate)) {
+      const labels = extractLabelsFromAWSCategory(item.categories);
+
       entries.push({
         title: item.title || "",
         url: normalizeUrl(item.link || ""),
         content: item.contentSnippet || item.content || "",
         pubDate: item.pubDate,
+        labels: Object.keys(labels).length > 0 ? labels : undefined,
       });
     }
   }

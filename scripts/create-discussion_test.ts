@@ -5,6 +5,7 @@ import {
   generateDefaultBody,
   generateMutedSection,
   parseArgs,
+  stripAwsPrefix,
   type SummaryData,
 } from "./create-discussion.ts";
 
@@ -76,9 +77,10 @@ Deno.test("generateDefaultBody", async (t) => {
         linear: [],
       };
       const body = generateDefaultBody(dataWithGhLabels);
-      assertStringIncludes(body, "[Feature A](https://example.com/a)");
-      assertStringIncludes(body, " `copilot`");
-      assertStringIncludes(body, "`improvement`");
+      assertStringIncludes(
+        body,
+        "[Feature A](https://example.com/a)\n`copilot` `improvement`",
+      );
     },
   );
 
@@ -254,6 +256,65 @@ Deno.test("determineLabels", async (t) => {
     };
     const labels = determineLabels(dataWithDuplicateGhLabels);
     assertEquals(labels.sort(), ["github", "gh:copilot", "gh:actions"].sort());
+  });
+
+  await t.step(
+    "AWSエントリのlabelsオブジェクトからプレフィックス付きラベルを生成する（amazon-/aws-省略）",
+    () => {
+      const dataWithAwsLabels = {
+        ...mockData,
+        github: [],
+        claudeCode: [],
+        linear: [],
+        aws: [
+          {
+            title: "VPC Update",
+            url: "https://example.com/a",
+            content: "",
+            pubDate: "2026-01-18T10:00:00Z",
+            labels: {
+              "general:products": ["amazon-vpc", "aws-govcloud-us"],
+            },
+          },
+        ],
+      };
+      const labels = determineLabels(dataWithAwsLabels);
+      assertEquals(
+        labels.sort(),
+        ["aws", "aws:vpc", "aws:govcloud-us"].sort(),
+      );
+    },
+  );
+
+  await t.step("AWSのラベルが重複していてもユニークになる", () => {
+    const dataWithDuplicateAwsLabels = {
+      ...mockData,
+      github: [],
+      claudeCode: [],
+      linear: [],
+      aws: [
+        {
+          title: "Bedrock Update A",
+          url: "https://example.com/a",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          labels: {
+            "general:products": ["amazon-bedrock"],
+          },
+        },
+        {
+          title: "Bedrock Update B",
+          url: "https://example.com/b",
+          content: "",
+          pubDate: "2026-01-18T11:00:00Z",
+          labels: {
+            "general:products": ["amazon-bedrock", "amazon-s3"],
+          },
+        },
+      ],
+    };
+    const labels = determineLabels(dataWithDuplicateAwsLabels);
+    assertEquals(labels.sort(), ["aws", "aws:bedrock", "aws:s3"].sort());
   });
 });
 
@@ -608,5 +669,32 @@ Deno.test("generateBodyWithSummaries", async (t) => {
     const body = generateBodyWithSummaries(mockDataWithLabels, summaries);
     // linear は空なのでセクションがない
     assertEquals(body.includes("## Linear Changelog"), false);
+  });
+});
+
+Deno.test("stripAwsPrefix", async (t) => {
+  await t.step("amazon- プレフィックスを省略する", () => {
+    assertEquals(stripAwsPrefix("amazon-vpc"), "vpc");
+    assertEquals(stripAwsPrefix("amazon-bedrock"), "bedrock");
+    assertEquals(stripAwsPrefix("amazon-s3"), "s3");
+  });
+
+  await t.step("aws- プレフィックスを省略する", () => {
+    assertEquals(stripAwsPrefix("aws-govcloud-us"), "govcloud-us");
+    assertEquals(
+      stripAwsPrefix("aws-iot-device-management"),
+      "iot-device-management",
+    );
+  });
+
+  await t.step("プレフィックスがない場合はそのまま返す", () => {
+    assertEquals(stripAwsPrefix("ec2"), "ec2");
+    assertEquals(stripAwsPrefix("lambda"), "lambda");
+    assertEquals(stripAwsPrefix("some-service"), "some-service");
+  });
+
+  await t.step("先頭以外のamazon-/aws-は省略しない", () => {
+    assertEquals(stripAwsPrefix("my-amazon-service"), "my-amazon-service");
+    assertEquals(stripAwsPrefix("custom-aws-tool"), "custom-aws-tool");
   });
 });

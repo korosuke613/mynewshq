@@ -83,6 +83,11 @@ export interface SummaryData {
   linear: Record<string, string>;
 }
 
+// amazon- または aws- プレフィックスを省略する
+export function stripAwsPrefix(label: string): string {
+  return label.replace(/^(amazon-|aws-)/, "");
+}
+
 // changelogデータからラベル名を決定
 export function determineLabels(data: ChangelogData): string[] {
   const labels = new Set<string>(); // Setを使用して重複を避ける
@@ -99,6 +104,13 @@ export function determineLabels(data: ChangelogData): string[] {
   }
   if (data.aws && data.aws.length > 0) {
     labels.add("aws");
+    for (const entry of data.aws) {
+      if (entry.labels) {
+        Object.values(entry.labels).flat().forEach((label) =>
+          labels.add(`aws:${stripAwsPrefix(label)}`)
+        );
+      }
+    }
   }
   if (data.claudeCode && data.claudeCode.length > 0) {
     labels.add("claude-code");
@@ -515,9 +527,10 @@ export function generateDefaultBody(data: ChangelogData): string {
             labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
           }
         }
-        body += `### [${item.title}](${item.url})${
-          labelsString ? " " + labelsString : ""
-        }\n`;
+        body += `### [${item.title}](${item.url})\n`;
+        if (labelsString) {
+          body += `${labelsString}\n`;
+        }
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
@@ -532,7 +545,17 @@ export function generateDefaultBody(data: ChangelogData): string {
     if (activeEntries.length > 0) {
       body += "## AWS What's New\n";
       for (const item of activeEntries) {
+        let labelsString = "";
+        if (item.labels) {
+          const allLabels = Object.values(item.labels).flat();
+          if (allLabels.length > 0) {
+            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
+          }
+        }
         body += `### [${item.title}](${item.url})\n`;
+        if (labelsString) {
+          body += `${labelsString}\n`;
+        }
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
@@ -595,9 +618,11 @@ export function generateBodyWithSummaries(
             labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
           }
         }
-        body += `### [${item.title}](${item.url})${
-          labelsString ? " " + labelsString : ""
-        }\n\n`;
+        body += `### [${item.title}](${item.url})\n`;
+        if (labelsString) {
+          body += `${labelsString}\n`;
+        }
+        body += "\n";
         const summary = summaries.github?.[item.url];
         if (summary) {
           body += `**要約**: ${summary}\n\n`;
@@ -615,7 +640,18 @@ export function generateBodyWithSummaries(
     if (activeEntries.length > 0) {
       body += "## AWS What's New\n\n";
       for (const item of activeEntries) {
-        body += `### [${item.title}](${item.url})\n\n`;
+        let labelsString = "";
+        if (item.labels) {
+          const allLabels = Object.values(item.labels).flat();
+          if (allLabels.length > 0) {
+            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
+          }
+        }
+        body += `### [${item.title}](${item.url})\n`;
+        if (labelsString) {
+          body += `${labelsString}\n`;
+        }
+        body += "\n";
         const summary = summaries.aws?.[item.url];
         if (summary) {
           body += `**要約**: ${summary}\n\n`;
