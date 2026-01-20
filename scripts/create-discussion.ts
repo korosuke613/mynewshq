@@ -515,9 +515,10 @@ export function generateDefaultBody(data: ChangelogData): string {
             labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
           }
         }
-        body += `### [${item.title}](${item.url})${
-          labelsString ? " " + labelsString : ""
-        }\n`;
+        body += `### [${item.title}](${item.url})\n`;
+        if (labelsString) {
+          body += `${labelsString}\n`;
+        }
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
@@ -539,9 +540,10 @@ export function generateDefaultBody(data: ChangelogData): string {
             labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
           }
         }
-        body += `### [${item.title}](${item.url})${
-          labelsString ? " " + labelsString : ""
-        }\n`;
+        body += `### [${item.title}](${item.url})\n`;
+        if (labelsString) {
+          body += `${labelsString}\n`;
+        }
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
@@ -604,9 +606,11 @@ export function generateBodyWithSummaries(
             labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
           }
         }
-        body += `### [${item.title}](${item.url})${
-          labelsString ? " " + labelsString : ""
-        }\n\n`;
+        body += `### [${item.title}](${item.url})\n`;
+        if (labelsString) {
+          body += `${labelsString}\n`;
+        }
+        body += "\n";
         const summary = summaries.github?.[item.url];
         if (summary) {
           body += `**要約**: ${summary}\n\n`;
@@ -631,9 +635,11 @@ export function generateBodyWithSummaries(
             labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
           }
         }
-        body += `### [${item.title}](${item.url})${
-          labelsString ? " " + labelsString : ""
-        }\n\n`;
+        body += `### [${item.title}](${item.url})\n`;
+        if (labelsString) {
+          body += `${labelsString}\n`;
+        }
+        body += "\n";
         const summary = summaries.aws?.[item.url];
         if (summary) {
           body += `**要約**: ${summary}\n\n`;
