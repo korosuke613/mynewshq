@@ -3,11 +3,14 @@ import {
   generateBodyWithSummaries,
   generateDefaultBody,
   generateMention,
+  generateTitle,
   type SummaryData,
 } from "./create-discussion.ts";
 
 interface ChangelogData {
   date: string;
+  startDate?: string; // 週次の場合の開始日
+  endDate?: string; // 週次の場合の終了日
   github: Array<{
     title: string;
     url: string;
@@ -44,10 +47,15 @@ interface ChangelogData {
   }>;
 }
 
-async function preview(date?: string, summariesJson?: string) {
+async function preview(
+  date?: string,
+  summariesJson?: string,
+  weekly?: boolean,
+) {
   // 日付を取得
   const targetDate = date || new Date().toISOString().split("T")[0];
-  const changelogPath = `data/changelogs/${targetDate}.json`;
+  const subDir = weekly ? "weekly" : "daily";
+  const changelogPath = `data/changelogs/${subDir}/${targetDate}.json`;
 
   // JSONファイルを読み込み
   let data: ChangelogData;
@@ -59,8 +67,16 @@ async function preview(date?: string, summariesJson?: string) {
     Deno.exit(1);
   }
 
+  // タイトルを生成
+  const title = generateTitle(data);
+  const isWeekly = !!(data.startDate && data.endDate);
+
   // 統計情報を表示
-  console.log(`📊 データ統計 (${data.date})`);
+  if (isWeekly) {
+    console.log(`📊 データ統計 (週次: ${data.startDate} ~ ${data.endDate})`);
+  } else {
+    console.log(`📊 データ統計 (${data.date})`);
+  }
   console.log(`---`);
 
   const githubActive = data.github.filter((e) => !e.muted).length;
@@ -103,13 +119,15 @@ async function preview(date?: string, summariesJson?: string) {
   }
   const bodyWithMention = body + generateMention();
 
-  // summary.mdに保存
-  await Deno.writeTextFile("summary.md", bodyWithMention);
-  console.log(`✅ summary.md に保存しました`);
+  // summary.mdに保存（週次の場合はsummary-weekly.md）
+  const outputFile = isWeekly ? "summary-weekly.md" : "summary.md";
+  await Deno.writeTextFile(outputFile, bodyWithMention);
+  console.log(`✅ ${outputFile} に保存しました`);
   console.log();
 
   // プレビューを表示
   console.log(`📄 プレビュー:`);
+  console.log(`📋 タイトル: ${title}`);
   console.log(`---`);
   console.log(bodyWithMention);
 }
@@ -126,5 +144,7 @@ if (import.meta.main) {
     ? summariesJsonArg.substring("--summaries-json=".length)
     : undefined;
 
-  await preview(date, summariesJson);
+  const weekly = Deno.args.includes("--weekly");
+
+  await preview(date, summariesJson, weekly);
 }

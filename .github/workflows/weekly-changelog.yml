@@ -1,14 +1,13 @@
-name: Daily Changelog
+name: Weekly Changelog
 
 on:
   schedule:
-    # 毎日 12:00 JST (UTC 3:00) = PST 19:00 / PDT 20:00
-    # アメリカ西海岸時間の夜（18:00以降）の更新をカバー
-    - cron: "0 3 * * *"
-  workflow_dispatch: # 手動実行も可能
+    # 毎週月曜日 03:00 UTC (12:00 JST)
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
     inputs:
-      date:
-        description: "対象日付 (YYYY-MM-DD形式、空欄で今日)"
+      end_date:
+        description: "終了日 (YYYY-MM-DD形式、空欄で今日)"
         required: false
         type: string
 
@@ -39,16 +38,26 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      - name: Fetch changelogs
+      - name: Determine target date
+        id: target-date
+        run: |
+          if [ -n "${{ inputs.end_date }}" ]; then
+            END_DATE="${{ inputs.end_date }}"
+          else
+            END_DATE=$(date -u +%Y-%m-%d)
+          fi
+          # 7日前を計算
+          START_DATE=$(date -u -d "${END_DATE} - 7 days" +%Y-%m-%d)
+          echo "end_date=${END_DATE}" >> $GITHUB_OUTPUT
+          echo "start_date=${START_DATE}" >> $GITHUB_OUTPUT
+          echo "Target period: ${START_DATE} ~ ${END_DATE}"
+
+      - name: Fetch changelogs (7 days)
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
           MUTE_WORDS_ISSUE_NUMBER: "1"
         run: |
-          if [ -n "${{ inputs.date }}" ]; then
-            deno task fetch -- --date=${{ inputs.date }}
-          else
-            deno task fetch
-          fi
+          deno task fetch --days=7 --weekly --date=${{ steps.target-date.outputs.end_date }}
 
       - name: Login GitHub App
         id: login-gh-app
@@ -58,15 +67,6 @@ jobs:
           private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-
-      - name: Determine target date
-        id: target-date
-        run: |
-          if [ -n "${{ inputs.date }}" ]; then
-            echo "date=${{ inputs.date }}" >> $GITHUB_OUTPUT
-          else
-            echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
-          fi
 
       - name: Generate summaries with Claude Code
         id: summarize
@@ -79,12 +79,13 @@ jobs:
           claude_args: >-
             --json-schema '{"type":"object","properties":{"github":{"type":"object","additionalProperties":{"type":"string"}},"aws":{"type":"object","additionalProperties":{"type":"string"}},"claudeCode":{"type":"object","additionalProperties":{"type":"string"}},"linear":{"type":"object","additionalProperties":{"type":"string"}}},"required":["github","aws","claudeCode","linear"]}'
           prompt: |
-            data/changelogs/daily/${{ steps.target-date.outputs.date }}.json を読み込み、各エントリの要約を生成してください。
+            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json を読み込み、各エントリの要約を生成してください。
 
             ## ルール
             - `muted: true` のエントリはスキップしてください
             - 各エントリについて、2-3文で簡潔に日本語で要約してください
             - 技術者向けにわかりやすく、重要なポイントを強調してください
+            - これは週次のまとめなので、1週間分のエントリが含まれています
 
             ## 出力形式
             各カテゴリ（github, aws, claudeCode, linear）について、エントリのURLをキー、要約文を値とするオブジェクトを返してください。
@@ -100,7 +101,7 @@ jobs:
           # JSON が空や無効な場合のフォールバック
           if [ -z "$SUMMARIES_JSON" ] || [ "$SUMMARIES_JSON" = "null" ]; then
             echo "Warning: No valid summaries JSON from Claude Code, using default body"
-            deno task post --date=${{ steps.target-date.outputs.date }} korosuke613 mynewshq Daily
+            deno task post --date=${{ steps.target-date.outputs.end_date }} --weekly korosuke613 mynewshq Weekly
           else
-            deno task post --date=${{ steps.target-date.outputs.date }} --summaries-json="$SUMMARIES_JSON" korosuke613 mynewshq Daily
+            deno task post --date=${{ steps.target-date.outputs.end_date }} --weekly --summaries-json="$SUMMARIES_JSON" korosuke613 mynewshq Weekly
           fi

@@ -4,6 +4,8 @@ import {
   generateBodyWithSummaries,
   generateDefaultBody,
   generateMutedSection,
+  generateTitle,
+  generateWeeklyCoveragePeriod,
   parseArgs,
   stripAwsPrefix,
   type SummaryData,
@@ -696,5 +698,126 @@ Deno.test("stripAwsPrefix", async (t) => {
   await t.step("先頭以外のamazon-/aws-は省略しない", () => {
     assertEquals(stripAwsPrefix("my-amazon-service"), "my-amazon-service");
     assertEquals(stripAwsPrefix("custom-aws-tool"), "custom-aws-tool");
+  });
+});
+
+// 週次対応のテスト
+Deno.test("generateWeeklyCoveragePeriod", async (t) => {
+  await t.step("週次用の対象期間文字列を生成する", () => {
+    const result = generateWeeklyCoveragePeriod("2026-01-13", "2026-01-20");
+    assertEquals(result, "📅 **対象期間**: 2026-01-13 ~ 2026-01-20 (1週間)");
+  });
+});
+
+Deno.test("generateTitle", async (t) => {
+  await t.step("日次データの場合は日付のみのタイトルを生成する", () => {
+    const data = {
+      date: "2026-01-18",
+      github: [],
+      aws: [],
+      claudeCode: [],
+      linear: [],
+    };
+    const result = generateTitle(data);
+    assertEquals(result, "📰 Tech Changelog - 2026-01-18");
+  });
+
+  await t.step("週次データの場合は期間付きのタイトルを生成する", () => {
+    const data = {
+      date: "2026-01-20",
+      startDate: "2026-01-13",
+      endDate: "2026-01-20",
+      github: [],
+      aws: [],
+      claudeCode: [],
+      linear: [],
+    };
+    const result = generateTitle(data);
+    assertEquals(
+      result,
+      "📰 Tech Changelog - Weekly (2026-01-13 ~ 2026-01-20)",
+    );
+  });
+});
+
+Deno.test("parseArgs with weekly flag", async (t) => {
+  await t.step("--weekly オプションを認識する", () => {
+    const result = parseArgs(["--weekly", "owner", "repo", "Weekly"]);
+    assertEquals(result.weekly, true);
+    assertEquals(result.otherArgs, ["owner", "repo", "Weekly"]);
+  });
+
+  await t.step("--weekly なしの場合は false", () => {
+    const result = parseArgs(["owner", "repo"]);
+    assertEquals(result.weekly, false);
+  });
+
+  await t.step("--date と --weekly を同時に指定できる", () => {
+    const result = parseArgs([
+      "--date=2026-01-20",
+      "--weekly",
+      "owner",
+      "repo",
+    ]);
+    assertEquals(result.date, "2026-01-20");
+    assertEquals(result.weekly, true);
+    assertEquals(result.otherArgs, ["owner", "repo"]);
+  });
+});
+
+const mockWeeklyData = {
+  date: "2026-01-20",
+  startDate: "2026-01-13",
+  endDate: "2026-01-20",
+  github: [{
+    title: "Feature A",
+    url: "https://example.com/a",
+    content: "",
+    pubDate: "2026-01-18T10:00:00Z",
+  }],
+  aws: [{
+    title: "Update B",
+    url: "https://example.com/b",
+    content: "",
+    pubDate: "2026-01-19T11:00:00Z",
+  }],
+  claudeCode: [],
+  linear: [],
+};
+
+Deno.test("generateDefaultBody with weekly data", async (t) => {
+  await t.step("週次データの場合はWeeklyタイトルと期間を表示する", () => {
+    const body = generateDefaultBody(mockWeeklyData);
+    assertStringIncludes(body, "# 📰 Tech Changelog - Weekly");
+    assertStringIncludes(
+      body,
+      "📅 **対象期間**: 2026-01-13 ~ 2026-01-20 (1週間)",
+    );
+    assertStringIncludes(body, "## GitHub Changelog");
+    assertStringIncludes(body, "## AWS What's New");
+  });
+});
+
+Deno.test("generateBodyWithSummaries with weekly data", async (t) => {
+  const summaries: SummaryData = {
+    github: {
+      "https://example.com/a": "GitHub機能Aの要約です。",
+    },
+    aws: {
+      "https://example.com/b": "AWS更新Bの要約です。",
+    },
+    claudeCode: {},
+    linear: {},
+  };
+
+  await t.step("週次データの場合はWeeklyタイトルと期間を表示する", () => {
+    const body = generateBodyWithSummaries(mockWeeklyData, summaries);
+    assertStringIncludes(body, "# 📰 Tech Changelog - Weekly");
+    assertStringIncludes(
+      body,
+      "📅 **対象期間**: 2026-01-13 ~ 2026-01-20 (1週間)",
+    );
+    assertStringIncludes(body, "**要約**: GitHub機能Aの要約です。");
+    assertStringIncludes(body, "**要約**: AWS更新Bの要約です。");
   });
 });

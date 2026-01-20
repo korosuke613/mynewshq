@@ -69,6 +69,8 @@ interface ReleaseEntry {
 
 interface ChangelogData {
   date: string;
+  startDate?: string; // 週次の場合の開始日
+  endDate?: string; // 週次の場合の終了日
   github: ChangelogEntry[];
   aws: ChangelogEntry[];
   claudeCode: ReleaseEntry[];
@@ -374,13 +376,22 @@ async function createDiscussion(
 // コマンドライン引数から日付と要約JSONを取得し、フラグ以外の引数を返す
 export function parseArgs(
   args: string[],
-): { date: string; summariesJson: string | null; otherArgs: string[] } {
+): {
+  date: string;
+  summariesJson: string | null;
+  weekly: boolean;
+  otherArgs: string[];
+} {
   const dateArg = args.find((arg) => arg.startsWith("--date="));
   const summariesJsonArg = args.find((arg) =>
     arg.startsWith("--summaries-json=")
   );
+  const weeklyArg = args.includes("--weekly");
   const otherArgs = args.filter(
-    (arg) => !arg.startsWith("--date=") && !arg.startsWith("--summaries-json="),
+    (arg) =>
+      !arg.startsWith("--date=") &&
+      !arg.startsWith("--summaries-json=") &&
+      arg !== "--weekly",
   );
 
   let date: string;
@@ -395,7 +406,7 @@ export function parseArgs(
     summariesJson = summariesJsonArg.substring("--summaries-json=".length);
   }
 
-  return { date, summariesJson, otherArgs };
+  return { date, summariesJson, weekly: weeklyArg, otherArgs };
 }
 
 // メイン処理
@@ -407,13 +418,15 @@ async function main() {
   }
 
   // 引数からリポジトリ情報を取得（デフォルト: korosuke613/mynewshq）
-  const { date, summariesJson, otherArgs } = parseArgs(Deno.args);
+  const { date, summariesJson, weekly, otherArgs } = parseArgs(Deno.args);
   const owner = otherArgs[0] || "korosuke613";
   const repo = otherArgs[1] || "mynewshq";
   const categoryName = otherArgs[2] || "General";
 
   // 指定された日付のchangelog JSONファイルを取得
-  const changelogPath = `data/changelogs/${date}.json`;
+  // 週次モードの場合は weekly/ ディレクトリから、日次の場合は daily/ ディレクトリから
+  const subDir = weekly ? "weekly" : "daily";
+  const changelogPath = `data/changelogs/${subDir}/${date}.json`;
 
   let changelogData: ChangelogData;
   try {
@@ -427,7 +440,7 @@ async function main() {
   // 引数から要約を取得（4番目以降の引数をすべて結合）- 後方互換性のため維持
   const legacySummary = otherArgs.slice(3).join(" ");
 
-  const title = `📰 Tech Changelog - ${changelogData.date}`;
+  const title = generateTitle(changelogData);
   let body: string;
 
   if (summariesJson) {
@@ -444,7 +457,13 @@ async function main() {
     }
   } else if (legacySummary) {
     // 従来の要約文字列が指定された場合（後方互換性）
-    const coveragePeriod = generateCoveragePeriod(changelogData.date);
+    const isWeekly = !!(changelogData.startDate && changelogData.endDate);
+    const coveragePeriod = isWeekly
+      ? generateWeeklyCoveragePeriod(
+        changelogData.startDate!,
+        changelogData.endDate!,
+      )
+      : generateCoveragePeriod(changelogData.date);
     body = coveragePeriod + "\n\n" + legacySummary + generateMention();
   } else {
     // 要約なしの場合
@@ -510,10 +529,36 @@ export function generateCoveragePeriod(dateStr: string): string {
   }`;
 }
 
+// 週次用の対象期間の文字列を生成
+export function generateWeeklyCoveragePeriod(
+  startDateStr: string,
+  endDateStr: string,
+): string {
+  return `📅 **対象期間**: ${startDateStr} ~ ${endDateStr} (1週間)`;
+}
+
+// Discussionタイトルを生成
+export function generateTitle(data: ChangelogData): string {
+  const isWeekly = !!(data.startDate && data.endDate);
+  if (isWeekly) {
+    return `📰 Tech Changelog - Weekly (${data.startDate} ~ ${data.endDate})`;
+  }
+  return `📰 Tech Changelog - ${data.date}`;
+}
+
 // デフォルトのボディ生成（要約がない場合）
 export function generateDefaultBody(data: ChangelogData): string {
-  let body = `# 📰 Tech Changelog - ${data.date}\n\n`;
-  body += generateCoveragePeriod(data.date) + "\n\n";
+  const isWeekly = !!(data.startDate && data.endDate);
+  let body: string;
+
+  if (isWeekly) {
+    body = `# 📰 Tech Changelog - Weekly\n\n`;
+    body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
+      "\n\n";
+  } else {
+    body = `# 📰 Tech Changelog - ${data.date}\n\n`;
+    body += generateCoveragePeriod(data.date) + "\n\n";
+  }
 
   if (data.github && data.github.length > 0) {
     const activeEntries = data.github.filter((e) => !e.muted);
@@ -603,8 +648,17 @@ export function generateBodyWithSummaries(
   data: ChangelogData,
   summaries: SummaryData,
 ): string {
-  let body = `# 📰 Tech Changelog - ${data.date}\n\n`;
-  body += generateCoveragePeriod(data.date) + "\n\n";
+  const isWeekly = !!(data.startDate && data.endDate);
+  let body: string;
+
+  if (isWeekly) {
+    body = `# 📰 Tech Changelog - Weekly\n\n`;
+    body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
+      "\n\n";
+  } else {
+    body = `# 📰 Tech Changelog - ${data.date}\n\n`;
+    body += generateCoveragePeriod(data.date) + "\n\n";
+  }
 
   if (data.github && data.github.length > 0) {
     const activeEntries = data.github.filter((e) => !e.muted);

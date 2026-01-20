@@ -47,6 +47,8 @@ interface ReleaseEntry {
 
 interface ChangelogData {
   date: string;
+  startDate?: string; // 週次の場合の開始日
+  endDate?: string; // 週次の場合の終了日
   github: ChangelogEntry[];
   aws: ChangelogEntry[];
   claudeCode: ReleaseEntry[];
@@ -56,18 +58,46 @@ interface ChangelogData {
 const parser = new Parser();
 const octokit = new Octokit();
 
-// コマンドライン引数から日付を取得
-function parseDate(args: string[]): Date {
+// コマンドライン引数からオプションを取得
+interface ParsedArgs {
+  targetDate: Date;
+  days: number;
+  weekly: boolean;
+}
+
+function parseArgs(args: string[]): ParsedArgs {
   const dateArg = args.find((arg) => arg.startsWith("--date="));
+  const daysArg = args.find((arg) => arg.startsWith("--days="));
+  const weeklyArg = args.includes("--weekly");
+
+  let targetDate: Date;
   if (dateArg) {
     const dateStr = dateArg.split("=")[1];
     // cronスケジュール（UTC 3:00）と同じ時刻を使用
     // これにより、workflow_dispatchで過去の日付を指定した場合も
     // cronと同じ24時間ウィンドウでデータを収集できる
-    return new Date(dateStr + "T03:00:00Z");
+    targetDate = new Date(dateStr + "T03:00:00Z");
+  } else {
+    targetDate = new Date();
   }
-  return new Date();
+
+  let days = 1; // デフォルト: 1日
+  if (daysArg) {
+    const parsedDays = parseInt(daysArg.split("=")[1], 10);
+    if (!isNaN(parsedDays) && parsedDays > 0) {
+      days = parsedDays;
+    }
+  }
+
+  return { targetDate, days, weekly: weeklyArg };
 }
+
+// コマンドライン引数から日付を取得（後方互換性のため）
+function _parseDate(args: string[]): Date {
+  return parseArgs(args).targetDate;
+}
+// エクスポートしてテストから使用可能にする
+export { _parseDate as parseDate };
 
 // URLを正規化（破損したURLを修正）
 export function normalizeUrl(url: string): string {
@@ -82,6 +112,17 @@ export function isRecent(dateString: string, now: Date = new Date()): boolean {
   const date = new Date(dateString);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   return date >= dayAgo && date <= now;
+}
+
+// 過去N日以内かチェック
+export function isWithinDays(
+  dateString: string,
+  days: number,
+  now: Date = new Date(),
+): boolean {
+  const date = new Date(dateString);
+  const daysAgo = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  return date >= daysAgo && date <= now;
 }
 
 // AWSカテゴリ文字列からラベルを抽出
@@ -143,6 +184,7 @@ export function extractLabelsFromCategories(
 // GitHub Changelog取得
 async function fetchGitHubChangelog(
   targetDate: Date,
+  days: number = 1,
 ): Promise<ChangelogEntry[]> {
   try {
     const response = await fetch("https://github.blog/changelog/feed/");
@@ -163,7 +205,7 @@ async function fetchGitHubChangelog(
 
     for (const item of items) {
       const pubDate = item.pubDate;
-      if (pubDate && isRecent(pubDate, targetDate)) {
+      if (pubDate && isWithinDays(pubDate, days, targetDate)) {
         const labels = extractLabelsFromCategories(item.category);
 
         entries.push({
@@ -183,14 +225,17 @@ async function fetchGitHubChangelog(
 }
 
 // AWS Changelog取得
-async function fetchAWSChangelog(targetDate: Date): Promise<ChangelogEntry[]> {
+async function fetchAWSChangelog(
+  targetDate: Date,
+  days: number = 1,
+): Promise<ChangelogEntry[]> {
   const feed = await parser.parseURL(
     "https://aws.amazon.com/about-aws/whats-new/recent/feed/",
   );
   const entries: ChangelogEntry[] = [];
 
   for (const item of feed.items) {
-    if (item.pubDate && isRecent(item.pubDate, targetDate)) {
+    if (item.pubDate && isWithinDays(item.pubDate, days, targetDate)) {
       const labels = extractLabelsFromAWSCategory(item.categories);
 
       entries.push({
@@ -209,6 +254,7 @@ async function fetchAWSChangelog(targetDate: Date): Promise<ChangelogEntry[]> {
 // Claude Code Releases取得
 async function fetchClaudeCodeReleases(
   targetDate: Date,
+  days: number = 1,
 ): Promise<ReleaseEntry[]> {
   const { data: releases } = await octokit.repos.listReleases({
     owner: "anthropics",
@@ -219,7 +265,10 @@ async function fetchClaudeCodeReleases(
   const entries: ReleaseEntry[] = [];
 
   for (const release of releases) {
-    if (release.published_at && isRecent(release.published_at, targetDate)) {
+    if (
+      release.published_at &&
+      isWithinDays(release.published_at, days, targetDate)
+    ) {
       entries.push({
         version: release.tag_name,
         url: release.html_url,
@@ -235,12 +284,13 @@ async function fetchClaudeCodeReleases(
 // Linear Changelog取得
 async function fetchLinearChangelog(
   targetDate: Date,
+  days: number = 1,
 ): Promise<ChangelogEntry[]> {
   const feed = await parser.parseURL("https://linear.app/rss/changelog.xml");
   const entries: ChangelogEntry[] = [];
 
   for (const item of feed.items) {
-    if (item.pubDate && isRecent(item.pubDate, targetDate)) {
+    if (item.pubDate && isWithinDays(item.pubDate, days, targetDate)) {
       entries.push({
         title: item.title || "",
         url: item.link || "",
@@ -341,9 +391,13 @@ export function applyMuteFilter<
 async function main() {
   console.log("Fetching changelogs...");
 
-  const targetDate = parseDate(Deno.args);
+  const { targetDate, days, weekly } = parseArgs(Deno.args);
   const dateString = targetDate.toISOString().split("T")[0];
   console.log(`Target date: ${dateString}`);
+  console.log(`Days: ${days}`);
+  if (weekly) {
+    console.log("Mode: Weekly");
+  }
 
   // ミュートワード機能の準備
   const token = Deno.env.get("GITHUB_TOKEN");
@@ -371,10 +425,10 @@ async function main() {
   }
 
   let [github, aws, claudeCode, linear] = await Promise.all([
-    fetchGitHubChangelog(targetDate),
-    fetchAWSChangelog(targetDate),
-    fetchClaudeCodeReleases(targetDate),
-    fetchLinearChangelog(targetDate),
+    fetchGitHubChangelog(targetDate, days),
+    fetchAWSChangelog(targetDate, days),
+    fetchClaudeCodeReleases(targetDate, days),
+    fetchLinearChangelog(targetDate, days),
   ]);
 
   // ミュートフィルタを適用
@@ -398,20 +452,40 @@ async function main() {
     github.length === 0 && aws.length === 0 && claudeCode.length === 0 &&
     linear.length === 0
   ) {
-    console.log("No updates found in the last 24 hours.");
+    console.log(`No updates found in the last ${days} day(s).`);
     Deno.exit(0);
   }
 
-  const data: ChangelogData = {
-    date: dateString,
-    github,
-    aws,
-    claudeCode,
-    linear,
-  };
+  // 週次の場合は開始日・終了日を設定
+  let data: ChangelogData;
+  if (weekly || days > 1) {
+    const startDate = new Date(
+      targetDate.getTime() - days * 24 * 60 * 60 * 1000,
+    );
+    const startDateString = startDate.toISOString().split("T")[0];
+    data = {
+      date: dateString,
+      startDate: startDateString,
+      endDate: dateString,
+      github,
+      aws,
+      claudeCode,
+      linear,
+    };
+  } else {
+    data = {
+      date: dateString,
+      github,
+      aws,
+      claudeCode,
+      linear,
+    };
+  }
 
-  const outputPath = `data/changelogs/${data.date}.json`;
-  await Deno.mkdir("data/changelogs", { recursive: true });
+  // 出力先ディレクトリを決定
+  const subDir = weekly ? "weekly" : "daily";
+  const outputPath = `data/changelogs/${subDir}/${data.date}.json`;
+  await Deno.mkdir(`data/changelogs/${subDir}`, { recursive: true });
   await Deno.writeTextFile(outputPath, JSON.stringify(data, null, 2));
 
   console.log(
