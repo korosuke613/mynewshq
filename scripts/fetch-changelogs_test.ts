@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import {
   applyMuteFilter,
+  extractLabelsFromAWSCategory,
   extractLabelsFromCategories,
   isMuted,
   isRecent,
@@ -258,6 +259,82 @@ Deno.test("extractLabelsFromCategories", async (t) => {
     const result = extractLabelsFromCategories([]);
     assertEquals(result, {});
   });
+});
+
+Deno.test("extractLabelsFromAWSCategory", async (t) => {
+  await t.step("general:products系のカテゴリからラベルを抽出する", () => {
+    const categories = ["general:products/amazon-mwaa"];
+    const result = extractLabelsFromAWSCategory(categories);
+    assertEquals(result, {
+      "general:products": ["amazon-mwaa"],
+    });
+  });
+
+  await t.step("marketing:marchitecture系は無視する", () => {
+    const categories = [
+      "marketing:marchitecture/analytics",
+      "general:products/amazon-mwaa",
+    ];
+    const result = extractLabelsFromAWSCategory(categories);
+    assertEquals(result, {
+      "general:products": ["amazon-mwaa"],
+    });
+  });
+
+  await t.step("同じキーの複数のカテゴリを集約する", () => {
+    const categories = [
+      "general:products/amazon-s3",
+      "general:products/amazon-ec2",
+    ];
+    const result = extractLabelsFromAWSCategory(categories);
+    assertEquals(result, {
+      "general:products": ["amazon-s3", "amazon-ec2"],
+    });
+  });
+
+  await t.step("カテゴリがundefinedの場合は空のオブジェクトを返す", () => {
+    const result = extractLabelsFromAWSCategory(undefined);
+    assertEquals(result, {});
+  });
+
+  await t.step("空の配列の場合は空のオブジェクトを返す", () => {
+    const result = extractLabelsFromAWSCategory([]);
+    assertEquals(result, {});
+  });
+
+  await t.step("general:products以外のカテゴリは無視する", () => {
+    const categories = [
+      "marketing:marchitecture/analytics",
+      "invalid-category",
+      "no-slash:here",
+    ];
+    const result = extractLabelsFromAWSCategory(categories);
+    assertEquals(result, {});
+  });
+
+  await t.step(
+    "カンマ区切りのカテゴリを分割してgeneral:productsのみ抽出する",
+    () => {
+      const categories = [
+        "general:products/amazon-connect,marketing:marchitecture/business-productivity,general:products/aws-govcloud-us",
+      ];
+      const result = extractLabelsFromAWSCategory(categories);
+      assertEquals(result, {
+        "general:products": ["amazon-connect", "aws-govcloud-us"],
+      });
+    },
+  );
+
+  await t.step(
+    "複数スラッシュがある場合は最初のスラッシュ以降を値とする",
+    () => {
+      const categories = ["general:products/amazon-s3/deep/path"];
+      const result = extractLabelsFromAWSCategory(categories);
+      assertEquals(result, {
+        "general:products": ["amazon-s3/deep/path"],
+      });
+    },
+  );
 });
 
 Deno.test("normalizeUrl", async (t) => {

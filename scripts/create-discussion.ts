@@ -532,7 +532,16 @@ export function generateDefaultBody(data: ChangelogData): string {
     if (activeEntries.length > 0) {
       body += "## AWS What's New\n";
       for (const item of activeEntries) {
-        body += `### [${item.title}](${item.url})\n`;
+        let labelsString = "";
+        if (item.labels) {
+          const allLabels = Object.values(item.labels).flat();
+          if (allLabels.length > 0) {
+            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
+          }
+        }
+        body += `### [${item.title}](${item.url})${
+          labelsString ? " " + labelsString : ""
+        }\n`;
         body += `*Published: ${item.pubDate}*\n\n`;
       }
     }
@@ -615,7 +624,16 @@ export function generateBodyWithSummaries(
     if (activeEntries.length > 0) {
       body += "## AWS What's New\n\n";
       for (const item of activeEntries) {
-        body += `### [${item.title}](${item.url})\n\n`;
+        let labelsString = "";
+        if (item.labels) {
+          const allLabels = Object.values(item.labels).flat();
+          if (allLabels.length > 0) {
+            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
+          }
+        }
+        body += `### [${item.title}](${item.url})${
+          labelsString ? " " + labelsString : ""
+        }\n\n`;
         const summary = summaries.aws?.[item.url];
         if (summary) {
           body += `**要約**: ${summary}\n\n`;

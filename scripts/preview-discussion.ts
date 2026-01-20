@@ -15,6 +15,7 @@ interface ChangelogData {
     pubDate: string;
     muted?: boolean;
     mutedBy?: string;
+    labels?: Record<string, string[]>;
   }>;
   aws: Array<{
     title: string;
@@ -23,6 +24,7 @@ interface ChangelogData {
     pubDate: string;
     muted?: boolean;
     mutedBy?: string;
+    labels?: Record<string, string[]>;
   }>;
   claudeCode: Array<{
     version: string;
