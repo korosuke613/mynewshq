@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  discussions: write
   id-token: write
 
 jobs:
