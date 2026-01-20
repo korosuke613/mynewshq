@@ -83,6 +83,11 @@ export interface SummaryData {
   linear: Record<string, string>;
 }
 
+// amazon- または aws- プレフィックスを省略する
+export function stripAwsPrefix(label: string): string {
+  return label.replace(/^(amazon-|aws-)/, "");
+}
+
 // changelogデータからラベル名を決定
 export function determineLabels(data: ChangelogData): string[] {
   const labels = new Set<string>(); // Setを使用して重複を避ける
@@ -99,6 +104,13 @@ export function determineLabels(data: ChangelogData): string[] {
   }
   if (data.aws && data.aws.length > 0) {
     labels.add("aws");
+    for (const entry of data.aws) {
+      if (entry.labels) {
+        Object.values(entry.labels).flat().forEach((label) =>
+          labels.add(`aws:${stripAwsPrefix(label)}`)
+        );
+      }
+    }
   }
   if (data.claudeCode && data.claudeCode.length > 0) {
     labels.add("claude-code");
