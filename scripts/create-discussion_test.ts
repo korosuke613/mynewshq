@@ -77,9 +77,10 @@ Deno.test("generateDefaultBody", async (t) => {
         linear: [],
       };
       const body = generateDefaultBody(dataWithGhLabels);
-      assertStringIncludes(body, "[Feature A](https://example.com/a)");
-      assertStringIncludes(body, "\n`copilot`");
-      assertStringIncludes(body, "`improvement`");
+      assertStringIncludes(
+        body,
+        "[Feature A](https://example.com/a)\n`copilot` `improvement`",
+      );
     },
   );
 
