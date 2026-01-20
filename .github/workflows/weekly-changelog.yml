@@ -2,8 +2,8 @@ name: Weekly Changelog
 
 on:
   schedule:
-    # 毎週月曜日 03:00 UTC (12:00 JST)
-    - cron: "0 3 * * 1"
+    # 毎週水曜日 01:00 UTC (10:00 JST)
+    - cron: "0 1 * * 3"
   workflow_dispatch:
     inputs:
       end_date:
