@@ -1,11 +1,61 @@
 // Discussion投稿内容をプレビューするスクリプト
 import {
+  type DailyLink,
   generateBodyWithSummaries,
   generateDefaultBody,
   generateMention,
   generateTitle,
+  generateWeeklyBodyWithSummaries,
   type SummaryData,
+  type WeeklySummaryData,
 } from "./create-discussion.ts";
+
+// 週次プレビュー用のダミーデータ（--summaries-json がない場合に使用）
+const DUMMY_WEEKLY_SUMMARIES: WeeklySummaryData = {
+  weeklyHighlights: [
+    {
+      url: "https://example.com/highlight1",
+      title: "サンプルハイライト 1",
+      category: "github",
+      reason:
+        "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
+      impact:
+        "これはプレビュー用のダミーデータです。実際の技術者への影響がここに表示されます。",
+    },
+    {
+      url: "https://example.com/highlight2",
+      title: "サンプルハイライト 2",
+      category: "aws",
+      reason:
+        "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
+      impact:
+        "これはプレビュー用のダミーデータです。実際の技術者への影響がここに表示されます。",
+    },
+    {
+      url: "https://example.com/highlight3",
+      title: "サンプルハイライト 3",
+      category: "claudeCode",
+      reason:
+        "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
+      impact:
+        "これはプレビュー用のダミーデータです。実際の技術者への影響がここに表示されます。",
+    },
+  ],
+  categorySummaries: {
+    github: "【ダミー】GitHub Changelogの週間傾向がここに表示されます。",
+    aws: "【ダミー】AWS What's Newの週間傾向がここに表示されます。",
+    claudeCode:
+      "【ダミー】Claude Codeの週間アップデート傾向がここに表示されます。",
+    linear: "【ダミー】今週の更新はありませんでした。",
+  },
+  trendAnalysis: {
+    overallTrend: "【ダミー】今週の技術動向の全体傾向がここに表示されます。",
+    crossCategoryInsights:
+      "【ダミー】カテゴリ横断の関連性分析がここに表示されます。",
+    futureImplications:
+      "【ダミー】今後の展望や技術者が注目すべきポイントがここに表示されます。",
+  },
+};
 
 interface ChangelogData {
   date: string;
@@ -104,7 +154,28 @@ async function preview(
 
   // ボディを生成
   let body: string;
-  if (summariesJson) {
+  if (weekly) {
+    // 週次モード: WeeklySummaryData を使用
+    let summaries: WeeklySummaryData;
+    if (summariesJson) {
+      try {
+        summaries = JSON.parse(summariesJson);
+        console.log(`📝 週次要約JSON を使用してボディを生成`);
+      } catch (error) {
+        console.error(`Failed to parse weekly summaries JSON:`, error);
+        Deno.exit(1);
+      }
+    } else {
+      // --summaries-json がない場合はダミーデータを使用
+      summaries = DUMMY_WEEKLY_SUMMARIES;
+      console.log(`📝 ダミーデータを使用してボディを生成（プレビュー用）`);
+    }
+    // プレビュー時はDailyリンクは空（APIアクセスなし）
+    const dailyLinks: DailyLink[] = [];
+    body = generateWeeklyBodyWithSummaries(data, summaries, dailyLinks);
+    console.log(`⚠️ プレビューのためDailyリンクは空です`);
+  } else if (summariesJson) {
+    // 日次モード: SummaryData を使用
     try {
       const summaries: SummaryData = JSON.parse(summariesJson);
       body = generateBodyWithSummaries(data, summaries);

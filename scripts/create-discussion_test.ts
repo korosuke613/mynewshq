@@ -1,14 +1,18 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import {
+  type DailyLink,
   determineLabels,
   generateBodyWithSummaries,
   generateDefaultBody,
   generateMutedSection,
   generateTitle,
+  generateWeeklyBodyWithSummaries,
   generateWeeklyCoveragePeriod,
+  getCategoryEmoji,
   parseArgs,
   stripAwsPrefix,
   type SummaryData,
+  type WeeklySummaryData,
 } from "./create-discussion.ts";
 
 const mockData = {
@@ -819,5 +823,168 @@ Deno.test("generateBodyWithSummaries with weekly data", async (t) => {
     );
     assertStringIncludes(body, "**要約**: GitHub機能Aの要約です。");
     assertStringIncludes(body, "**要約**: AWS更新Bの要約です。");
+  });
+});
+
+// 週次用機能のテスト
+Deno.test("getCategoryEmoji", async (t) => {
+  await t.step("各カテゴリに対応する絵文字を返す", () => {
+    assertEquals(getCategoryEmoji("github"), "🐙");
+    assertEquals(getCategoryEmoji("aws"), "☁️");
+    assertEquals(getCategoryEmoji("claudeCode"), "🤖");
+    assertEquals(getCategoryEmoji("linear"), "📐");
+  });
+
+  await t.step("未知のカテゴリにはデフォルト絵文字を返す", () => {
+    assertEquals(getCategoryEmoji("unknown"), "📌");
+    assertEquals(getCategoryEmoji(""), "📌");
+  });
+});
+
+Deno.test("generateWeeklyBodyWithSummaries", async (t) => {
+  const mockWeeklySummaryData: WeeklySummaryData = {
+    weeklyHighlights: [
+      {
+        url: "https://github.blog/changelog/copilot-sdk",
+        title: "Copilot SDK in Technical Preview",
+        category: "github",
+        reason:
+          "AIアシスタントの開発がより身近になる重要なSDKリリース。開発者はCopilot機能をアプリに統合可能に。",
+        impact:
+          "自社プロダクトへのAI支援機能の組み込みが容易になる。早期導入で競争優位性を確保できる。",
+      },
+      {
+        url: "https://aws.amazon.com/about-aws/whats-new/s3",
+        title: "Amazon S3 Update",
+        category: "aws",
+        reason: "S3の新機能によりストレージ管理が効率化。",
+        impact: "コスト削減と運用効率の向上が期待できる。",
+      },
+    ],
+    categorySummaries: {
+      github: "今週はCopilot関連の更新が集中し、AI支援開発の進化が顕著でした。",
+      aws: "リージョン拡張とクロスアカウント機能が目立ちました。",
+      claudeCode: "複数のマイナーリリースがあり、安定性向上が中心でした。",
+      linear: "今週の更新はありませんでした。",
+    },
+    trendAnalysis: {
+      overallTrend:
+        "AI支援開発ツールの進化が顕著で、特にGitHubのCopilot関連アップデートが集中しました。",
+      crossCategoryInsights:
+        "GitHubとAWSの両方で開発者体験の向上をテーマにした更新が多く見られました。",
+      futureImplications:
+        "Copilotのエコシステム拡大により、AI支援開発がCI/CDまで広がる可能性があります。",
+    },
+  };
+
+  const mockDailyLinks: DailyLink[] = [
+    {
+      date: "2026-01-20",
+      url: "https://github.com/korosuke613/mynewshq/discussions/10",
+      title: "📰 Tech Changelog - 2026-01-20",
+    },
+    {
+      date: "2026-01-18",
+      url: "https://github.com/korosuke613/mynewshq/discussions/8",
+      title: "📰 Tech Changelog - 2026-01-18",
+    },
+  ];
+
+  const mockWeeklyChangelogData = {
+    date: "2026-01-20",
+    startDate: "2026-01-13",
+    endDate: "2026-01-20",
+    github: [],
+    aws: [],
+    claudeCode: [],
+    linear: [],
+  };
+
+  await t.step("週次レポートの基本構造を正しく生成する", () => {
+    const body = generateWeeklyBodyWithSummaries(
+      mockWeeklyChangelogData,
+      mockWeeklySummaryData,
+      mockDailyLinks,
+    );
+
+    // ヘッダーと対象期間
+    assertStringIncludes(body, "# 📰 Tech Changelog - Weekly");
+    assertStringIncludes(
+      body,
+      "📅 **対象期間**: 2026-01-13 ~ 2026-01-20 (1週間)",
+    );
+
+    // ハイライトセクション
+    assertStringIncludes(body, "## 🌟 今週のハイライト");
+    assertStringIncludes(
+      body,
+      "### 🐙 [Copilot SDK in Technical Preview](https://github.blog/changelog/copilot-sdk)",
+    );
+    assertStringIncludes(
+      body,
+      "### ☁️ [Amazon S3 Update](https://aws.amazon.com/about-aws/whats-new/s3)",
+    );
+    assertStringIncludes(body, "**選定理由**:");
+    assertStringIncludes(body, "**技術者への影響**:");
+
+    // 傾向分析セクション
+    assertStringIncludes(body, "## 🔮 傾向分析");
+    assertStringIncludes(body, "### 今週の技術動向");
+    assertStringIncludes(body, "### クロスカテゴリの洞察");
+    assertStringIncludes(body, "### 今後の展望");
+
+    // カテゴリ別総括セクション
+    assertStringIncludes(body, "## 📊 カテゴリ別総括");
+    assertStringIncludes(body, "### GitHub Changelog");
+    assertStringIncludes(body, "### AWS What's New");
+    assertStringIncludes(body, "### Claude Code");
+    assertStringIncludes(body, "### Linear Changelog");
+
+    // Daily詳細セクション
+    assertStringIncludes(body, "## 📅 Daily詳細");
+    assertStringIncludes(
+      body,
+      "[2026-01-20](https://github.com/korosuke613/mynewshq/discussions/10)",
+    );
+    assertStringIncludes(
+      body,
+      "[2026-01-18](https://github.com/korosuke613/mynewshq/discussions/8)",
+    );
+  });
+
+  await t.step("Dailyリンクが日付の降順でソートされる", () => {
+    const body = generateWeeklyBodyWithSummaries(
+      mockWeeklyChangelogData,
+      mockWeeklySummaryData,
+      mockDailyLinks,
+    );
+
+    // 2026-01-20が2026-01-18より前に出現することを確認
+    const pos20 = body.indexOf("[2026-01-20]");
+    const pos18 = body.indexOf("[2026-01-18]");
+    assertEquals(pos20 < pos18, true);
+  });
+
+  await t.step("Dailyリンクがない場合はセクションを表示しない", () => {
+    const body = generateWeeklyBodyWithSummaries(
+      mockWeeklyChangelogData,
+      mockWeeklySummaryData,
+      [],
+    );
+
+    assertEquals(body.includes("## 📅 Daily詳細"), false);
+  });
+
+  await t.step("カテゴリ絵文字が正しく表示される", () => {
+    const body = generateWeeklyBodyWithSummaries(
+      mockWeeklyChangelogData,
+      mockWeeklySummaryData,
+      [],
+    );
+
+    // GitHubハイライトには🐙が使用される
+    assertStringIncludes(body, "🐙 [Copilot SDK");
+    // AWSハイライトには☁️が使用される
+    assertStringIncludes(body, "☁️ [Amazon S3");
   });
 });

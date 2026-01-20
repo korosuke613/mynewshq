@@ -85,6 +85,55 @@ export interface SummaryData {
   linear: Record<string, string>;
 }
 
+// 週次ハイライトエントリの型
+interface WeeklyHighlight {
+  url: string;
+  title: string;
+  category: string; // "github" | "aws" | "claudeCode" | "linear"
+  reason: string; // 選定理由
+  impact: string; // 技術者への影響
+}
+
+// カテゴリ別総括の型
+interface CategorySummaries {
+  github: string;
+  aws: string;
+  claudeCode: string;
+  linear: string;
+}
+
+// 傾向分析の型
+interface TrendAnalysis {
+  overallTrend: string; // 今週の技術動向
+  crossCategoryInsights: string; // クロスカテゴリの洞察
+  futureImplications: string; // 今後の展望
+}
+
+// 週次要約データの型
+export interface WeeklySummaryData {
+  weeklyHighlights: WeeklyHighlight[];
+  categorySummaries: CategorySummaries;
+  trendAnalysis: TrendAnalysis;
+}
+
+// Dailyリンクの型
+export interface DailyLink {
+  date: string;
+  url: string;
+  title: string;
+}
+
+// カテゴリ名に対応する絵文字を返す
+export function getCategoryEmoji(category: string): string {
+  const emojis: Record<string, string> = {
+    github: "🐙",
+    aws: "☁️",
+    claudeCode: "🤖",
+    linear: "📐",
+  };
+  return emojis[category] || "📌";
+}
+
 // amazon- または aws- プレフィックスを省略する
 export function stripAwsPrefix(label: string): string {
   return label.replace(/^(amazon-|aws-)/, "");
@@ -209,6 +258,76 @@ async function addLabelsToDiscussion(
       labelIds,
     },
   );
+}
+
+// Daily Discussion のリンクを期間内で取得
+export async function fetchDailyDiscussionLinks(
+  token: string,
+  owner: string,
+  repo: string,
+  startDate: string,
+  endDate: string,
+): Promise<DailyLink[]> {
+  const graphqlWithAuth = graphql.defaults({
+    headers: {
+      authorization: `token ${token}`,
+    },
+  });
+
+  // Generalカテゴリの最新Discussionを取得
+  interface DiscussionNode {
+    title: string;
+    url: string;
+    createdAt: string;
+  }
+
+  interface DiscussionSearchResult {
+    repository: {
+      discussions: {
+        nodes: DiscussionNode[];
+      };
+    };
+  }
+
+  const result = await graphqlWithAuth<DiscussionSearchResult>(
+    `
+    query($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        discussions(first: 50, orderBy: {field: CREATED_AT, direction: DESC}) {
+          nodes {
+            title
+            url
+            createdAt
+          }
+        }
+      }
+    }
+  `,
+    { owner, repo },
+  );
+
+  const discussions = result.repository.discussions.nodes;
+  const dailyLinks: DailyLink[] = [];
+
+  // "📰 Tech Changelog - YYYY-MM-DD" 形式のタイトルをパースして期間内をフィルタ
+  const dailyTitlePattern = /📰 Tech Changelog - (\d{4}-\d{2}-\d{2})$/;
+
+  for (const discussion of discussions) {
+    const match = discussion.title.match(dailyTitlePattern);
+    if (match) {
+      const date = match[1];
+      // 期間内かどうかをチェック（startDate <= date <= endDate）
+      if (date >= startDate && date <= endDate) {
+        dailyLinks.push({
+          date,
+          url: discussion.url,
+          title: discussion.title,
+        });
+      }
+    }
+  }
+
+  return dailyLinks;
 }
 
 // GitHub GraphQL APIでDiscussion作成
@@ -443,8 +562,32 @@ async function main() {
   const title = generateTitle(changelogData);
   let body: string;
 
-  if (summariesJson) {
-    // 構造化要約JSONが指定された場合
+  if (weekly) {
+    // 週次モード: WeeklySummaryData を使用（--summaries-json 必須）
+    if (!summariesJson) {
+      console.error("週次モードでは --summaries-json が必須です");
+      Deno.exit(1);
+    }
+    try {
+      const summaries: WeeklySummaryData = JSON.parse(summariesJson);
+      const dailyLinks = await fetchDailyDiscussionLinks(
+        token,
+        owner,
+        repo,
+        changelogData.startDate!,
+        changelogData.endDate!,
+      );
+      body =
+        generateWeeklyBodyWithSummaries(changelogData, summaries, dailyLinks) +
+        generateMention();
+      console.log("Using weekly structured summaries JSON");
+      console.log(`Found ${dailyLinks.length} daily discussion links`);
+    } catch (error) {
+      console.error("Failed to parse weekly summaries JSON:", error);
+      Deno.exit(1);
+    }
+  } else if (summariesJson) {
+    // 日次モード: 既存の SummaryData を使用
     try {
       const summaries: SummaryData = JSON.parse(summariesJson);
       body = generateBodyWithSummaries(changelogData, summaries) +
@@ -752,6 +895,68 @@ export function generateBodyWithSummaries(
     if (activeEntries.length > 0 || data.linear.some((e) => e.muted)) {
       body += "---\n\n";
     }
+  }
+
+  return body;
+}
+
+// 週次用の要約データ付きボディ生成
+export function generateWeeklyBodyWithSummaries(
+  data: ChangelogData,
+  summaries: WeeklySummaryData,
+  dailyLinks: DailyLink[],
+): string {
+  // 1. ヘッダー + 対象期間
+  let body = `# 📰 Tech Changelog - Weekly\n\n`;
+  body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) + "\n\n";
+
+  // 2. 🌟 今週のハイライト（3-5件）
+  body += "## 🌟 今週のハイライト\n\n";
+  for (let i = 0; i < summaries.weeklyHighlights.length; i++) {
+    const highlight = summaries.weeklyHighlights[i];
+    const emoji = getCategoryEmoji(highlight.category);
+    body += `### ${emoji} [${highlight.title}](${highlight.url})\n\n`;
+    body += `**選定理由**: ${highlight.reason}\n\n`;
+    body += `**技術者への影響**: ${highlight.impact}\n\n`;
+    // 最後のハイライト以外は区切り線を追加
+    if (i < summaries.weeklyHighlights.length - 1) {
+      body += "---\n\n";
+    }
+  }
+  body += "\n";
+
+  // 3. 🔮 傾向分析
+  body += "## 🔮 傾向分析\n\n";
+  body += "### 今週の技術動向\n";
+  body += `${summaries.trendAnalysis.overallTrend}\n\n`;
+  body += "### クロスカテゴリの洞察\n";
+  body += `${summaries.trendAnalysis.crossCategoryInsights}\n\n`;
+  body += "### 今後の展望\n";
+  body += `${summaries.trendAnalysis.futureImplications}\n\n`;
+
+  // 4. 📊 カテゴリ別総括
+  body += "## 📊 カテゴリ別総括\n\n";
+  body += "### GitHub Changelog\n";
+  body += `${summaries.categorySummaries.github}\n\n`;
+  body += "### AWS What's New\n";
+  body += `${summaries.categorySummaries.aws}\n\n`;
+  body += "### Claude Code\n";
+  body += `${summaries.categorySummaries.claudeCode}\n\n`;
+  body += "### Linear Changelog\n";
+  body += `${summaries.categorySummaries.linear}\n\n`;
+
+  // 5. 📅 Daily詳細（リンクリスト）
+  if (dailyLinks.length > 0) {
+    body += "## 📅 Daily詳細\n\n";
+    body += "各日の詳細は以下のリンクからご確認ください:\n\n";
+    // 日付の降順でソート
+    const sortedLinks = [...dailyLinks].sort((a, b) =>
+      b.date.localeCompare(a.date)
+    );
+    for (const link of sortedLinks) {
+      body += `- [${link.date}](${link.url})\n`;
+    }
+    body += "\n";
   }
 
   return body;
