@@ -139,11 +139,19 @@ export function toChangelogData(
     linear: (results.linear ?? []) as ChangelogEntry[],
   };
 
-  if (options?.startDate && options?.endDate) {
+  // startDateとendDateは両方指定されるか、両方とも指定されないかのどちらか
+  const hasStartDate = options?.startDate !== undefined;
+  const hasEndDate = options?.endDate !== undefined;
+
+  if (hasStartDate !== hasEndDate) {
+    throw new Error("Both startDate and endDate must be provided together.");
+  }
+
+  if (hasStartDate && hasEndDate) {
     return {
       ...base,
-      startDate: options.startDate,
-      endDate: options.endDate,
+      startDate: options!.startDate,
+      endDate: options!.endDate,
     };
   }
 

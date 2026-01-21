@@ -14,9 +14,13 @@ export function generateWeeklyBodyWithSummaries(
   summaries: WeeklySummaryData,
   dailyLinks: DailyLink[],
 ): string {
+  if (data.startDate == null || data.endDate == null) {
+    throw new Error("Weekly generation requires both startDate and endDate.");
+  }
+
   // 1. ヘッダー + 対象期間
   let body = `# 📰 Tech Changelog - Weekly\n\n`;
-  body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) + "\n\n";
+  body += generateWeeklyCoveragePeriod(data.startDate, data.endDate) + "\n\n";
 
   // 2. 🌟 今週のハイライト（3-5件）
   body += "## 🌟 今週のハイライト\n\n";

@@ -30,8 +30,8 @@ export function isMuted(title: string, muteWords: string[]): string | null {
   return null;
 }
 
-// エントリからチェック対象のテキストを取得
-function getEntryText(entry: { title?: string; version?: string }): string {
+// エントリからチェック対象のテキストを取得（title優先、なければversion）
+function getTitleOrVersion(entry: { title?: string; version?: string }): string {
   if (entry.title) {
     return entry.title;
   }
@@ -49,7 +49,7 @@ export function applyMuteFilter<
   muteWords: string[],
 ): (T & { muted?: boolean; mutedBy?: string })[] {
   return entries.map((entry) => {
-    const titleToCheck = getEntryText(entry);
+    const titleToCheck = getTitleOrVersion(entry);
     const mutedBy = isMuted(titleToCheck, muteWords);
     if (mutedBy) {
       return { ...entry, muted: true, mutedBy };
