@@ -98,9 +98,31 @@ scripts/
 - `scripts/preview-discussion.ts`
 - `scripts/create-discussion_test.ts`
 
-### Phase 4: Infrastructure層の抽象化（今回はスコープ外）
+### Phase 4: モジュール別テストファイルの追加
 
-> 今回は Phase 3 までを実施。Phase 4 は将来の拡張時に検討。
+**作業内容**:
+1. `scripts/domain/date-filter_test.ts` を作成
+   - `isRecent()`, `isWithinDays()` のテスト
+2. `scripts/domain/mute-filter_test.ts` を作成
+   - `parseMuteWords()`, `isMuted()`, `applyMuteFilter()` のテスト
+3. `scripts/domain/label-extractor_test.ts` を作成
+   - `extractLabelsFromCategories()`, `extractLabelsFromAWSCategory()`
+   - `determineLabels()`, `stripAwsPrefix()` のテスト
+4. `scripts/domain/url-normalizer_test.ts` を作成
+   - `normalizeUrl()` のテスト
+5. `scripts/presentation/markdown/helpers_test.ts` を作成
+   - `getCategoryEmoji()`, `formatLabelsString()`, `getEntryTitle()` のテスト
+
+**対象ファイル**:
+- `scripts/domain/date-filter_test.ts` (新規)
+- `scripts/domain/mute-filter_test.ts` (新規)
+- `scripts/domain/label-extractor_test.ts` (新規)
+- `scripts/domain/url-normalizer_test.ts` (新規)
+- `scripts/presentation/markdown/helpers_test.ts` (新規)
+
+### Phase 5: Infrastructure層の抽象化（今回はスコープ外）
+
+> 今回は Phase 4 までを実施。Phase 5 は将来の拡張時に検討。
 
 ## 検証方法
 
@@ -113,7 +135,7 @@ deno check scripts/*.ts
 # リントチェック
 deno lint
 
-# テスト実行（22テスト、106ステップが通ること）
+# テスト実行（35テスト、185ステップが通ること）
 deno test
 
 # 動作確認（ネットワーク環境がある場合）
@@ -122,12 +144,16 @@ deno task fetch
 
 ## 最終作業
 
-- [ ] dev-standards skill を実行してチェック
-- [ ] コミット作成
-- [ ] プランファイルを `./plans/2026-01-21-clean-architecture.md` にリネーム
+- [x] Phase 1: 型定義の統合
+- [x] Phase 2: 純粋関数のDomain層への移動
+- [x] Phase 3: Markdown生成のPresentation層への移動
+- [x] Phase 4: モジュール別テストファイルの追加
+- [x] dev-standards skill を実行してチェック
+- [x] コミット作成
+- [x] プランファイルを `./plans/2026-01-21-clean-architecture.md` にリネーム
 
 ## 備考
 
 - 後方互換性のため、元ファイルから再エクスポートを行う
 - Denoの制約により、相対パス + `.ts` 拡張子でインポートする
-- Phase 4 は将来の拡張時に検討
+- Phase 5 は将来の拡張時に検討
