@@ -39,4 +39,5 @@ jobs:
             --repo ${{ github.repository }} \
             --field question="$QUESTION" \
             --field discussion_number="${{ github.event.discussion.number }}" \
+            --field comment_id="${{ github.event.comment.node_id }}" \
             --field comment_url="${{ github.event.comment.html_url }}"

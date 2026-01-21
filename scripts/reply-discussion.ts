@@ -3,6 +3,7 @@ import { graphql } from "@octokit/graphql";
 interface AddDiscussionCommentInput {
   discussionId: string;
   body: string;
+  replyToId?: string;
 }
 
 interface AddDiscussionCommentResult {
@@ -51,6 +52,7 @@ async function replyToDiscussion(
   discussionNumber: number,
   replyBody: string,
   token: string,
+  replyToId?: string,
 ): Promise<string> {
   const graphqlWithAuth = graphql.defaults({
     headers: {
@@ -74,15 +76,22 @@ async function replyToDiscussion(
     console.log(`Discussion ID: ${discussionId}`);
 
     // コメントを投稿
-    console.log("Adding comment to discussion...");
+    const isReply = replyToId !== undefined;
+    console.log(
+      isReply
+        ? `Adding reply to comment ${replyToId}...`
+        : "Adding comment to discussion...",
+    );
+    const input: AddDiscussionCommentInput = {
+      discussionId,
+      body: replyBody,
+    };
+    if (replyToId) {
+      input.replyToId = replyToId;
+    }
     const result = await graphqlWithAuth<AddDiscussionCommentResult>(
       ADD_DISCUSSION_COMMENT_MUTATION,
-      {
-        input: {
-          discussionId,
-          body: replyBody,
-        } as AddDiscussionCommentInput,
-      },
+      { input },
     );
 
     console.log(
@@ -98,12 +107,12 @@ async function replyToDiscussion(
 async function main(): Promise<void> {
   const args = Deno.args;
 
-  if (args.length !== 2 && args.length !== 4) {
+  if (args.length < 2 || args.length > 5) {
     console.error(
-      "Usage: deno run reply-discussion.ts <discussion-number> <owner> <repo> <body>",
+      "Usage: deno run reply-discussion.ts <discussion-number> <body> [reply-to-id]",
     );
     console.error(
-      "  or: deno run reply-discussion.ts <discussion-number> <body> (uses GITHUB_REPOSITORY)",
+      "  or: deno run reply-discussion.ts <discussion-number> <owner> <repo> <body> [reply-to-id]",
     );
     Deno.exit(1);
   }
@@ -118,17 +127,20 @@ async function main(): Promise<void> {
   let owner: string;
   let repo: string;
   let body: string;
+  let replyToId: string | undefined;
 
-  if (args.length === 4) {
-    // Format: <discussion-number> <owner> <repo> <body>
+  if (args.length >= 4) {
+    // Format: <discussion-number> <owner> <repo> <body> [reply-to-id]
     discussionNumber = parseInt(args[0], 10);
     owner = args[1];
     repo = args[2];
     body = args[3];
+    replyToId = args[4];
   } else {
-    // Format: <discussion-number> <body> (uses GITHUB_REPOSITORY)
+    // Format: <discussion-number> <body> [reply-to-id] (uses GITHUB_REPOSITORY)
     discussionNumber = parseInt(args[0], 10);
     body = args[1];
+    replyToId = args[2];
 
     const githubRepository = Deno.env.get("GITHUB_REPOSITORY");
     if (!githubRepository) {
@@ -153,9 +165,12 @@ async function main(): Promise<void> {
       discussionNumber,
       body,
       token,
+      replyToId,
     );
     console.log(
-      `Successfully added comment to discussion #${discussionNumber}`,
+      replyToId
+        ? `Successfully added reply to comment in discussion #${discussionNumber}`
+        : `Successfully added comment to discussion #${discussionNumber}`,
     );
     console.log(`Comment URL: ${commentUrl}`);
   } catch (error) {
