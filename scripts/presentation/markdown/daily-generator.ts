@@ -1,5 +1,6 @@
 // 日次Markdown生成
 import type { ChangelogData, SummaryData } from "../../domain/types.ts";
+import { getProviderDisplayName } from "../../domain/providers.ts";
 import { formatLabelsString } from "./helpers.ts";
 import { generateMutedSection } from "./muted-section.ts";
 
@@ -51,7 +52,7 @@ export function generateDefaultBody(data: ChangelogData): string {
   if (data.github && data.github.length > 0) {
     const activeEntries = data.github.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
-      body += "## GitHub Changelog\n";
+      body += `## ${getProviderDisplayName("github")}\n`;
       for (const item of activeEntries) {
         const labelsString = formatLabelsString(item.labels);
         body += `### [${item.title}](${item.url})\n`;
@@ -70,7 +71,7 @@ export function generateDefaultBody(data: ChangelogData): string {
   if (data.aws && data.aws.length > 0) {
     const activeEntries = data.aws.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
-      body += "## AWS What's New\n";
+      body += `## ${getProviderDisplayName("aws")}\n`;
       for (const item of activeEntries) {
         const labelsString = formatLabelsString(item.labels);
         body += `### [${item.title}](${item.url})\n`;
@@ -89,7 +90,7 @@ export function generateDefaultBody(data: ChangelogData): string {
   if (data.claudeCode && data.claudeCode.length > 0) {
     const activeEntries = data.claudeCode.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
-      body += "## Claude Code\n";
+      body += `## ${getProviderDisplayName("claudeCode")}\n`;
       for (const item of activeEntries) {
         body += `### [${item.version}](${item.url})\n`;
         body += `*Published: ${item.publishedAt}*\n\n`;
@@ -104,7 +105,7 @@ export function generateDefaultBody(data: ChangelogData): string {
   if (data.linear && data.linear.length > 0) {
     const activeEntries = data.linear.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
-      body += "## Linear Changelog\n";
+      body += `## ${getProviderDisplayName("linear")}\n`;
       for (const item of activeEntries) {
         body += `### [${item.title}](${item.url})\n`;
         body += `*Published: ${item.pubDate}*\n\n`;
@@ -139,7 +140,7 @@ export function generateBodyWithSummaries(
   if (data.github && data.github.length > 0) {
     const activeEntries = data.github.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
-      body += "## GitHub Changelog\n\n";
+      body += `## ${getProviderDisplayName("github")}\n\n`;
       for (const item of activeEntries) {
         const labelsString = formatLabelsString(item.labels);
         body += `### [${item.title}](${item.url})\n`;
@@ -162,7 +163,7 @@ export function generateBodyWithSummaries(
   if (data.aws && data.aws.length > 0) {
     const activeEntries = data.aws.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
-      body += "## AWS What's New\n\n";
+      body += `## ${getProviderDisplayName("aws")}\n\n`;
       for (const item of activeEntries) {
         const labelsString = formatLabelsString(item.labels);
         body += `### [${item.title}](${item.url})\n`;
@@ -185,7 +186,7 @@ export function generateBodyWithSummaries(
   if (data.claudeCode && data.claudeCode.length > 0) {
     const activeEntries = data.claudeCode.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
-      body += "## Claude Code\n\n";
+      body += `## ${getProviderDisplayName("claudeCode")}\n\n`;
       for (const item of activeEntries) {
         body += `### [${item.version}](${item.url})\n\n`;
         const summary = summaries.claudeCode?.[item.url];
@@ -203,7 +204,7 @@ export function generateBodyWithSummaries(
   if (data.linear && data.linear.length > 0) {
     const activeEntries = data.linear.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
-      body += "## Linear Changelog\n\n";
+      body += `## ${getProviderDisplayName("linear")}\n\n`;
       for (const item of activeEntries) {
         body += `### [${item.title}](${item.url})\n\n`;
         const summary = summaries.linear?.[item.url];

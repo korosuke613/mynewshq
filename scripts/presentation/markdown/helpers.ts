@@ -1,14 +1,9 @@
 // Markdown生成用のヘルパー関数
+import { getProviderEmoji } from "../../domain/providers.ts";
 
 // カテゴリ名に対応する絵文字を返す
 export function getCategoryEmoji(category: string): string {
-  const emojis: Record<string, string> = {
-    github: "🐙",
-    aws: "☁️",
-    claudeCode: "🤖",
-    linear: "📐",
-  };
-  return emojis[category] || "📌";
+  return getProviderEmoji(category);
 }
 
 // ChangelogEntry のラベルからバッククォート付きの文字列を生成

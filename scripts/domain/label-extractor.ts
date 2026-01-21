@@ -4,6 +4,7 @@ import type {
   DetermineLabelsOptions,
   XmlCategory,
 } from "./types.ts";
+import { PROVIDER_CONFIGS } from "./providers.ts";
 
 // XMLのカテゴリ情報からラベルを抽出
 export function extractLabelsFromCategories(
@@ -74,35 +75,28 @@ export function determineLabels(
   const labels = new Set<string>(); // Setを使用して重複を避ける
   const serviceOnly = options?.serviceOnly ?? false;
 
-  if (data.github && data.github.length > 0) {
-    labels.add("github"); // サービス名ラベルはプレフィックスなし
-    if (!serviceOnly) {
-      for (const entry of data.github) {
-        if (entry.labels) {
-          Object.values(entry.labels).flat().forEach((label) =>
-            labels.add(`gh:${label}`)
-          ); // サブカテゴリラベルにプレフィックスを付与
+  for (const config of PROVIDER_CONFIGS) {
+    const entries = data[config.id as keyof ChangelogData];
+    if (Array.isArray(entries) && entries.length > 0) {
+      // サービス名ラベルを追加
+      labels.add(config.labelName);
+
+      // サブカテゴリラベルを追加（serviceOnlyでない場合、かつlabelPrefixがある場合）
+      if (!serviceOnly && config.labelPrefix) {
+        for (const entry of entries) {
+          // ChangelogEntryの場合のみlabelsを持つ
+          if ("labels" in entry && entry.labels) {
+            Object.values(entry.labels).flat().forEach((label) => {
+              // transformLabelがあれば変換を適用
+              const transformedLabel = config.transformLabel
+                ? config.transformLabel(label)
+                : label;
+              labels.add(`${config.labelPrefix}${transformedLabel}`);
+            });
+          }
         }
       }
     }
-  }
-  if (data.aws && data.aws.length > 0) {
-    labels.add("aws");
-    if (!serviceOnly) {
-      for (const entry of data.aws) {
-        if (entry.labels) {
-          Object.values(entry.labels).flat().forEach((label) =>
-            labels.add(`aws:${stripAwsPrefix(label)}`)
-          );
-        }
-      }
-    }
-  }
-  if (data.claudeCode && data.claudeCode.length > 0) {
-    labels.add("claude-code");
-  }
-  if (data.linear && data.linear.length > 0) {
-    labels.add("linear");
   }
 
   return Array.from(labels); // Setを配列に変換して返す

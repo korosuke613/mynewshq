@@ -4,6 +4,7 @@ import type {
   DailyLink,
   WeeklySummaryData,
 } from "../../domain/types.ts";
+import { getProviderDisplayName } from "../../domain/providers.ts";
 import { getCategoryEmoji } from "./helpers.ts";
 import { generateWeeklyCoveragePeriod } from "./daily-generator.ts";
 
@@ -42,13 +43,13 @@ export function generateWeeklyBodyWithSummaries(
 
   // 4. 📊 カテゴリ別総括
   body += "## 📊 カテゴリ別総括\n\n";
-  body += "### GitHub Changelog\n";
+  body += `### ${getProviderDisplayName("github")}\n`;
   body += `${summaries.categorySummaries.github}\n\n`;
-  body += "### AWS What's New\n";
+  body += `### ${getProviderDisplayName("aws")}\n`;
   body += `${summaries.categorySummaries.aws}\n\n`;
-  body += "### Claude Code\n";
+  body += `### ${getProviderDisplayName("claudeCode")}\n`;
   body += `${summaries.categorySummaries.claudeCode}\n\n`;
-  body += "### Linear Changelog\n";
+  body += `### ${getProviderDisplayName("linear")}\n`;
   body += `${summaries.categorySummaries.linear}\n\n`;
 
   // 5. 📅 Daily詳細（リンクリスト）
