@@ -52,14 +52,25 @@ jobs:
           echo "Target period: ${START_DATE} ~ ${END_DATE}"
 
       - name: Fetch changelogs (7 days)
+        id: fetch
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
           MUTE_WORDS_ISSUE_NUMBER: "1"
         run: |
           deno task fetch --days=7 --weekly --date=${{ steps.target-date.outputs.end_date }}
 
+          # ファイル存在確認
+          if [ -f "data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json" ]; then
+            echo "has_data=true" >> $GITHUB_OUTPUT
+            echo "Data file created"
+          else
+            echo "has_data=false" >> $GITHUB_OUTPUT
+            echo "No data file created (no updates found)"
+          fi
+
       - name: Login GitHub App
         id: login-gh-app
+        if: steps.fetch.outputs.has_data == 'true'
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
@@ -69,6 +80,7 @@ jobs:
 
       - name: Generate summaries with Claude Code
         id: summarize
+        if: steps.fetch.outputs.has_data == 'true'
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
@@ -111,6 +123,7 @@ jobs:
             - futureImplications: 今後の展望や技術者が注目すべきポイント 2-3文
 
       - name: Post to Discussion
+        if: steps.fetch.outputs.has_data == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
