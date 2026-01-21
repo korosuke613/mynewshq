@@ -31,7 +31,9 @@ export function isMuted(title: string, muteWords: string[]): string | null {
 }
 
 // エントリからチェック対象のテキストを取得（title優先、なければversion）
-function getTitleOrVersion(entry: { title?: string; version?: string }): string {
+function getTitleOrVersion(
+  entry: { title?: string; version?: string },
+): string {
   if (entry.title) {
     return entry.title;
   }
