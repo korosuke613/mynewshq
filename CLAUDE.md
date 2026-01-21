@@ -1,49 +1,89 @@
-# AGENT 設定
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 重要なルール（必ず守ること）
 
-- **プランファイル**
-  - プランモード終了時、todo を作成する際、todo の最後としてプランファイルを `./plans/YYYY-MM-DD-説明.md` 形式にリネームすることを追加する
-  - コミットする際に、プランファイルを含める
-- **開発ルール**: コード作成・編集後は `dev-standards` skill を実行してチェックすること
+- **プランファイル**: プランモード終了時、todoの最後にプランファイルを `./plans/YYYY-MM-DD-説明.md` 形式にリネームするタスクを追加。コミット時にプランファイルを含める
+- **開発ルール**: コード作成・編集後は `dev-standards` skill を実行してチェック
 - **言語**: 日本語で回答すること
 
 ---
 
-このリポジトリは、技術系Changelogを自動収集・要約・投稿するシステムです。
-
 ## プロジェクト概要
 
-毎日12:00 JST（アメリカ西海岸時間の夜）に以下のChangelogを自動収集します：
+技術系Changelogを自動収集・AI要約・GitHub Discussionsに投稿するシステム。
 
-- GitHub Changelog (RSS)
-- AWS What's New (RSS)
-- Claude Code (GitHub Releases)
-- Linear Changelog (RSS)
+**対象サービス**: GitHub Changelog, AWS What's New, Claude Code, Linear Changelog
 
-収集したデータは `data/changelogs/YYYY-MM-DD.json` に保存され、 Claude Code
-Actionで要約を生成してGitHub Discussionsに投稿します。
+**スケジュール**:
+- 日次: 毎日 12:00 JST
+- 週次: 毎週水曜日 10:00 JST
 
-## 使用技術
+## 開発コマンド
 
-- **ランタイム**: Deno
-- **言語**: TypeScript
-- **CI/CD**: GitHub Actions
-- **AI要約**: Claude Code Action
+```bash
+# データ取得
+GITHUB_TOKEN=$(gh auth token) deno task fetch
+GITHUB_TOKEN=$(gh auth token) deno task fetch -- --date=2026-01-15
+GITHUB_TOKEN=$(gh auth token) deno task fetch-weekly
 
-## ファイル構造
+# プレビュー（投稿せずにMarkdown確認）
+deno task preview
+deno task preview-weekly
 
-- `scripts/fetch-changelogs.ts`: データ取得スクリプト
-- `scripts/create-discussion.ts`: Discussion投稿スクリプト
-- `data/changelogs/`: 収集したデータを保存
-- `.github/workflows/fetch-changelog.yml`: データ取得ワークフロー
-- `.github/workflows/summarize-changelog.yml`: 要約・投稿ワークフロー
+# テスト・品質チェック
+deno task test                              # 全テスト実行
+deno test scripts/domain/mute-filter_test.ts  # 単一ファイル
+deno check scripts/*.ts scripts/**/*.ts     # 型チェック
+deno lint                                   # リント
+deno fmt                                    # フォーマット
+```
 
-## Claude Code Actionの役割
+## アーキテクチャ
 
-Changelogデータを読み込み、以下の形式で日本語要約を生成してください：
+```
+scripts/
+├── fetch-changelogs.ts          # エントリポイント：データ取得
+├── create-discussion.ts         # エントリポイント：Discussion投稿
+├── domain/                      # ビジネスロジック層
+│   ├── types.ts                 # 共通型定義（ChangelogData等）
+│   ├── providers/               # Provider Pattern
+│   │   ├── index.ts             # 統合モジュール・ヘルパー関数
+│   │   ├── types.ts             # ProviderConfig型定義
+│   │   └── *-provider.ts        # 各サービスのデータ取得
+│   ├── date-filter.ts           # 日付フィルタリング
+│   ├── mute-filter.ts           # ミュート機能
+│   └── label-extractor.ts       # ラベル抽出
+└── presentation/markdown/       # プレゼンテーション層
+    ├── daily-generator.ts       # 日次Markdown生成
+    └── weekly-generator.ts      # 週次Markdown生成
+```
 
-### 要約フォーマット
+### Provider Pattern
+
+新しいChangelogソースを追加する場合：
+
+1. `scripts/domain/providers/xxx-provider.ts` を作成（`ProviderConfig`に準拠）
+2. `scripts/domain/providers/index.ts` の `PROVIDER_CONFIGS` に登録、`toChangelogData()` を更新
+3. `scripts/domain/types.ts` の `ChangelogData` 型にフィールドを追加
+
+### データフロー
+
+```
+各Provider.fetch() → fetchAll()並列実行 → ミュートフィルタ適用
+→ toChangelogData() → JSON保存 → Markdown生成 → Discussion投稿
+```
+
+## テストの配置
+
+テストファイルは対象ファイルと同じディレクトリに `*_test.ts` として配置。
+
+---
+
+## Claude Code Actionの役割（要約生成時）
+
+Changelogデータを読み込み、以下の形式で日本語要約を生成：
 
 ```markdown
 # 📰 Tech Changelog - YYYY-MM-DD
@@ -53,55 +93,19 @@ Changelogデータを読み込み、以下の形式で日本語要約を生成�
 ### [タイトル](URL) `ラベル1` `ラベル2`
 
 **要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
-
-## AWS What's New
-
-### [タイトル](URL)
-
-**要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
-
-## Claude Code
-
-### [バージョン](URL)
-
-**要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
-
-## Linear Changelog
-
-### [タイトル](URL)
-
-**要約**: 2-3文で簡潔に日本語で要約。技術者向けに重要なポイントを強調。
 ```
 
-### ラベルについて
+### ラベル表示
 
-GitHub Changelogのエントリには`labels`フィールドがあります。このラベルを見出しの後ろにインラインコード（バッククォート）で表示してください。
-
-例: JSONに以下のようなラベルがある場合：
+`labels`フィールドがある場合、見出しの後ろにバッククォートで表示：
 ```json
-"labels": {
-  "changelog-type": ["Improvement"],
-  "changelog-label": ["copilot", "security"]
-}
+"labels": { "changelog-type": ["Improvement"], "changelog-label": ["copilot"] }
 ```
+→ `### [タイトル](URL) \`Improvement\` \`copilot\``
 
-見出しは以下のように表示：
-```markdown
-### [タイトル](URL) `Improvement` `copilot` `security`
-```
+### 要約ルール
 
-### 要約のルール
-
-1. **簡潔さ**: 各エントリは2-3文で要約
-2. **技術的正確性**: 技術用語は正確に使用
-3. **重要度**: 技術者にとって重要なポイントを優先
-4. **日本語**: すべて日本語で記述
-5. **リンク**: タイトルは元記事へのリンクとして表示
-
-### 実行手順
-
-要約を生成したら：
-
-1. `summary.md` に要約を保存
-2. `deno task post korosuke613 mynewshq General "$(cat summary.md)"`
-   を実行してDiscussionに投稿
+1. 各エントリは2-3文で要約
+2. 技術用語は正確に使用
+3. `muted: true` のエントリはスキップ
+4. すべて日本語で記述

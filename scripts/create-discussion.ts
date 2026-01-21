@@ -1,12 +1,51 @@
 import { graphql } from "@octokit/graphql";
+import type {
+  ChangelogData,
+  ChangelogEntry,
+  DailyLink,
+  ReleaseEntry,
+  SummaryData,
+  WeeklySummaryData,
+} from "./domain/types.ts";
+import { determineLabels, stripAwsPrefix } from "./domain/label-extractor.ts";
+import {
+  generateBodyWithSummaries,
+  generateCoveragePeriod,
+  generateDefaultBody,
+  generateTitle,
+  generateWeeklyCoveragePeriod,
+} from "./presentation/markdown/daily-generator.ts";
+import { generateWeeklyBodyWithSummaries } from "./presentation/markdown/weekly-generator.ts";
+import {
+  generateMention,
+  getCategoryEmoji,
+} from "./presentation/markdown/helpers.ts";
+import { generateMutedSection } from "./presentation/markdown/muted-section.ts";
 
-interface CreateDiscussionInput {
-  repositoryId: string;
-  categoryId: string;
-  title: string;
-  body: string;
-}
+// 後方互換性のため型と関数を再エクスポート
+export type {
+  ChangelogData,
+  ChangelogEntry,
+  DailyLink,
+  ReleaseEntry,
+  SummaryData,
+  WeeklySummaryData,
+};
+export {
+  determineLabels,
+  generateBodyWithSummaries,
+  generateCoveragePeriod,
+  generateDefaultBody,
+  generateMention,
+  generateMutedSection,
+  generateTitle,
+  generateWeeklyBodyWithSummaries,
+  generateWeeklyCoveragePeriod,
+  getCategoryEmoji,
+  stripAwsPrefix,
+};
 
+// GraphQL API用の内部型定義
 interface DiscussionCategory {
   id: string;
   name: string;
@@ -46,144 +85,6 @@ interface AddLabelsResult {
       };
     };
   };
-}
-
-interface ChangelogEntry {
-  title: string;
-  url: string;
-  content: string;
-  pubDate: string;
-  muted?: boolean;
-  mutedBy?: string;
-  labels?: Record<string, string[]>;
-}
-
-interface ReleaseEntry {
-  version: string;
-  url: string;
-  body: string;
-  publishedAt: string;
-  muted?: boolean;
-  mutedBy?: string;
-}
-
-interface ChangelogData {
-  date: string;
-  startDate?: string; // 週次の場合の開始日
-  endDate?: string; // 週次の場合の終了日
-  github: ChangelogEntry[];
-  aws: ChangelogEntry[];
-  claudeCode: ReleaseEntry[];
-  linear: ChangelogEntry[];
-}
-
-// 要約データの型定義（キーはURL、値は要約文）
-export interface SummaryData {
-  github: Record<string, string>;
-  aws: Record<string, string>;
-  claudeCode: Record<string, string>;
-  linear: Record<string, string>;
-}
-
-// 週次ハイライトエントリの型
-interface WeeklyHighlight {
-  url: string;
-  title: string;
-  category: string; // "github" | "aws" | "claudeCode" | "linear"
-  reason: string; // 選定理由
-  impact: string; // 技術者への影響
-}
-
-// カテゴリ別総括の型
-interface CategorySummaries {
-  github: string;
-  aws: string;
-  claudeCode: string;
-  linear: string;
-}
-
-// 傾向分析の型
-interface TrendAnalysis {
-  overallTrend: string; // 今週の技術動向
-  crossCategoryInsights: string; // クロスカテゴリの洞察
-  futureImplications: string; // 今後の展望
-}
-
-// 週次要約データの型
-export interface WeeklySummaryData {
-  weeklyHighlights: WeeklyHighlight[];
-  categorySummaries: CategorySummaries;
-  trendAnalysis: TrendAnalysis;
-}
-
-// Dailyリンクの型
-export interface DailyLink {
-  date: string;
-  url: string;
-  title: string;
-}
-
-// カテゴリ名に対応する絵文字を返す
-export function getCategoryEmoji(category: string): string {
-  const emojis: Record<string, string> = {
-    github: "🐙",
-    aws: "☁️",
-    claudeCode: "🤖",
-    linear: "📐",
-  };
-  return emojis[category] || "📌";
-}
-
-// amazon- または aws- プレフィックスを省略する
-export function stripAwsPrefix(label: string): string {
-  return label.replace(/^(amazon-|aws-)/, "");
-}
-
-// determineLabels関数のオプション型
-interface DetermineLabelsOptions {
-  serviceOnly?: boolean; // trueの場合、サービス名ラベルのみを返す（週次用）
-}
-
-// changelogデータからラベル名を決定
-export function determineLabels(
-  data: ChangelogData,
-  options?: DetermineLabelsOptions,
-): string[] {
-  const labels = new Set<string>(); // Setを使用して重複を避ける
-  const serviceOnly = options?.serviceOnly ?? false;
-
-  if (data.github && data.github.length > 0) {
-    labels.add("github"); // サービス名ラベルはプレフィックスなし
-    if (!serviceOnly) {
-      for (const entry of data.github) {
-        if (entry.labels) {
-          Object.values(entry.labels).flat().forEach((label) =>
-            labels.add(`gh:${label}`)
-          ); // サブカテゴリラベルにプレフィックスを付与
-        }
-      }
-    }
-  }
-  if (data.aws && data.aws.length > 0) {
-    labels.add("aws");
-    if (!serviceOnly) {
-      for (const entry of data.aws) {
-        if (entry.labels) {
-          Object.values(entry.labels).flat().forEach((label) =>
-            labels.add(`aws:${stripAwsPrefix(label)}`)
-          );
-        }
-      }
-    }
-  }
-  if (data.claudeCode && data.claudeCode.length > 0) {
-    labels.add("claude-code");
-  }
-  if (data.linear && data.linear.length > 0) {
-    labels.add("linear");
-  }
-
-  return Array.from(labels); // Setを配列に変換して返す
 }
 
 // ランダムな16進数の色を生成（アクセシブルな色のリストから選択）
@@ -643,339 +544,6 @@ async function main() {
   );
 
   console.log(`Discussion created: ${url}`);
-}
-
-// メンション文字列を生成
-export function generateMention(): string {
-  const mentionUser = Deno.env.get("MENTION_USER") || "korosuke613";
-  return `\n\n---\ncc: @${mentionUser}`;
-}
-
-// ミュートされたエントリの折りたたみセクションを生成
-export function generateMutedSection<
-  T extends { title?: string; version?: string; url: string; mutedBy?: string },
->(entries: T[]): string {
-  const mutedEntries = entries.filter((e) => "muted" in e && e.muted);
-  if (mutedEntries.length === 0) {
-    return "";
-  }
-
-  let section =
-    `<details>\n<summary>ミュートされたエントリ (${mutedEntries.length}件)</summary>\n\n`;
-  for (const entry of mutedEntries) {
-    const title = "title" in entry && entry.title
-      ? entry.title
-      : "version" in entry && entry.version
-      ? entry.version
-      : "Untitled";
-    const mutedBy = entry.mutedBy || "unknown";
-    section += `- [${title}](${entry.url}) *(ミュートワード: ${mutedBy})*\n`;
-  }
-  section += `</details>\n\n`;
-  return section;
-}
-
-// 対象期間の文字列を生成（UTC 3:00 基準の24時間ウィンドウ）
-export function generateCoveragePeriod(dateStr: string): string {
-  const endDate = new Date(dateStr + "T03:00:00Z");
-  const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-
-  const formatDateTime = (date: Date): string => {
-    return date.toISOString().replace("T", " ").replace(":00.000Z", " UTC");
-  };
-
-  return `📅 **対象期間**: ${formatDateTime(startDate)} ~ ${
-    formatDateTime(endDate)
-  }`;
-}
-
-// 週次用の対象期間の文字列を生成
-export function generateWeeklyCoveragePeriod(
-  startDateStr: string,
-  endDateStr: string,
-): string {
-  return `📅 **対象期間**: ${startDateStr} ~ ${endDateStr} (1週間)`;
-}
-
-// Discussionタイトルを生成
-export function generateTitle(data: ChangelogData): string {
-  const isWeekly = !!(data.startDate && data.endDate);
-  if (isWeekly) {
-    return `📰 Tech Changelog - Weekly (${data.startDate} ~ ${data.endDate})`;
-  }
-  return `📰 Tech Changelog - ${data.date}`;
-}
-
-// デフォルトのボディ生成（要約がない場合）
-export function generateDefaultBody(data: ChangelogData): string {
-  const isWeekly = !!(data.startDate && data.endDate);
-  let body: string;
-
-  if (isWeekly) {
-    body = `# 📰 Tech Changelog - Weekly\n\n`;
-    body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
-      "\n\n";
-  } else {
-    body = `# 📰 Tech Changelog - ${data.date}\n\n`;
-    body += generateCoveragePeriod(data.date) + "\n\n";
-  }
-
-  if (data.github && data.github.length > 0) {
-    const activeEntries = data.github.filter((e) => !e.muted);
-    if (activeEntries.length > 0) {
-      body += "## GitHub Changelog\n";
-      for (const item of activeEntries) {
-        let labelsString = "";
-        if (item.labels) {
-          const allLabels = Object.values(item.labels).flat();
-          if (allLabels.length > 0) {
-            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
-          }
-        }
-        body += `### [${item.title}](${item.url})\n`;
-        if (labelsString) {
-          body += `${labelsString}\n`;
-        }
-        body += `*Published: ${item.pubDate}*\n\n`;
-      }
-    }
-    body += generateMutedSection(data.github);
-    if (activeEntries.length > 0 || data.github.some((e) => e.muted)) {
-      body += "---\n\n";
-    }
-  }
-
-  if (data.aws && data.aws.length > 0) {
-    const activeEntries = data.aws.filter((e) => !e.muted);
-    if (activeEntries.length > 0) {
-      body += "## AWS What's New\n";
-      for (const item of activeEntries) {
-        let labelsString = "";
-        if (item.labels) {
-          const allLabels = Object.values(item.labels).flat();
-          if (allLabels.length > 0) {
-            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
-          }
-        }
-        body += `### [${item.title}](${item.url})\n`;
-        if (labelsString) {
-          body += `${labelsString}\n`;
-        }
-        body += `*Published: ${item.pubDate}*\n\n`;
-      }
-    }
-    body += generateMutedSection(data.aws);
-    if (activeEntries.length > 0 || data.aws.some((e) => e.muted)) {
-      body += "---\n\n";
-    }
-  }
-
-  if (data.claudeCode && data.claudeCode.length > 0) {
-    const activeEntries = data.claudeCode.filter((e) => !e.muted);
-    if (activeEntries.length > 0) {
-      body += "## Claude Code\n";
-      for (const item of activeEntries) {
-        body += `### [${item.version}](${item.url})\n`;
-        body += `*Published: ${item.publishedAt}*\n\n`;
-      }
-    }
-    body += generateMutedSection(data.claudeCode);
-    if (activeEntries.length > 0 || data.claudeCode.some((e) => e.muted)) {
-      body += "---\n\n";
-    }
-  }
-
-  if (data.linear && data.linear.length > 0) {
-    const activeEntries = data.linear.filter((e) => !e.muted);
-    if (activeEntries.length > 0) {
-      body += "## Linear Changelog\n";
-      for (const item of activeEntries) {
-        body += `### [${item.title}](${item.url})\n`;
-        body += `*Published: ${item.pubDate}*\n\n`;
-      }
-    }
-    body += generateMutedSection(data.linear);
-    if (activeEntries.length > 0 || data.linear.some((e) => e.muted)) {
-      body += "---\n\n";
-    }
-  }
-
-  return body;
-}
-
-// 要約データ付きのボディ生成
-export function generateBodyWithSummaries(
-  data: ChangelogData,
-  summaries: SummaryData,
-): string {
-  const isWeekly = !!(data.startDate && data.endDate);
-  let body: string;
-
-  if (isWeekly) {
-    body = `# 📰 Tech Changelog - Weekly\n\n`;
-    body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
-      "\n\n";
-  } else {
-    body = `# 📰 Tech Changelog - ${data.date}\n\n`;
-    body += generateCoveragePeriod(data.date) + "\n\n";
-  }
-
-  if (data.github && data.github.length > 0) {
-    const activeEntries = data.github.filter((e) => !e.muted);
-    if (activeEntries.length > 0) {
-      body += "## GitHub Changelog\n\n";
-      for (const item of activeEntries) {
-        let labelsString = "";
-        if (item.labels) {
-          const allLabels = Object.values(item.labels).flat();
-          if (allLabels.length > 0) {
-            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
-          }
-        }
-        body += `### [${item.title}](${item.url})\n`;
-        if (labelsString) {
-          body += `${labelsString}\n`;
-        }
-        body += "\n";
-        const summary = summaries.github?.[item.url];
-        if (summary) {
-          body += `**要約**: ${summary}\n\n`;
-        }
-      }
-    }
-    body += generateMutedSection(data.github);
-    if (activeEntries.length > 0 || data.github.some((e) => e.muted)) {
-      body += "---\n\n";
-    }
-  }
-
-  if (data.aws && data.aws.length > 0) {
-    const activeEntries = data.aws.filter((e) => !e.muted);
-    if (activeEntries.length > 0) {
-      body += "## AWS What's New\n\n";
-      for (const item of activeEntries) {
-        let labelsString = "";
-        if (item.labels) {
-          const allLabels = Object.values(item.labels).flat();
-          if (allLabels.length > 0) {
-            labelsString = allLabels.map((label) => `\`${label}\``).join(" ");
-          }
-        }
-        body += `### [${item.title}](${item.url})\n`;
-        if (labelsString) {
-          body += `${labelsString}\n`;
-        }
-        body += "\n";
-        const summary = summaries.aws?.[item.url];
-        if (summary) {
-          body += `**要約**: ${summary}\n\n`;
-        }
-      }
-    }
-    body += generateMutedSection(data.aws);
-    if (activeEntries.length > 0 || data.aws.some((e) => e.muted)) {
-      body += "---\n\n";
-    }
-  }
-
-  if (data.claudeCode && data.claudeCode.length > 0) {
-    const activeEntries = data.claudeCode.filter((e) => !e.muted);
-    if (activeEntries.length > 0) {
-      body += "## Claude Code\n\n";
-      for (const item of activeEntries) {
-        body += `### [${item.version}](${item.url})\n\n`;
-        const summary = summaries.claudeCode?.[item.url];
-        if (summary) {
-          body += `**要約**: ${summary}\n\n`;
-        }
-      }
-    }
-    body += generateMutedSection(data.claudeCode);
-    if (activeEntries.length > 0 || data.claudeCode.some((e) => e.muted)) {
-      body += "---\n\n";
-    }
-  }
-
-  if (data.linear && data.linear.length > 0) {
-    const activeEntries = data.linear.filter((e) => !e.muted);
-    if (activeEntries.length > 0) {
-      body += "## Linear Changelog\n\n";
-      for (const item of activeEntries) {
-        body += `### [${item.title}](${item.url})\n\n`;
-        const summary = summaries.linear?.[item.url];
-        if (summary) {
-          body += `**要約**: ${summary}\n\n`;
-        }
-      }
-    }
-    body += generateMutedSection(data.linear);
-    if (activeEntries.length > 0 || data.linear.some((e) => e.muted)) {
-      body += "---\n\n";
-    }
-  }
-
-  return body;
-}
-
-// 週次用の要約データ付きボディ生成
-export function generateWeeklyBodyWithSummaries(
-  data: ChangelogData,
-  summaries: WeeklySummaryData,
-  dailyLinks: DailyLink[],
-): string {
-  // 1. ヘッダー + 対象期間
-  let body = `# 📰 Tech Changelog - Weekly\n\n`;
-  body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) + "\n\n";
-
-  // 2. 🌟 今週のハイライト（3-5件）
-  body += "## 🌟 今週のハイライト\n\n";
-  summaries.weeklyHighlights.forEach((highlight, index, highlights) => {
-    const emoji = getCategoryEmoji(highlight.category);
-    body += `### ${emoji} [${highlight.title}](${highlight.url})\n\n`;
-    body += `**選定理由**: ${highlight.reason}\n\n`;
-    body += `**技術者への影響**: ${highlight.impact}\n\n`;
-    // 最後のハイライト以外は区切り線を追加
-    if (index < highlights.length - 1) {
-      body += "---\n\n";
-    }
-  });
-  body += "\n";
-
-  // 3. 🔮 傾向分析
-  body += "## 🔮 傾向分析\n\n";
-  body += "### 今週の技術動向\n";
-  body += `${summaries.trendAnalysis.overallTrend}\n\n`;
-  body += "### クロスカテゴリの洞察\n";
-  body += `${summaries.trendAnalysis.crossCategoryInsights}\n\n`;
-  body += "### 今後の展望\n";
-  body += `${summaries.trendAnalysis.futureImplications}\n\n`;
-
-  // 4. 📊 カテゴリ別総括
-  body += "## 📊 カテゴリ別総括\n\n";
-  body += "### GitHub Changelog\n";
-  body += `${summaries.categorySummaries.github}\n\n`;
-  body += "### AWS What's New\n";
-  body += `${summaries.categorySummaries.aws}\n\n`;
-  body += "### Claude Code\n";
-  body += `${summaries.categorySummaries.claudeCode}\n\n`;
-  body += "### Linear Changelog\n";
-  body += `${summaries.categorySummaries.linear}\n\n`;
-
-  // 5. 📅 Daily詳細（リンクリスト）
-  if (dailyLinks.length > 0) {
-    body += "## 📅 Daily詳細\n\n";
-    body += "各日の詳細は以下のリンクからご確認ください:\n\n";
-    // 日付の降順でソート
-    const sortedLinks = [...dailyLinks].sort((a, b) =>
-      b.date.localeCompare(a.date)
-    );
-    for (const link of sortedLinks) {
-      body += `- [${link.date}](${link.url})\n`;
-    }
-    body += "\n";
-  }
-
-  return body;
 }
 
 if (import.meta.main) {
