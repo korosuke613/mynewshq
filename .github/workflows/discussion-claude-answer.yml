@@ -11,6 +11,10 @@ on:
         description: "Discussion番号"
         required: true
         type: string
+      comment_id:
+        description: "リプライ先のコメントノードID"
+        required: false
+        type: string
       comment_url:
         description: "元のコメントURL"
         required: false
@@ -113,4 +117,9 @@ jobs:
             echo "Error: Extracted 'answer' field is empty or null"
             exit 1
           fi
-          deno task reply-discussion ${{ inputs.discussion_number }} "$BODY"
+          COMMENT_ID="${{ inputs.comment_id }}"
+          if [ -n "$COMMENT_ID" ]; then
+            deno task reply-discussion ${{ inputs.discussion_number }} "$BODY" "$COMMENT_ID"
+          else
+            deno task reply-discussion ${{ inputs.discussion_number }} "$BODY"
+          fi
