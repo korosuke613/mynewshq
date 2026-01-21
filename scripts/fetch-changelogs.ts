@@ -1,59 +1,37 @@
 import Parser from "rss-parser"; // Used by fetchAWSChangelog and fetchLinearChangelog
 import { Octokit } from "@octokit/rest";
 import { parse } from "xml/mod.ts";
+import type {
+  ChangelogData,
+  ChangelogEntry,
+  ReleaseEntry,
+  RssFeed,
+  XmlCategory,
+} from "./domain/types.ts";
+import { isRecent, isWithinDays } from "./domain/date-filter.ts";
+import {
+  applyMuteFilter,
+  isMuted,
+  parseMuteWords,
+} from "./domain/mute-filter.ts";
+import {
+  extractLabelsFromAWSCategory,
+  extractLabelsFromCategories,
+} from "./domain/label-extractor.ts";
+import { normalizeUrl } from "./domain/url-normalizer.ts";
 
-interface XmlCategory {
-  "@domain"?: string;
-  "#text"?: string;
-}
-
-interface XmlItem {
-  title: string;
-  link: string;
-  pubDate: string;
-  "content:encoded": string;
-  description: string;
-  category?: XmlCategory | XmlCategory[];
-}
-
-interface RssChannel {
-  item?: XmlItem[];
-}
-
-interface RssFeed {
-  rss: {
-    channel: RssChannel;
-  };
-}
-
-interface ChangelogEntry {
-  title: string;
-  url: string;
-  content: string;
-  pubDate: string;
-  muted?: boolean;
-  mutedBy?: string;
-  labels?: Record<string, string[]>;
-}
-
-interface ReleaseEntry {
-  version: string;
-  url: string;
-  body: string;
-  publishedAt: string;
-  muted?: boolean;
-  mutedBy?: string;
-}
-
-interface ChangelogData {
-  date: string;
-  startDate?: string; // 週次の場合の開始日
-  endDate?: string; // 週次の場合の終了日
-  github: ChangelogEntry[];
-  aws: ChangelogEntry[];
-  claudeCode: ReleaseEntry[];
-  linear: ChangelogEntry[];
-}
+// 後方互換性のため型と関数を再エクスポート
+export type { ChangelogData, ChangelogEntry, ReleaseEntry, XmlCategory };
+export {
+  applyMuteFilter,
+  extractLabelsFromAWSCategory,
+  extractLabelsFromCategories,
+  isMuted,
+  isRecent,
+  isWithinDays,
+  normalizeUrl,
+  parseMuteWords,
+};
 
 const parser = new Parser();
 const octokit = new Octokit();
@@ -101,88 +79,6 @@ function parseTargetDate(args: string[]): Date {
 }
 // エクスポートしてテストから使用可能にする
 export { parseTargetDate as parseDate };
-
-// URLを正規化（破損したURLを修正）
-export function normalizeUrl(url: string): string {
-  // AWS RSSフィードで `aws.amazon.comabout-aws` のように
-  // TLDの後にスラッシュなしでパスが続くケースを修正
-  // 例: .comの直後にアルファベットが続く場合に `/` を挿入
-  return url.replace(/\.com([a-z])/i, ".com/$1");
-}
-
-// 過去24時間以内かチェック
-export function isRecent(dateString: string, now: Date = new Date()): boolean {
-  const date = new Date(dateString);
-  const dayAgo = new Date(now.getTime() - MILLISECONDS_PER_DAY);
-  return date >= dayAgo && date <= now;
-}
-
-// 過去N日以内かチェック
-export function isWithinDays(
-  dateString: string,
-  days: number,
-  now: Date = new Date(),
-): boolean {
-  const date = new Date(dateString);
-  const daysAgo = new Date(now.getTime() - days * MILLISECONDS_PER_DAY);
-  return date >= daysAgo && date <= now;
-}
-
-// AWSカテゴリ文字列からラベルを抽出
-// 形式: "general:products/amazon-connect" → { "general:products": ["amazon-connect"] }
-// general:products系のみを抽出（marketing:marchitectureなどは除外）
-// rss-parserはカテゴリをカンマ区切りの文字列として返す場合があるため、分割処理を行う
-export function extractLabelsFromAWSCategory(
-  categories?: string[],
-): Record<string, string[]> {
-  const labels: Record<string, string[]> = {};
-  if (!categories) return labels;
-
-  for (const rawCat of categories) {
-    // カンマ区切りの場合は分割
-    const splitCategories = rawCat.split(",").map((c) => c.trim());
-
-    for (const cat of splitCategories) {
-      // general:products/xxx のみを抽出
-      const match = cat.match(/^general:products\/(.+)$/);
-      if (match) {
-        const [, value] = match;
-        if (!labels["general:products"]) {
-          labels["general:products"] = [];
-        }
-        labels["general:products"].push(value);
-      }
-    }
-  }
-
-  return labels;
-}
-
-// XMLのカテゴリ情報からラベルを抽出
-export function extractLabelsFromCategories(
-  category?: XmlCategory | XmlCategory[],
-): Record<string, string[]> {
-  const labels: Record<string, string[]> = {};
-  const categories = Array.isArray(category)
-    ? category
-    : (category ? [category] : []);
-
-  for (const cat of categories) {
-    if (
-      typeof cat === "object" && cat !== null &&
-      cat["@domain"] && cat["#text"]
-    ) {
-      const domain = cat["@domain"];
-      const value = cat["#text"];
-      if (!labels[domain]) {
-        labels[domain] = [];
-      }
-      labels[domain].push(value);
-    }
-  }
-
-  return labels;
-}
 
 // GitHub Changelog取得
 async function fetchGitHubChangelog(
@@ -306,25 +202,6 @@ async function fetchLinearChangelog(
   return entries;
 }
 
-// Issue本文から箇条書きのミュートワードを抽出
-export function parseMuteWords(issueBody: string): string[] {
-  const lines = issueBody.split("\n");
-  const muteWords: string[] = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // "- " で始まる行を箇条書きとして抽出
-    if (trimmed.startsWith("- ")) {
-      const word = trimmed.slice(2).trim();
-      if (word) {
-        muteWords.push(word);
-      }
-    }
-  }
-
-  return muteWords;
-}
-
 // GitHub Issueからミュートワードのリストを取得
 export async function fetchMuteWords(
   octokit: Octokit,
@@ -356,38 +233,6 @@ export async function fetchMuteWords(
     );
     return [];
   }
-}
-
-// タイトルがミュートワードに一致するかチェック（部分一致・大文字小文字無視）
-export function isMuted(title: string, muteWords: string[]): string | null {
-  const lowerTitle = title.toLowerCase();
-  for (const word of muteWords) {
-    if (lowerTitle.includes(word.toLowerCase())) {
-      return word;
-    }
-  }
-  return null;
-}
-
-// エントリ配列にミュートフラグを適用
-export function applyMuteFilter<
-  T extends { title?: string; version?: string },
->(
-  entries: T[],
-  muteWords: string[],
-): (T & { muted?: boolean; mutedBy?: string })[] {
-  return entries.map((entry) => {
-    const titleToCheck = "title" in entry && entry.title
-      ? entry.title
-      : "version" in entry && entry.version
-      ? entry.version
-      : "";
-    const mutedBy = isMuted(titleToCheck, muteWords);
-    if (mutedBy) {
-      return { ...entry, muted: true, mutedBy };
-    }
-    return entry;
-  });
 }
 
 // メイン処理

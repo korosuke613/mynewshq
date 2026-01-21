@@ -1,13 +1,16 @@
 // Discussion投稿内容をプレビューするスクリプト
+import type {
+  ChangelogData,
+  DailyLink,
+  SummaryData,
+  WeeklySummaryData,
+} from "./domain/types.ts";
 import {
-  type DailyLink,
   generateBodyWithSummaries,
   generateDefaultBody,
   generateMention,
   generateTitle,
   generateWeeklyBodyWithSummaries,
-  type SummaryData,
-  type WeeklySummaryData,
 } from "./create-discussion.ts";
 
 // 週次プレビュー用のダミーデータ（--summaries-json がない場合に使用）
@@ -56,46 +59,6 @@ const DUMMY_WEEKLY_SUMMARIES: WeeklySummaryData = {
       "【ダミー】今後の展望や技術者が注目すべきポイントがここに表示されます。",
   },
 };
-
-interface ChangelogData {
-  date: string;
-  startDate?: string; // 週次の場合の開始日
-  endDate?: string; // 週次の場合の終了日
-  github: Array<{
-    title: string;
-    url: string;
-    content: string;
-    pubDate: string;
-    muted?: boolean;
-    mutedBy?: string;
-    labels?: Record<string, string[]>;
-  }>;
-  aws: Array<{
-    title: string;
-    url: string;
-    content: string;
-    pubDate: string;
-    muted?: boolean;
-    mutedBy?: string;
-    labels?: Record<string, string[]>;
-  }>;
-  claudeCode: Array<{
-    version: string;
-    url: string;
-    body: string;
-    publishedAt: string;
-    muted?: boolean;
-    mutedBy?: string;
-  }>;
-  linear: Array<{
-    title: string;
-    url: string;
-    content: string;
-    pubDate: string;
-    muted?: boolean;
-    mutedBy?: string;
-  }>;
-}
 
 async function preview(
   date?: string,
