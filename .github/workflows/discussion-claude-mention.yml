@@ -18,8 +18,10 @@ jobs:
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          # @claude メンション後のテキストを抽出
-          question=$(echo "$COMMENT_BODY" | sed -n 's/.*@claude[[:space:]]*\(.*\)/\1/p')
+          # @claude を削除して残りを質問として取得
+          question=$(echo "$COMMENT_BODY" | sed 's/@claude[[:space:]]*//')
+          # 前後の空白を削除
+          question=$(echo "$question" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           if [ -z "$question" ]; then
             echo "question=質問内容が空です" >> $GITHUB_OUTPUT
           else
