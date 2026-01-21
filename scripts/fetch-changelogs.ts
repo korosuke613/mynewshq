@@ -16,7 +16,15 @@ import {
   extractLabelsFromCategories,
 } from "./domain/label-extractor.ts";
 import { normalizeUrl } from "./domain/url-normalizer.ts";
-import { fetchAll } from "./domain/providers/index.ts";
+import {
+  applyMuteFilterToAll,
+  fetchAll,
+  getProviderDisplayName,
+  getTotalEntryCount,
+  hasNoEntries,
+  PROVIDER_CONFIGS,
+  toChangelogData,
+} from "./domain/providers/index.ts";
 
 // 後方互換性のため型と関数を再エクスポート
 export type { ChangelogData, ChangelogEntry, ReleaseEntry, XmlCategory };
@@ -146,64 +154,31 @@ async function main() {
   }
 
   // fetchAll()を使用して全Providerからデータを取得
-  const results = await fetchAll(targetDate, days);
-
-  // 結果をChangelogData形式に変換
-  let github = results.github as ChangelogEntry[];
-  let aws = results.aws as ChangelogEntry[];
-  let claudeCode = results.claudeCode as ReleaseEntry[];
-  let linear = results.linear as ChangelogEntry[];
+  let results = await fetchAll(targetDate, days);
 
   // ミュートフィルタを適用
   if (muteWords.length > 0) {
-    github = applyMuteFilter(github, muteWords);
-    aws = applyMuteFilter(aws, muteWords);
-    claudeCode = applyMuteFilter(claudeCode, muteWords);
-    linear = applyMuteFilter(linear, muteWords);
-
-    const mutedCount = [
-      ...github.filter((e) => e.muted),
-      ...aws.filter((e) => e.muted),
-      ...claudeCode.filter((e) => e.muted),
-      ...linear.filter((e) => e.muted),
-    ].length;
+    const { filtered, mutedCount } = applyMuteFilterToAll(results, muteWords);
+    results = filtered;
     console.log(`Muted ${mutedCount} entries`);
   }
 
   // 更新がない場合は終了
-  if (
-    github.length === 0 && aws.length === 0 && claudeCode.length === 0 &&
-    linear.length === 0
-  ) {
+  if (hasNoEntries(results)) {
     console.log(`No updates found in the last ${days} day(s).`);
     Deno.exit(0);
   }
 
   // 週次の場合は開始日・終了日を設定
-  let data: ChangelogData;
-  if (weekly || days > 1) {
-    const startDate = new Date(
-      targetDate.getTime() - days * MILLISECONDS_PER_DAY,
-    );
-    const startDateString = startDate.toISOString().split("T")[0];
-    data = {
-      date: dateString,
-      startDate: startDateString,
+  const weeklyOptions = (weekly || days > 1)
+    ? {
+      startDate: new Date(targetDate.getTime() - days * MILLISECONDS_PER_DAY)
+        .toISOString().split("T")[0],
       endDate: dateString,
-      github,
-      aws,
-      claudeCode,
-      linear,
-    };
-  } else {
-    data = {
-      date: dateString,
-      github,
-      aws,
-      claudeCode,
-      linear,
-    };
-  }
+    }
+    : undefined;
+
+  const data = toChangelogData(results, dateString, weeklyOptions);
 
   // 出力先ディレクトリを決定
   const subDir = weekly ? "weekly" : "daily";
@@ -212,14 +187,12 @@ async function main() {
   await Deno.writeTextFile(outputPath, JSON.stringify(data, null, 2));
 
   console.log(
-    `Saved ${
-      github.length + aws.length + claudeCode.length + linear.length
-    } updates to ${outputPath}`,
+    `Saved ${getTotalEntryCount(results)} updates to ${outputPath}`,
   );
-  console.log(`- GitHub: ${github.length}`);
-  console.log(`- AWS: ${aws.length}`);
-  console.log(`- Claude Code: ${claudeCode.length}`);
-  console.log(`- Linear: ${linear.length}`);
+  for (const config of PROVIDER_CONFIGS) {
+    const count = results[config.id]?.length ?? 0;
+    console.log(`- ${getProviderDisplayName(config.id)}: ${count}`);
+  }
 }
 
 if (import.meta.main) {

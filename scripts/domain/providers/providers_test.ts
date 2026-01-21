@@ -1,13 +1,18 @@
 import { assertEquals, assertExists } from "@std/assert";
 import {
+  applyMuteFilterToAll,
   getProviderConfig,
   getProviderDisplayName,
   getProviderEmoji,
   getProviderIds,
   getProviderLabelName,
+  getTotalEntryCount,
+  hasNoEntries,
   PROVIDER_CONFIGS,
   PROVIDER_REGISTRY,
+  toChangelogData,
 } from "./index.ts";
+import type { AnyEntry } from "./types.ts";
 import { githubProvider } from "./github-provider.ts";
 import { awsProvider } from "./aws-provider.ts";
 import { claudeCodeProvider } from "./claude-code-provider.ts";
@@ -163,4 +168,110 @@ Deno.test("linearProvider - 設定が正しい", () => {
   assertEquals(linearProvider.titleField, "title");
   assertEquals(linearProvider.pubDateField, "pubDate");
   assertExists(linearProvider.fetch);
+});
+
+// =============================================================================
+// 汎用ヘルパー関数のテスト
+// =============================================================================
+
+// テスト用モックデータ
+function createMockResults(): Record<string, AnyEntry[]> {
+  return {
+    github: [
+      { title: "GitHub Update 1", url: "https://github.com/1", content: "", pubDate: "2024-01-01" },
+      { title: "GitHub Update 2", url: "https://github.com/2", content: "", pubDate: "2024-01-02" },
+    ],
+    aws: [
+      { title: "AWS Lambda Update", url: "https://aws.com/1", content: "", pubDate: "2024-01-01" },
+    ],
+    claudeCode: [
+      { version: "1.0.0", url: "https://github.com/anthropics/1", body: "", publishedAt: "2024-01-01" },
+    ],
+    linear: [],
+  };
+}
+
+Deno.test("getTotalEntryCount - 全エントリの合計を正しくカウントする", () => {
+  const results = createMockResults();
+  assertEquals(getTotalEntryCount(results), 4); // github: 2 + aws: 1 + claudeCode: 1 + linear: 0
+});
+
+Deno.test("getTotalEntryCount - 空の結果で0を返す", () => {
+  const results: Record<string, AnyEntry[]> = {
+    github: [],
+    aws: [],
+    claudeCode: [],
+    linear: [],
+  };
+  assertEquals(getTotalEntryCount(results), 0);
+});
+
+Deno.test("hasNoEntries - エントリがある場合はfalseを返す", () => {
+  const results = createMockResults();
+  assertEquals(hasNoEntries(results), false);
+});
+
+Deno.test("hasNoEntries - 全て空の場合はtrueを返す", () => {
+  const results: Record<string, AnyEntry[]> = {
+    github: [],
+    aws: [],
+    claudeCode: [],
+    linear: [],
+  };
+  assertEquals(hasNoEntries(results), true);
+});
+
+Deno.test("applyMuteFilterToAll - ミュートフィルタを全エントリに適用する", () => {
+  const results = createMockResults();
+  const muteWords = ["Lambda"];
+  const { filtered, mutedCount } = applyMuteFilterToAll(results, muteWords);
+
+  assertEquals(mutedCount, 1);
+  assertEquals(filtered.aws[0].muted, true);
+  assertEquals(filtered.aws[0].mutedBy, "Lambda");
+  assertEquals(filtered.github[0].muted, undefined);
+});
+
+Deno.test("applyMuteFilterToAll - ミュートワードが空の場合は変更なし", () => {
+  const results = createMockResults();
+  const { filtered, mutedCount } = applyMuteFilterToAll(results, []);
+
+  assertEquals(mutedCount, 0);
+  assertEquals(filtered.github.length, 2);
+  assertEquals(filtered.aws.length, 1);
+});
+
+Deno.test("toChangelogData - 日次データを正しく変換する", () => {
+  const results = createMockResults();
+  const data = toChangelogData(results, "2024-01-15");
+
+  assertEquals(data.date, "2024-01-15");
+  assertEquals(data.startDate, undefined);
+  assertEquals(data.endDate, undefined);
+  assertEquals(data.github.length, 2);
+  assertEquals(data.aws.length, 1);
+  assertEquals(data.claudeCode.length, 1);
+  assertEquals(data.linear.length, 0);
+});
+
+Deno.test("toChangelogData - 週次データ（開始日・終了日あり）を正しく変換する", () => {
+  const results = createMockResults();
+  const data = toChangelogData(results, "2024-01-15", {
+    startDate: "2024-01-08",
+    endDate: "2024-01-15",
+  });
+
+  assertEquals(data.date, "2024-01-15");
+  assertEquals(data.startDate, "2024-01-08");
+  assertEquals(data.endDate, "2024-01-15");
+});
+
+Deno.test("toChangelogData - 存在しないキーはデフォルトで空配列になる", () => {
+  const results: Record<string, AnyEntry[]> = { github: [] };
+  const data = toChangelogData(results, "2024-01-15");
+
+  assertEquals(data.github.length, 0);
+  assertEquals(data.aws.length, 0);
+  assertEquals(data.claudeCode.length, 0);
+  assertEquals(data.linear.length, 0);
 });
