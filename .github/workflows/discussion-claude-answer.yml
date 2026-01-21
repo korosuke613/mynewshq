@@ -53,7 +53,7 @@ jobs:
           settings: |
             {
               "permissions": {
-                "allow": ["Bash(deno task reply-discussion *)", "Read", "Write", "WebFetch", "WebSearch"]
+                "allow": ["Bash(deno task reply-discussion *)", "Bash(cat *)", "Read", "Write", "WebFetch", "WebSearch"]
               }
             }
           allowed_bots: "github-actions[bot]"

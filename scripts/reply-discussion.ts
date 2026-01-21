@@ -98,9 +98,9 @@ async function replyToDiscussion(
 async function main(): Promise<void> {
   const args = Deno.args;
 
-  if (args.length < 3) {
+  if (args.length !== 2 && args.length !== 4) {
     console.error(
-      "Usage: deno run reply-discussion.ts <discussion-number> <owner> <repo> [body]",
+      "Usage: deno run reply-discussion.ts <discussion-number> <owner> <repo> <body>",
     );
     console.error(
       "  or: deno run reply-discussion.ts <discussion-number> <body> (uses GITHUB_REPOSITORY)",
