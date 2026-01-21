@@ -96,11 +96,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
-          ANSWER='${{ steps.answer.outputs.structured_output }}'
+          ANSWER=$(cat << 'EOF'
+          ${{ steps.answer.outputs.structured_output }}
+          EOF
+          )
           if [ -z "$ANSWER" ] || [ "$ANSWER" = "null" ]; then
             echo "Error: No valid answer from Claude Code"
             exit 1
           fi
           # jq で answer フィールドを抽出して投稿
-          BODY=$(echo "$ANSWER" | jq -r '.answer')
+          if ! BODY=$(echo "$ANSWER" | jq -er '.answer'); then
+            echo "Error: Failed to parse 'answer' field from structured_output"
+            exit 1
+          fi
+          if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+            echo "Error: Extracted 'answer' field is empty or null"
+            exit 1
+          fi
           deno task reply-discussion ${{ inputs.discussion_number }} "$BODY"
