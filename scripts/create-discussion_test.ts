@@ -322,6 +322,123 @@ Deno.test("determineLabels", async (t) => {
     const labels = determineLabels(dataWithDuplicateAwsLabels);
     assertEquals(labels.sort(), ["aws", "aws:bedrock", "aws:s3"].sort());
   });
+
+  await t.step(
+    "serviceOnly: true の場合はサービス名ラベルのみを返す（GitHubサブカテゴリを除外）",
+    () => {
+      const dataWithGhLabels = {
+        ...mockData,
+        aws: [],
+        claudeCode: [],
+        linear: [],
+        github: [
+          {
+            title: "Feature A",
+            url: "https://example.com/a",
+            content: "",
+            pubDate: "2026-01-18T10:00:00Z",
+            labels: {
+              "changelog-label": ["copilot", "security"],
+              "changelog-type": ["improvement"],
+            },
+          },
+        ],
+      };
+      const labels = determineLabels(dataWithGhLabels, { serviceOnly: true });
+      assertEquals(labels, ["github"]); // サブカテゴリラベルが含まれない
+    },
+  );
+
+  await t.step(
+    "serviceOnly: true の場合はサービス名ラベルのみを返す（AWSサブカテゴリを除外）",
+    () => {
+      const dataWithAwsLabels = {
+        ...mockData,
+        github: [],
+        claudeCode: [],
+        linear: [],
+        aws: [
+          {
+            title: "VPC Update",
+            url: "https://example.com/a",
+            content: "",
+            pubDate: "2026-01-18T10:00:00Z",
+            labels: {
+              "general:products": ["amazon-vpc", "amazon-bedrock"],
+            },
+          },
+        ],
+      };
+      const labels = determineLabels(dataWithAwsLabels, { serviceOnly: true });
+      assertEquals(labels, ["aws"]); // サブカテゴリラベルが含まれない
+    },
+  );
+
+  await t.step(
+    "serviceOnly: true の場合でも複数サービスのラベルは正しく返す",
+    () => {
+      const dataWithMultipleServices = {
+        ...mockData,
+        github: [{
+          title: "GH Feature",
+          url: "https://example.com/gh",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          labels: { "changelog-label": ["copilot"] },
+        }],
+        aws: [{
+          title: "AWS Update",
+          url: "https://example.com/aws",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+          labels: { "general:products": ["amazon-s3"] },
+        }],
+        claudeCode: [{
+          version: "v1.0.0",
+          url: "https://example.com/claude",
+          body: "",
+          publishedAt: "2026-01-18T10:00:00Z",
+        }],
+        linear: [{
+          title: "Linear Update",
+          url: "https://example.com/linear",
+          content: "",
+          pubDate: "2026-01-18T10:00:00Z",
+        }],
+      };
+      const labels = determineLabels(dataWithMultipleServices, {
+        serviceOnly: true,
+      });
+      assertEquals(
+        labels.sort(),
+        ["github", "aws", "claude-code", "linear"].sort(),
+      );
+    },
+  );
+
+  await t.step(
+    "serviceOnly: false（デフォルト）の場合はサブカテゴリラベルも含める",
+    () => {
+      const dataWithLabels = {
+        ...mockData,
+        aws: [],
+        claudeCode: [],
+        linear: [],
+        github: [
+          {
+            title: "Feature A",
+            url: "https://example.com/a",
+            content: "",
+            pubDate: "2026-01-18T10:00:00Z",
+            labels: { "changelog-label": ["copilot"] },
+          },
+        ],
+      };
+      // serviceOnly オプションなし（デフォルト）
+      const labels = determineLabels(dataWithLabels);
+      assertEquals(labels.sort(), ["github", "gh:copilot"].sort());
+    },
+  );
 });
 
 Deno.test("generateMutedSection", async (t) => {

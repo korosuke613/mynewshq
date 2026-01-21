@@ -139,27 +139,40 @@ export function stripAwsPrefix(label: string): string {
   return label.replace(/^(amazon-|aws-)/, "");
 }
 
+// determineLabels関数のオプション型
+interface DetermineLabelsOptions {
+  serviceOnly?: boolean; // trueの場合、サービス名ラベルのみを返す（週次用）
+}
+
 // changelogデータからラベル名を決定
-export function determineLabels(data: ChangelogData): string[] {
+export function determineLabels(
+  data: ChangelogData,
+  options?: DetermineLabelsOptions,
+): string[] {
   const labels = new Set<string>(); // Setを使用して重複を避ける
+  const serviceOnly = options?.serviceOnly ?? false;
 
   if (data.github && data.github.length > 0) {
     labels.add("github"); // サービス名ラベルはプレフィックスなし
-    for (const entry of data.github) {
-      if (entry.labels) {
-        Object.values(entry.labels).flat().forEach((label) =>
-          labels.add(`gh:${label}`)
-        ); // サブカテゴリラベルにプレフィックスを付与
+    if (!serviceOnly) {
+      for (const entry of data.github) {
+        if (entry.labels) {
+          Object.values(entry.labels).flat().forEach((label) =>
+            labels.add(`gh:${label}`)
+          ); // サブカテゴリラベルにプレフィックスを付与
+        }
       }
     }
   }
   if (data.aws && data.aws.length > 0) {
     labels.add("aws");
-    for (const entry of data.aws) {
-      if (entry.labels) {
-        Object.values(entry.labels).flat().forEach((label) =>
-          labels.add(`aws:${stripAwsPrefix(label)}`)
-        );
+    if (!serviceOnly) {
+      for (const entry of data.aws) {
+        if (entry.labels) {
+          Object.values(entry.labels).flat().forEach((label) =>
+            labels.add(`aws:${stripAwsPrefix(label)}`)
+          );
+        }
       }
     }
   }
@@ -415,7 +428,11 @@ async function createDiscussion(
 
   // ラベル付与処理
   if (changelogData) {
-    const labelNames = determineLabels(changelogData);
+    // 週次レポートの場合はサービス名ラベルのみを付与（サブカテゴリラベルは除外）
+    const isWeekly = !!(changelogData.startDate && changelogData.endDate);
+    const labelNames = determineLabels(changelogData, {
+      serviceOnly: isWeekly,
+    });
     if (labelNames.length > 0) {
       const existingLabels = new Map(
         repoData.repository.labels.nodes.map((l) => [l.name, l.id]),
