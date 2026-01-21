@@ -1,6 +1,6 @@
 // 日次Markdown生成
 import type { ChangelogData, SummaryData } from "../../domain/types.ts";
-import { getProviderDisplayName } from "../../domain/providers.ts";
+import { getProviderDisplayName } from "../../domain/providers/index.ts";
 import { formatLabelsString } from "./helpers.ts";
 import { generateMutedSection } from "./muted-section.ts";
 

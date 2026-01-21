@@ -1,5 +1,5 @@
 // Markdown生成用のヘルパー関数
-import { getProviderEmoji } from "../../domain/providers.ts";
+import { getProviderEmoji } from "../../domain/providers/index.ts";
 
 // カテゴリ名に対応する絵文字を返す
 export function getCategoryEmoji(category: string): string {

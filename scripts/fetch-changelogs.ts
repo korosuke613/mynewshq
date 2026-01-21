@@ -1,11 +1,8 @@
-import Parser from "rss-parser"; // Used by fetchAWSChangelog and fetchLinearChangelog
 import { Octokit } from "@octokit/rest";
-import { parse } from "xml/mod.ts";
 import type {
   ChangelogData,
   ChangelogEntry,
   ReleaseEntry,
-  RssFeed,
   XmlCategory,
 } from "./domain/types.ts";
 import { isRecent, isWithinDays } from "./domain/date-filter.ts";
@@ -19,6 +16,7 @@ import {
   extractLabelsFromCategories,
 } from "./domain/label-extractor.ts";
 import { normalizeUrl } from "./domain/url-normalizer.ts";
+import { fetchAll } from "./domain/providers/index.ts";
 
 // 後方互換性のため型と関数を再エクスポート
 export type { ChangelogData, ChangelogEntry, ReleaseEntry, XmlCategory };
@@ -32,9 +30,6 @@ export {
   normalizeUrl,
   parseMuteWords,
 };
-
-const parser = new Parser();
-const octokit = new Octokit();
 
 // 1日のミリ秒数
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -79,128 +74,6 @@ function parseTargetDate(args: string[]): Date {
 }
 // エクスポートしてテストから使用可能にする
 export { parseTargetDate as parseDate };
-
-// GitHub Changelog取得
-async function fetchGitHubChangelog(
-  targetDate: Date,
-  days: number = 1,
-): Promise<ChangelogEntry[]> {
-  try {
-    const response = await fetch("https://github.blog/changelog/feed/");
-    if (!response.ok) {
-      console.error(`Failed to fetch GitHub Changelog: ${response.statusText}`);
-      return [];
-    }
-    const xmlText = await response.text();
-    const doc = parse(xmlText) as unknown as RssFeed;
-
-    if (!doc?.rss?.channel?.item) {
-      console.error("Failed to parse GitHub Changelog: Invalid XML structure");
-      return [];
-    }
-
-    const entries: ChangelogEntry[] = [];
-    const items = doc.rss.channel.item;
-
-    for (const item of items) {
-      const pubDate = item.pubDate;
-      if (pubDate && isWithinDays(pubDate, days, targetDate)) {
-        const labels = extractLabelsFromCategories(item.category);
-
-        entries.push({
-          title: item.title,
-          url: item.link,
-          content: item["content:encoded"] || item.description || "",
-          pubDate: pubDate,
-          labels: Object.keys(labels).length > 0 ? labels : undefined,
-        });
-      }
-    }
-    return entries;
-  } catch (error) {
-    console.error("Failed to process GitHub Changelog feed:", error);
-    return [];
-  }
-}
-
-// AWS Changelog取得
-async function fetchAWSChangelog(
-  targetDate: Date,
-  days: number = 1,
-): Promise<ChangelogEntry[]> {
-  const feed = await parser.parseURL(
-    "https://aws.amazon.com/about-aws/whats-new/recent/feed/",
-  );
-  const entries: ChangelogEntry[] = [];
-
-  for (const item of feed.items) {
-    if (item.pubDate && isWithinDays(item.pubDate, days, targetDate)) {
-      const labels = extractLabelsFromAWSCategory(item.categories);
-
-      entries.push({
-        title: item.title || "",
-        url: normalizeUrl(item.link || ""),
-        content: item.contentSnippet || item.content || "",
-        pubDate: item.pubDate,
-        labels: Object.keys(labels).length > 0 ? labels : undefined,
-      });
-    }
-  }
-
-  return entries;
-}
-
-// Claude Code Releases取得
-async function fetchClaudeCodeReleases(
-  targetDate: Date,
-  days: number = 1,
-): Promise<ReleaseEntry[]> {
-  const { data: releases } = await octokit.repos.listReleases({
-    owner: "anthropics",
-    repo: "claude-code",
-    per_page: 10,
-  });
-
-  const entries: ReleaseEntry[] = [];
-
-  for (const release of releases) {
-    if (
-      release.published_at &&
-      isWithinDays(release.published_at, days, targetDate)
-    ) {
-      entries.push({
-        version: release.tag_name,
-        url: release.html_url,
-        body: release.body || "",
-        publishedAt: release.published_at,
-      });
-    }
-  }
-
-  return entries;
-}
-
-// Linear Changelog取得
-async function fetchLinearChangelog(
-  targetDate: Date,
-  days: number = 1,
-): Promise<ChangelogEntry[]> {
-  const feed = await parser.parseURL("https://linear.app/rss/changelog.xml");
-  const entries: ChangelogEntry[] = [];
-
-  for (const item of feed.items) {
-    if (item.pubDate && isWithinDays(item.pubDate, days, targetDate)) {
-      entries.push({
-        title: item.title || "",
-        url: item.link || "",
-        content: item.contentSnippet || item.content || "",
-        pubDate: item.pubDate,
-      });
-    }
-  }
-
-  return entries;
-}
 
 // GitHub Issueからミュートワードのリストを取得
 export async function fetchMuteWords(
@@ -272,12 +145,14 @@ async function main() {
     }
   }
 
-  let [github, aws, claudeCode, linear] = await Promise.all([
-    fetchGitHubChangelog(targetDate, days),
-    fetchAWSChangelog(targetDate, days),
-    fetchClaudeCodeReleases(targetDate, days),
-    fetchLinearChangelog(targetDate, days),
-  ]);
+  // fetchAll()を使用して全Providerからデータを取得
+  const results = await fetchAll(targetDate, days);
+
+  // 結果をChangelogData形式に変換
+  let github = results.github as ChangelogEntry[];
+  let aws = results.aws as ChangelogEntry[];
+  let claudeCode = results.claudeCode as ReleaseEntry[];
+  let linear = results.linear as ChangelogEntry[];
 
   // ミュートフィルタを適用
   if (muteWords.length > 0) {

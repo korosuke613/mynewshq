@@ -4,7 +4,7 @@ import type {
   DetermineLabelsOptions,
   XmlCategory,
 } from "./types.ts";
-import { PROVIDER_CONFIGS } from "./providers.ts";
+import { PROVIDER_CONFIGS } from "./providers/index.ts";
 
 // XMLのカテゴリ情報からラベルを抽出
 export function extractLabelsFromCategories(

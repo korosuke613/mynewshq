@@ -4,7 +4,7 @@ import type {
   DailyLink,
   WeeklySummaryData,
 } from "../../domain/types.ts";
-import { getProviderDisplayName } from "../../domain/providers.ts";
+import { getProviderDisplayName } from "../../domain/providers/index.ts";
 import { getCategoryEmoji } from "./helpers.ts";
 import { generateWeeklyCoveragePeriod } from "./daily-generator.ts";
 
