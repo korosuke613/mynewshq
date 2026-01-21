@@ -178,14 +178,34 @@ Deno.test("linearProvider - 設定が正しい", () => {
 function createMockResults(): Record<string, AnyEntry[]> {
   return {
     github: [
-      { title: "GitHub Update 1", url: "https://github.com/1", content: "", pubDate: "2024-01-01" },
-      { title: "GitHub Update 2", url: "https://github.com/2", content: "", pubDate: "2024-01-02" },
+      {
+        title: "GitHub Update 1",
+        url: "https://github.com/1",
+        content: "",
+        pubDate: "2024-01-01",
+      },
+      {
+        title: "GitHub Update 2",
+        url: "https://github.com/2",
+        content: "",
+        pubDate: "2024-01-02",
+      },
     ],
     aws: [
-      { title: "AWS Lambda Update", url: "https://aws.com/1", content: "", pubDate: "2024-01-01" },
+      {
+        title: "AWS Lambda Update",
+        url: "https://aws.com/1",
+        content: "",
+        pubDate: "2024-01-01",
+      },
     ],
     claudeCode: [
-      { version: "1.0.0", url: "https://github.com/anthropics/1", body: "", publishedAt: "2024-01-01" },
+      {
+        version: "1.0.0",
+        url: "https://github.com/anthropics/1",
+        body: "",
+        publishedAt: "2024-01-01",
+      },
     ],
     linear: [],
   };

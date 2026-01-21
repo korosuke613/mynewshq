@@ -7,21 +7,18 @@ import type {
   SummaryData,
   WeeklySummaryData,
 } from "./domain/types.ts";
+import { determineLabels, stripAwsPrefix } from "./domain/label-extractor.ts";
 import {
-  determineLabels,
-  stripAwsPrefix,
-} from "./domain/label-extractor.ts";
-import {
-  generateCoveragePeriod,
-  generateWeeklyCoveragePeriod,
-  generateTitle,
-  generateDefaultBody,
   generateBodyWithSummaries,
+  generateCoveragePeriod,
+  generateDefaultBody,
+  generateTitle,
+  generateWeeklyCoveragePeriod,
 } from "./presentation/markdown/daily-generator.ts";
 import { generateWeeklyBodyWithSummaries } from "./presentation/markdown/weekly-generator.ts";
 import {
-  getCategoryEmoji,
   generateMention,
+  getCategoryEmoji,
 } from "./presentation/markdown/helpers.ts";
 import { generateMutedSection } from "./presentation/markdown/muted-section.ts";
 

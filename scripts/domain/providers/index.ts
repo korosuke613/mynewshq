@@ -2,11 +2,7 @@
 // 全Providerの登録、ヘルパー関数、fetchAll()を提供
 
 import type { AnyEntry, ProviderConfig } from "./types.ts";
-import type {
-  ChangelogData,
-  ChangelogEntry,
-  ReleaseEntry,
-} from "../types.ts";
+import type { ChangelogData, ChangelogEntry, ReleaseEntry } from "../types.ts";
 import { githubProvider } from "./github-provider.ts";
 import { awsProvider } from "./aws-provider.ts";
 import { claudeCodeProvider } from "./claude-code-provider.ts";
@@ -158,8 +154,13 @@ export function toChangelogData(
  * 全エントリの合計数を取得
  * @param results fetchAll()の結果
  */
-export function getTotalEntryCount(results: Record<string, AnyEntry[]>): number {
-  return Object.values(results).reduce((sum, entries) => sum + entries.length, 0);
+export function getTotalEntryCount(
+  results: Record<string, AnyEntry[]>,
+): number {
+  return Object.values(results).reduce(
+    (sum, entries) => sum + entries.length,
+    0,
+  );
 }
 
 /**
