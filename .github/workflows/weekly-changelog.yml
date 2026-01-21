@@ -76,19 +76,39 @@ jobs:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"github":{"type":"object","additionalProperties":{"type":"string"}},"aws":{"type":"object","additionalProperties":{"type":"string"}},"claudeCode":{"type":"object","additionalProperties":{"type":"string"}},"linear":{"type":"object","additionalProperties":{"type":"string"}}},"required":["github","aws","claudeCode","linear"]}'
+            --json-schema '{"type":"object","properties":{"weeklyHighlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"category":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","category","reason","impact"]},"minItems":3,"maxItems":5},"categorySummaries":{"type":"object","properties":{"github":{"type":"string"},"aws":{"type":"string"},"claudeCode":{"type":"string"},"linear":{"type":"string"}},"required":["github","aws","claudeCode","linear"]},"trendAnalysis":{"type":"object","properties":{"overallTrend":{"type":"string"},"crossCategoryInsights":{"type":"string"},"futureImplications":{"type":"string"}},"required":["overallTrend","crossCategoryInsights","futureImplications"]}},"required":["weeklyHighlights","categorySummaries","trendAnalysis"]}'
           prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json を読み込み、各エントリの要約を生成してください。
+            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json を読み込み、週次レポートを生成してください。
+
+            ## タスク
+            1週間分のChangelogを分析し、技術者向けの週次ニュースレターを生成します。
 
             ## ルール
             - `muted: true` のエントリはスキップしてください
-            - 各エントリについて、2-3文で簡潔に日本語で要約してください
-            - 技術者向けにわかりやすく、重要なポイントを強調してください
-            - これは週次のまとめなので、1週間分のエントリが含まれています
+            - 技術者にとって重要な変更を優先的に分析してください
 
-            ## 出力形式
-            各カテゴリ（github, aws, claudeCode, linear）について、エントリのURLをキー、要約文を値とするオブジェクトを返してください。
-            該当するエントリがないカテゴリは空オブジェクト `{}` としてください。
+            ## 出力構造
+
+            ### 1. weeklyHighlights (注目のトップ3-5)
+            今週最も重要・注目すべきエントリを3-5件選び、以下を含めてください:
+            - url: エントリのURL
+            - title: エントリのタイトル
+            - category: カテゴリ（github/aws/claudeCode/linear）
+            - reason: 選定理由（なぜ注目すべきか）2-3文
+            - impact: 技術者への影響と活用ポイント 2-3文
+
+            ### 2. categorySummaries (カテゴリ別総括)
+            各カテゴリの週間動向を3-5文で総括してください:
+            - github: GitHub Changelogの週間傾向
+            - aws: AWS What's Newの週間傾向
+            - claudeCode: Claude Codeの週間アップデート傾向
+            - linear: Linear Changelogの週間傾向
+            該当エントリがないカテゴリは「今週の更新はありませんでした」としてください。
+
+            ### 3. trendAnalysis (傾向分析)
+            - overallTrend: 今週の技術動向の全体傾向（2-3文）
+            - crossCategoryInsights: カテゴリ横断の関連性分析（例: GitHubとAWS両方でAI関連の更新が多い等）2-3文
+            - futureImplications: 今後の展望や技術者が注目すべきポイント 2-3文
 
       - name: Post to Discussion
         env:
