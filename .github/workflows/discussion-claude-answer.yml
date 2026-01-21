@@ -44,19 +44,22 @@ jobs:
           repositories: ${{ github.event.repository.name }}
 
       - name: Answer with Claude Code
+        id: answer
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         with:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "github-actions[bot]"
           settings: |
             {
               "permissions": {
-                "allow": ["Bash(deno task reply-discussion *)", "Bash(cat *)", "Read", "Write", "WebFetch", "WebSearch"]
+                "allow": ["Read", "WebFetch", "WebSearch"]
               }
             }
-          allowed_bots: "github-actions[bot]"
+          claude_args: >-
+            --json-schema '{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"]}'
           prompt: |
             Discussion #${{ inputs.discussion_number }} から以下の質問を受けました：
 
@@ -80,21 +83,34 @@ jobs:
             1. 質問に対する明確な回答を提供
             2. 必要に応じてリポジトリ内のデータを参照・分析
             3. 技術的な内容は日本語でわかりやすく説明
-            4. 回答を一時ファイルに保存
-            5. 以下のコマンドを実行してDiscussionに投稿：
+            4. 回答はMarkdown形式で記述
 
-            ```bash
-            # 回答を一時ファイルに保存
-            cat > claude_answer.md << 'EOF'
-            [ここにあなたの回答を記載]
+            ## 出力形式
+            回答を `answer` フィールドに格納してください。回答の末尾に以下を追加してください：
 
             ---
             *この回答は Claude Code Action によって生成されました*
             [ワークフロー実行ログ](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            EOF
 
-            # Discussionにコメントを投稿
-            deno task reply-discussion ${{ inputs.discussion_number }} "$(cat claude_answer.md)"
-            ```
-
-            必ず最後のコマンドを実行して回答を投稿してください。
+      - name: Post reply to Discussion
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+        run: |
+          ANSWER=$(cat << 'EOF'
+          ${{ steps.answer.outputs.structured_output }}
+          EOF
+          )
+          if [ -z "$ANSWER" ] || [ "$ANSWER" = "null" ]; then
+            echo "Error: No valid answer from Claude Code"
+            exit 1
+          fi
+          # jq で answer フィールドを抽出して投稿
+          if ! BODY=$(echo "$ANSWER" | jq -er '.answer'); then
+            echo "Error: Failed to parse 'answer' field from structured_output"
+            exit 1
+          fi
+          if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+            echo "Error: Extracted 'answer' field is empty or null"
+            exit 1
+          fi
+          deno task reply-discussion ${{ inputs.discussion_number }} "$BODY"
