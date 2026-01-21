@@ -39,18 +39,32 @@ jobs:
           repositories: ${{ github.event.repository.name }}
 
       - name: Fetch changelogs
+        id: fetch
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
           MUTE_WORDS_ISSUE_NUMBER: "1"
         run: |
           if [ -n "${{ inputs.date }}" ]; then
+            TARGET_DATE="${{ inputs.date }}"
             deno task fetch -- --date=${{ inputs.date }}
           else
+            TARGET_DATE=$(date -u +%Y-%m-%d)
             deno task fetch
+          fi
+          echo "target_date=${TARGET_DATE}" >> $GITHUB_OUTPUT
+
+          # ファイル存在確認
+          if [ -f "data/changelogs/daily/${TARGET_DATE}.json" ]; then
+            echo "has_data=true" >> $GITHUB_OUTPUT
+            echo "Data file created: data/changelogs/daily/${TARGET_DATE}.json"
+          else
+            echo "has_data=false" >> $GITHUB_OUTPUT
+            echo "No data file created (no updates found)"
           fi
 
       - name: Login GitHub App
         id: login-gh-app
+        if: steps.fetch.outputs.has_data == 'true'
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
@@ -58,17 +72,9 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      - name: Determine target date
-        id: target-date
-        run: |
-          if [ -n "${{ inputs.date }}" ]; then
-            echo "date=${{ inputs.date }}" >> $GITHUB_OUTPUT
-          else
-            echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
-          fi
-
       - name: Generate summaries with Claude Code
         id: summarize
+        if: steps.fetch.outputs.has_data == 'true'
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
@@ -78,7 +84,7 @@ jobs:
           claude_args: >-
             --json-schema '{"type":"object","properties":{"github":{"type":"object","additionalProperties":{"type":"string"}},"aws":{"type":"object","additionalProperties":{"type":"string"}},"claudeCode":{"type":"object","additionalProperties":{"type":"string"}},"linear":{"type":"object","additionalProperties":{"type":"string"}}},"required":["github","aws","claudeCode","linear"]}'
           prompt: |
-            data/changelogs/daily/${{ steps.target-date.outputs.date }}.json を読み込み、各エントリの要約を生成してください。
+            data/changelogs/daily/${{ steps.fetch.outputs.target_date }}.json を読み込み、各エントリの要約を生成してください。
 
             ## ルール
             - `muted: true` のエントリはスキップしてください
@@ -90,6 +96,7 @@ jobs:
             該当するエントリがないカテゴリは空オブジェクト `{}` としてください。
 
       - name: Post to Discussion
+        if: steps.fetch.outputs.has_data == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
@@ -99,7 +106,7 @@ jobs:
           # JSON が空や無効な場合のフォールバック
           if [ -z "$SUMMARIES_JSON" ] || [ "$SUMMARIES_JSON" = "null" ]; then
             echo "Warning: No valid summaries JSON from Claude Code, using default body"
-            deno task post --date=${{ steps.target-date.outputs.date }} korosuke613 mynewshq Daily
+            deno task post --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq Daily
           else
-            deno task post --date=${{ steps.target-date.outputs.date }} --summaries-json="$SUMMARIES_JSON" korosuke613 mynewshq Daily
+            deno task post --date=${{ steps.fetch.outputs.target_date }} --summaries-json="$SUMMARIES_JSON" korosuke613 mynewshq Daily
           fi
