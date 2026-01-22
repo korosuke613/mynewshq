@@ -106,8 +106,11 @@ jobs:
           ${{ steps.summarize.outputs.structured_output }}
           EOF
 
+          # ファイル内容をトリムしてキャッシュ（catの重複呼び出しを回避）
+          TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/summaries.json)"
+
           # ファイルが有効な場合のみ --summaries-file を使用
-          if [ -s /tmp/summaries.json ] && [ "$(cat /tmp/summaries.json | tr -d '[:space:]')" != "null" ] && [ "$(cat /tmp/summaries.json | tr -d '[:space:]')" != "" ]; then
+          if [ -s /tmp/summaries.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
             echo "Using summaries from file"
             deno task post --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/summaries.json korosuke613 mynewshq Daily
           else
