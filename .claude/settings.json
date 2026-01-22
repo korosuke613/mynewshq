@@ -1,4 +1,17 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -q '^git add' && deno fmt 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  },
   "plansDirectory": "./plans",
   "enabledPlugins": {
     "dev-standards@korosuke613": true,
