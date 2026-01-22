@@ -173,9 +173,26 @@ if (import.meta.main) {
   const summariesJsonArg = Deno.args.find((arg) =>
     arg.startsWith("--summaries-json=")
   );
-  const summariesJson = summariesJsonArg
-    ? summariesJsonArg.substring("--summaries-json=".length)
-    : undefined;
+  const summariesFileArg = Deno.args.find((arg) =>
+    arg.startsWith("--summaries-file=")
+  );
+
+  // --summaries-file が優先、なければ --summaries-json を使用
+  let summariesJson: string | undefined;
+  if (summariesFileArg) {
+    const summariesFile = summariesFileArg.substring(
+      "--summaries-file=".length,
+    );
+    try {
+      summariesJson = await Deno.readTextFile(summariesFile);
+      console.log(`Loaded summaries from file: ${summariesFile}`);
+    } catch (error) {
+      console.error(`Failed to read summaries file ${summariesFile}:`, error);
+      Deno.exit(1);
+    }
+  } else if (summariesJsonArg) {
+    summariesJson = summariesJsonArg.substring("--summaries-json=".length);
+  }
 
   const weekly = Deno.args.includes("--weekly");
 

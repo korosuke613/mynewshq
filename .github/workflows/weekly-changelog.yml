@@ -127,13 +127,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
-          # Claude Code の structured_output から JSON を取得
-          SUMMARIES_JSON='${{ steps.summarize.outputs.structured_output }}'
+          # Claude Code の structured_output をファイルに書き出し
+          # シェル変数展開時の特殊文字問題を回避するため、ファイル経由で渡す
+          cat <<'EOF' > /tmp/summaries.json
+          ${{ steps.summarize.outputs.structured_output }}
+          EOF
 
-          # JSON が空や無効な場合のフォールバック
-          if [ -z "$SUMMARIES_JSON" ] || [ "$SUMMARIES_JSON" = "null" ]; then
+          # ファイルが有効な場合のみ --summaries-file を使用
+          if [ -s /tmp/summaries.json ] && [ "$(cat /tmp/summaries.json | tr -d '[:space:]')" != "null" ] && [ "$(cat /tmp/summaries.json | tr -d '[:space:]')" != "" ]; then
+            echo "Using summaries from file"
+            deno task post --date=${{ steps.target-date.outputs.end_date }} --weekly --summaries-file=/tmp/summaries.json korosuke613 mynewshq Weekly
+          else
             echo "Warning: No valid summaries JSON from Claude Code, using default body"
             deno task post --date=${{ steps.target-date.outputs.end_date }} --weekly korosuke613 mynewshq Weekly
-          else
-            deno task post --date=${{ steps.target-date.outputs.end_date }} --weekly --summaries-json="$SUMMARIES_JSON" korosuke613 mynewshq Weekly
           fi

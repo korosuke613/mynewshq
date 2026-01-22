@@ -410,12 +410,13 @@ async function createDiscussion(
   return discussionUrl;
 }
 
-// コマンドライン引数から日付と要約JSONを取得し、フラグ以外の引数を返す
+// コマンドライン引数から日付と要約JSON/ファイルを取得し、フラグ以外の引数を返す
 export function parseArgs(
   args: string[],
 ): {
   date: string;
   summariesJson: string | null;
+  summariesFile: string | null;
   weekly: boolean;
   otherArgs: string[];
 } {
@@ -423,11 +424,15 @@ export function parseArgs(
   const summariesJsonArg = args.find((arg) =>
     arg.startsWith("--summaries-json=")
   );
+  const summariesFileArg = args.find((arg) =>
+    arg.startsWith("--summaries-file=")
+  );
   const weeklyArg = args.includes("--weekly");
   const otherArgs = args.filter(
     (arg) =>
       !arg.startsWith("--date=") &&
       !arg.startsWith("--summaries-json=") &&
+      !arg.startsWith("--summaries-file=") &&
       arg !== "--weekly",
   );
 
@@ -443,7 +448,12 @@ export function parseArgs(
     summariesJson = summariesJsonArg.substring("--summaries-json=".length);
   }
 
-  return { date, summariesJson, weekly: weeklyArg, otherArgs };
+  let summariesFile: string | null = null;
+  if (summariesFileArg) {
+    summariesFile = summariesFileArg.substring("--summaries-file=".length);
+  }
+
+  return { date, summariesJson, summariesFile, weekly: weeklyArg, otherArgs };
 }
 
 // メイン処理
@@ -455,10 +465,28 @@ async function main() {
   }
 
   // 引数からリポジトリ情報を取得（デフォルト: korosuke613/mynewshq）
-  const { date, summariesJson, weekly, otherArgs } = parseArgs(Deno.args);
+  const {
+    date,
+    summariesJson: summariesJsonArg,
+    summariesFile,
+    weekly,
+    otherArgs,
+  } = parseArgs(Deno.args);
   const owner = otherArgs[0] || "korosuke613";
   const repo = otherArgs[1] || "mynewshq";
   const categoryName = otherArgs[2] || "General";
+
+  // 要約JSONの取得：--summaries-file が優先、なければ --summaries-json を使用
+  let summariesJson: string | null = summariesJsonArg;
+  if (summariesFile) {
+    try {
+      summariesJson = await Deno.readTextFile(summariesFile);
+      console.log(`Loaded summaries from file: ${summariesFile}`);
+    } catch (error) {
+      console.error(`Failed to read summaries file ${summariesFile}:`, error);
+      Deno.exit(1);
+    }
+  }
 
   // 指定された日付のchangelog JSONファイルを取得
   // 週次モードの場合は weekly/ ディレクトリから、日次の場合は daily/ ディレクトリから
@@ -481,9 +509,11 @@ async function main() {
   let body: string;
 
   if (weekly) {
-    // 週次モード: WeeklySummaryData を使用（--summaries-json 必須）
+    // 週次モード: WeeklySummaryData を使用（--summaries-json または --summaries-file 必須）
     if (!summariesJson) {
-      console.error("週次モードでは --summaries-json が必須です");
+      console.error(
+        "週次モードでは --summaries-json または --summaries-file が必須です",
+      );
       Deno.exit(1);
     }
     try {
