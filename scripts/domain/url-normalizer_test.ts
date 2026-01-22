@@ -1,8 +1,5 @@
 import { assertEquals } from "@std/assert";
-import {
-  normalizeTrailingSlash,
-  normalizeUrl,
-} from "./url-normalizer.ts";
+import { normalizeTrailingSlash, normalizeUrl } from "./url-normalizer.ts";
 
 Deno.test("normalizeTrailingSlash", async (t) => {
   await t.step("末尾のスラッシュを削除する", () => {
