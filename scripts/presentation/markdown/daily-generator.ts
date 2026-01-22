@@ -24,10 +24,10 @@ function findSummary(
     return summaryMap[normalizedUrl];
   }
 
-  // 末尾スラッシュを追加したURLでも検索する
-  // normalizeTrailingSlash で一度末尾スラッシュを揃えているが、
-  // summaryMap のキー側が「/」あり・なしで混在しているケースに対応するため、
-  // 正規化後の URL に再度スラッシュを付けた形式もフォールバックとして確認する。
+  // 末尾スラッシュを追加したURLでも検索する。
+  // normalizeTrailingSlash は URL の末尾スラッシュを削除して正規化するが、
+  // 既存の summaryMap には「/」あり・なしのキーが混在している可能性がある。
+  // そのため、互換性維持のためのフォールバックとして「正規化済みURL + '/'」も確認する。
   const urlWithSlash = normalizedUrl + "/";
   if (summaryMap[urlWithSlash]) {
     return summaryMap[urlWithSlash];
