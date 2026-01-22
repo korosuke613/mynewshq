@@ -631,6 +631,48 @@ Deno.test("parseArgs", async (t) => {
     assertEquals(result.summariesJson, json);
     assertEquals(result.otherArgs, ["owner", "repo"]);
   });
+
+  await t.step(
+    "--summaries-file オプションで要約ファイルパスを指定できる",
+    () => {
+      const result = parseArgs([
+        "--summaries-file=/tmp/summaries.json",
+        "owner",
+        "repo",
+      ]);
+      assertEquals(result.summariesFile, "/tmp/summaries.json");
+      assertEquals(result.summariesJson, null);
+      assertEquals(result.otherArgs, ["owner", "repo"]);
+    },
+  );
+
+  await t.step("--summaries-file と --date を同時に指定できる", () => {
+    const result = parseArgs([
+      "--date=2026-01-20",
+      "--summaries-file=/tmp/summaries.json",
+      "owner",
+      "repo",
+    ]);
+    assertEquals(result.date, "2026-01-20");
+    assertEquals(result.summariesFile, "/tmp/summaries.json");
+    assertEquals(result.otherArgs, ["owner", "repo"]);
+  });
+
+  await t.step(
+    "--summaries-file と --summaries-json が両方指定された場合は両方返す",
+    () => {
+      const json = '{"github":{}}';
+      const result = parseArgs([
+        `--summaries-json=${json}`,
+        "--summaries-file=/tmp/summaries.json",
+        "owner",
+        "repo",
+      ]);
+      // parseArgsは両方をパースするだけ、優先順位の決定はmain関数で行う
+      assertEquals(result.summariesJson, json);
+      assertEquals(result.summariesFile, "/tmp/summaries.json");
+    },
+  );
 });
 
 Deno.test("generateBodyWithSummaries", async (t) => {
