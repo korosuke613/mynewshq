@@ -479,11 +479,13 @@ async function main() {
   // 要約JSONの取得：--summaries-file が優先、なければ --summaries-json を使用
   let summariesJson: string | null = summariesJsonArg;
   if (summariesFile) {
+    // ログインジェクション対策：改行文字を除去
+    const safeFilename = summariesFile.replace(/[\r\n]/g, "");
     try {
       summariesJson = await Deno.readTextFile(summariesFile);
-      console.log(`Loaded summaries from file: ${summariesFile}`);
+      console.log(`Loaded summaries from file: ${safeFilename}`);
     } catch (error) {
-      console.error(`Failed to read summaries file ${summariesFile}:`, error);
+      console.error(`Failed to read summaries file ${safeFilename}:`, error);
       Deno.exit(1);
     }
   }
