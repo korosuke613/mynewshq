@@ -15,7 +15,6 @@ import {
   extractLabelsFromAWSCategory,
   extractLabelsFromCategories,
 } from "./domain/label-extractor.ts";
-import { normalizeUrl } from "./domain/url-normalizer.ts";
 import {
   applyMuteFilterToAll,
   fetchAll,
@@ -35,7 +34,6 @@ export {
   isMuted,
   isRecent,
   isWithinDays,
-  normalizeUrl,
   parseMuteWords,
 };
 

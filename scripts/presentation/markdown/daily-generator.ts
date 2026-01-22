@@ -3,6 +3,38 @@ import type { ChangelogData, SummaryData } from "../../domain/types.ts";
 import { getProviderDisplayName } from "../../domain/providers/index.ts";
 import { formatLabelsString } from "./helpers.ts";
 import { generateMutedSection } from "./muted-section.ts";
+import { normalizeTrailingSlash } from "../../domain/url-normalizer.ts";
+
+// 柔軟なURLマッチングで要約を検索
+// 完全一致 → 正規化URL → 末尾スラッシュ追加の順で検索
+function findSummary(
+  summaryMap: Record<string, string> | undefined,
+  url: string,
+): string | undefined {
+  if (!summaryMap) return undefined;
+
+  // 完全一致
+  if (summaryMap[url]) {
+    return summaryMap[url];
+  }
+
+  // 正規化URL（末尾スラッシュを削除）
+  const normalizedUrl = normalizeTrailingSlash(url);
+  if (summaryMap[normalizedUrl]) {
+    return summaryMap[normalizedUrl];
+  }
+
+  // 末尾スラッシュを追加したURLでも検索する。
+  // normalizeTrailingSlash は URL の末尾スラッシュを削除して正規化するが、
+  // 既存の summaryMap には「/」あり・なしのキーが混在している可能性がある。
+  // そのため、互換性維持のためのフォールバックとして「正規化済みURL + '/'」も確認する。
+  const urlWithSlash = normalizedUrl + "/";
+  if (summaryMap[urlWithSlash]) {
+    return summaryMap[urlWithSlash];
+  }
+
+  return undefined;
+}
 
 // 対象期間の文字列を生成（UTC 3:00 基準の24時間ウィンドウ）
 export function generateCoveragePeriod(dateStr: string): string {
@@ -148,7 +180,7 @@ export function generateBodyWithSummaries(
           body += `${labelsString}\n`;
         }
         body += "\n";
-        const summary = summaries.github?.[item.url];
+        const summary = findSummary(summaries.github, item.url);
         if (summary) {
           body += `**要約**: ${summary}\n\n`;
         }
@@ -171,7 +203,7 @@ export function generateBodyWithSummaries(
           body += `${labelsString}\n`;
         }
         body += "\n";
-        const summary = summaries.aws?.[item.url];
+        const summary = findSummary(summaries.aws, item.url);
         if (summary) {
           body += `**要約**: ${summary}\n\n`;
         }
@@ -189,7 +221,7 @@ export function generateBodyWithSummaries(
       body += `## ${getProviderDisplayName("claudeCode")}\n\n`;
       for (const item of activeEntries) {
         body += `### [${item.version}](${item.url})\n\n`;
-        const summary = summaries.claudeCode?.[item.url];
+        const summary = findSummary(summaries.claudeCode, item.url);
         if (summary) {
           body += `**要約**: ${summary}\n\n`;
         }
@@ -207,7 +239,7 @@ export function generateBodyWithSummaries(
       body += `## ${getProviderDisplayName("linear")}\n\n`;
       for (const item of activeEntries) {
         body += `### [${item.title}](${item.url})\n\n`;
-        const summary = summaries.linear?.[item.url];
+        const summary = findSummary(summaries.linear, item.url);
         if (summary) {
           body += `**要約**: ${summary}\n\n`;
         }
