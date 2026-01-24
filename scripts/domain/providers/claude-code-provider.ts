@@ -48,6 +48,7 @@ export const claudeCodeProvider: ProviderConfig<ReleaseEntry> = {
   displayName: "Claude Code",
   emoji: "\u{1F916}",
   labelName: "claude-code",
+  category: "changelog",
   titleField: "version",
   pubDateField: "publishedAt",
   fetch: fetchClaudeCodeReleases,

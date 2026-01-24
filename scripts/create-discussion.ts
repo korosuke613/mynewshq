@@ -1,5 +1,7 @@
 import { graphql } from "@octokit/graphql";
 import type {
+  BlogData,
+  BlogSummaryData,
   ChangelogData,
   ChangelogEntry,
   DailyLink,
@@ -17,10 +19,18 @@ import {
 } from "./presentation/markdown/daily-generator.ts";
 import { generateWeeklyBodyWithSummaries } from "./presentation/markdown/weekly-generator.ts";
 import {
+  generateBlogBodyWithSummaries,
+  generateBlogTitle,
+  generateDefaultBlogBody,
+} from "./presentation/markdown/blog-generator.ts";
+import {
   generateMention,
   getCategoryEmoji,
 } from "./presentation/markdown/helpers.ts";
 import { generateMutedSection } from "./presentation/markdown/muted-section.ts";
+
+// カテゴリオプション
+type CategoryOption = "changelog" | "blog";
 
 // 後方互換性のため型と関数を再エクスポート
 export type {
@@ -418,6 +428,7 @@ export function parseArgs(
   summariesJson: string | null;
   summariesFile: string | null;
   weekly: boolean;
+  category: CategoryOption;
   otherArgs: string[];
 } {
   const dateArg = args.find((arg) => arg.startsWith("--date="));
@@ -428,11 +439,13 @@ export function parseArgs(
     arg.startsWith("--summaries-file=")
   );
   const weeklyArg = args.includes("--weekly");
+  const categoryArg = args.find((arg) => arg.startsWith("--category="));
   const otherArgs = args.filter(
     (arg) =>
       !arg.startsWith("--date=") &&
       !arg.startsWith("--summaries-json=") &&
       !arg.startsWith("--summaries-file=") &&
+      !arg.startsWith("--category=") &&
       arg !== "--weekly",
   );
 
@@ -453,45 +466,38 @@ export function parseArgs(
     summariesFile = summariesFileArg.substring("--summaries-file=".length);
   }
 
-  return { date, summariesJson, summariesFile, weekly: weeklyArg, otherArgs };
-}
-
-// メイン処理
-async function main() {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) {
-    console.error("GITHUB_TOKEN environment variable is required");
-    Deno.exit(1);
-  }
-
-  // 引数からリポジトリ情報を取得（デフォルト: korosuke613/mynewshq）
-  const {
-    date,
-    summariesJson: summariesJsonArg,
-    summariesFile,
-    weekly,
-    otherArgs,
-  } = parseArgs(Deno.args);
-  const owner = otherArgs[0] || "korosuke613";
-  const repo = otherArgs[1] || "mynewshq";
-  const categoryName = otherArgs[2] || "General";
-
-  // 要約JSONの取得：--summaries-file が優先、なければ --summaries-json を使用
-  let summariesJson: string | null = summariesJsonArg;
-  if (summariesFile) {
-    // ログインジェクション対策：改行文字を除去
-    const safeFilename = summariesFile.replace(/[\r\n]/g, "");
-    try {
-      summariesJson = await Deno.readTextFile(summariesFile);
-      console.log(`Loaded summaries from file: ${safeFilename}`);
-    } catch (error) {
-      console.error(`Failed to read summaries file ${safeFilename}:`, error);
-      Deno.exit(1);
+  // カテゴリの解析（デフォルト: changelog）
+  let category: CategoryOption = "changelog";
+  if (categoryArg) {
+    const categoryValue = categoryArg.split("=")[1];
+    if (categoryValue === "changelog" || categoryValue === "blog") {
+      category = categoryValue;
+    } else {
+      console.warn(`Invalid category: ${categoryValue}. Using "changelog".`);
     }
   }
 
-  // 指定された日付のchangelog JSONファイルを取得
-  // 週次モードの場合は weekly/ ディレクトリから、日次の場合は daily/ ディレクトリから
+  return {
+    date,
+    summariesJson,
+    summariesFile,
+    weekly: weeklyArg,
+    category,
+    otherArgs,
+  };
+}
+
+// Changelog用Discussion作成
+async function createChangelogDiscussion(
+  token: string,
+  owner: string,
+  repo: string,
+  categoryName: string,
+  date: string,
+  weekly: boolean,
+  summariesJson: string | null,
+  legacySummary: string,
+): Promise<void> {
   const subDir = weekly ? "weekly" : "daily";
   const changelogPath = `data/changelogs/${subDir}/${date}.json`;
 
@@ -504,14 +510,10 @@ async function main() {
     Deno.exit(1);
   }
 
-  // 引数から要約を取得（4番目以降の引数をすべて結合）- 後方互換性のため維持
-  const legacySummary = otherArgs.slice(3).join(" ");
-
   const title = generateTitle(changelogData);
   let body: string;
 
   if (weekly) {
-    // 週次モード: WeeklySummaryData を使用（--summaries-json または --summaries-file 必須）
     if (!summariesJson) {
       console.error(
         "週次モードでは --summaries-json または --summaries-file が必須です",
@@ -537,7 +539,6 @@ async function main() {
       Deno.exit(1);
     }
   } else if (summariesJson) {
-    // 日次モード: 既存の SummaryData を使用
     try {
       const summaries: SummaryData = JSON.parse(summariesJson);
       body = generateBodyWithSummaries(changelogData, summaries) +
@@ -549,7 +550,6 @@ async function main() {
       body = generateDefaultBody(changelogData) + generateMention();
     }
   } else if (legacySummary) {
-    // 従来の要約文字列が指定された場合（後方互換性）
     const isWeekly = !!(changelogData.startDate && changelogData.endDate);
     const coveragePeriod = isWeekly
       ? generateWeeklyCoveragePeriod(
@@ -559,11 +559,10 @@ async function main() {
       : generateCoveragePeriod(changelogData.date);
     body = coveragePeriod + "\n\n" + legacySummary + generateMention();
   } else {
-    // 要約なしの場合
     body = generateDefaultBody(changelogData) + generateMention();
   }
 
-  console.log(`Creating discussion: ${title}`);
+  console.log(`Creating changelog discussion: ${title}`);
 
   const url = await createDiscussion(
     token,
@@ -575,7 +574,125 @@ async function main() {
     changelogData,
   );
 
-  console.log(`Discussion created: ${url}`);
+  console.log(`Changelog discussion created: ${url}`);
+}
+
+// Blog用Discussion作成
+async function createBlogDiscussion(
+  token: string,
+  owner: string,
+  repo: string,
+  categoryName: string,
+  date: string,
+  weekly: boolean,
+  summariesJson: string | null,
+): Promise<void> {
+  const subDir = weekly ? "weekly" : "daily";
+  const blogPath = `data/blogs/${subDir}/${date}.json`;
+
+  let blogData: BlogData;
+  try {
+    const content = await Deno.readTextFile(blogPath);
+    blogData = JSON.parse(content);
+  } catch (error) {
+    console.error(`Failed to read ${blogPath}:`, error);
+    Deno.exit(1);
+  }
+
+  const title = generateBlogTitle(blogData);
+  let body: string;
+
+  if (summariesJson) {
+    try {
+      const summaries: BlogSummaryData = JSON.parse(summariesJson);
+      body = generateBlogBodyWithSummaries(blogData, summaries) +
+        generateMention();
+      console.log("Using blog summaries JSON");
+    } catch (error) {
+      console.error("Failed to parse blog summaries JSON:", error);
+      console.error("Falling back to default body generation");
+      body = generateDefaultBlogBody(blogData) + generateMention();
+    }
+  } else {
+    body = generateDefaultBlogBody(blogData) + generateMention();
+  }
+
+  console.log(`Creating blog discussion: ${title}`);
+
+  // BlogDataはラベル付与しないのでundefinedを渡す
+  const url = await createDiscussion(
+    token,
+    owner,
+    repo,
+    categoryName,
+    title,
+    body,
+    undefined,
+  );
+
+  console.log(`Blog discussion created: ${url}`);
+}
+
+// メイン処理
+async function main() {
+  const token = Deno.env.get("GITHUB_TOKEN");
+  if (!token) {
+    console.error("GITHUB_TOKEN environment variable is required");
+    Deno.exit(1);
+  }
+
+  // 引数からリポジトリ情報を取得（デフォルト: korosuke613/mynewshq）
+  const {
+    date,
+    summariesJson: summariesJsonArg,
+    summariesFile,
+    weekly,
+    category,
+    otherArgs,
+  } = parseArgs(Deno.args);
+  const owner = otherArgs[0] || "korosuke613";
+  const repo = otherArgs[1] || "mynewshq";
+  const categoryName = otherArgs[2] || "General";
+
+  // 要約JSONの取得：--summaries-file が優先、なければ --summaries-json を使用
+  let summariesJson: string | null = summariesJsonArg;
+  if (summariesFile) {
+    // ログインジェクション対策：改行文字を除去
+    const safeFilename = summariesFile.replace(/[\r\n]/g, "");
+    try {
+      summariesJson = await Deno.readTextFile(summariesFile);
+      console.log(`Loaded summaries from file: ${safeFilename}`);
+    } catch (error) {
+      console.error(`Failed to read summaries file ${safeFilename}:`, error);
+      Deno.exit(1);
+    }
+  }
+
+  // 引数から要約を取得（4番目以降の引数をすべて結合）- 後方互換性のため維持
+  const legacySummary = otherArgs.slice(3).join(" ");
+
+  if (category === "blog") {
+    await createBlogDiscussion(
+      token,
+      owner,
+      repo,
+      categoryName,
+      date,
+      weekly,
+      summariesJson,
+    );
+  } else {
+    await createChangelogDiscussion(
+      token,
+      owner,
+      repo,
+      categoryName,
+      date,
+      weekly,
+      summariesJson,
+      legacySummary,
+    );
+  }
 }
 
 if (import.meta.main) {

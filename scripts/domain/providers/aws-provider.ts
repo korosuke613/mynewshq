@@ -47,6 +47,7 @@ export const awsProvider: ProviderConfig<ChangelogEntry> = {
   displayName: "AWS What's New",
   emoji: "\u2601\uFE0F",
   labelName: "aws",
+  category: "changelog",
   labelPrefix: "aws:",
   transformLabel: (label: string) => label.replace(/^(amazon-|aws-)/, ""),
   titleField: "title",

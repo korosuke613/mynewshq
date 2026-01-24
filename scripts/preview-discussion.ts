@@ -1,5 +1,7 @@
 // Discussion投稿内容をプレビューするスクリプト
 import type {
+  BlogData,
+  BlogSummaryData,
   ChangelogData,
   DailyLink,
   SummaryData,
@@ -12,6 +14,41 @@ import {
   generateTitle,
   generateWeeklyBodyWithSummaries,
 } from "./create-discussion.ts";
+import {
+  generateBlogBodyWithSummaries,
+  generateBlogTitle,
+} from "./presentation/markdown/blog-generator.ts";
+
+// カテゴリオプション
+type CategoryOption = "changelog" | "blog";
+
+// Blog プレビュー用のダミーデータ（--summaries-json がない場合に使用）
+const DUMMY_BLOG_SUMMARIES: BlogSummaryData = {
+  hatenaBookmark: {
+    selectedTopics: [
+      {
+        url: "https://example.com/article1",
+        title: "サンプル記事 1",
+        reason:
+          "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
+      },
+      {
+        url: "https://example.com/article2",
+        title: "サンプル記事 2",
+        reason:
+          "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
+      },
+      {
+        url: "https://example.com/article3",
+        title: "サンプル記事 3",
+        reason:
+          "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
+      },
+    ],
+    overview:
+      "【ダミー】本日のはてなブックマークでは、開発生産性やAI関連の記事が注目を集めています。これはプレビュー用のダミーデータです。実際の解説・トレンド分析がここに表示されます。",
+  },
+};
 
 // 週次プレビュー用のダミーデータ（--summaries-json がない場合に使用）
 const DUMMY_WEEKLY_SUMMARIES: WeeklySummaryData = {
@@ -60,7 +97,8 @@ const DUMMY_WEEKLY_SUMMARIES: WeeklySummaryData = {
   },
 };
 
-async function preview(
+// Changelog用プレビュー
+async function previewChangelog(
   date?: string,
   summariesJson?: string,
   weekly?: boolean,
@@ -165,6 +203,76 @@ async function preview(
   console.log(bodyWithMention);
 }
 
+// Blog用プレビュー
+async function previewBlog(
+  date?: string,
+  summariesJson?: string,
+  weekly?: boolean,
+) {
+  // 日付を取得
+  const targetDate = date || new Date().toISOString().split("T")[0];
+  const subDir = weekly ? "weekly" : "daily";
+  const blogPath = `data/blogs/${subDir}/${targetDate}.json`;
+
+  // JSONファイルを読み込み
+  let data: BlogData;
+  try {
+    const content = await Deno.readTextFile(blogPath);
+    data = JSON.parse(content);
+  } catch (error) {
+    console.error(`Failed to read ${blogPath}:`, error);
+    Deno.exit(1);
+  }
+
+  // タイトルを生成
+  const title = generateBlogTitle(data);
+  const isWeekly = !!(data.startDate && data.endDate);
+
+  // 統計情報を表示
+  if (isWeekly) {
+    console.log(`📊 データ統計 (週次: ${data.startDate} ~ ${data.endDate})`);
+  } else {
+    console.log(`📊 データ統計 (${data.date})`);
+  }
+  console.log(`---`);
+
+  const hatenaActive = data.hatenaBookmark.filter((e) => !e.muted).length;
+  const hatenaMuted = data.hatenaBookmark.filter((e) => e.muted).length;
+  console.log(
+    `Hatena Bookmark: ${hatenaActive} 件 (ミュート: ${hatenaMuted} 件)`,
+  );
+  console.log();
+
+  // ボディを生成
+  // デフォルトでダミーデータを設定し、JSONが指定されていれば上書き
+  let summaries: BlogSummaryData = DUMMY_BLOG_SUMMARIES;
+  if (summariesJson) {
+    try {
+      summaries = JSON.parse(summariesJson);
+      console.log(`📝 要約JSON を使用してボディを生成`);
+    } catch (error) {
+      console.error(`Failed to parse summaries JSON:`, error);
+      console.log(`⚠️ ダミーデータにフォールバック`);
+    }
+  } else {
+    console.log(`📝 ダミーデータを使用してボディを生成（プレビュー用）`);
+  }
+  const body = generateBlogBodyWithSummaries(data, summaries);
+  const bodyWithMention = body + generateMention();
+
+  // summary-blog.mdに保存
+  const outputFile = isWeekly ? "summary-blog-weekly.md" : "summary-blog.md";
+  await Deno.writeTextFile(outputFile, bodyWithMention);
+  console.log(`✅ ${outputFile} に保存しました`);
+  console.log();
+
+  // プレビューを表示
+  console.log(`📄 プレビュー:`);
+  console.log(`📋 タイトル: ${title}`);
+  console.log(`---`);
+  console.log(bodyWithMention);
+}
+
 // メイン処理
 if (import.meta.main) {
   const dateArg = Deno.args.find((arg) => arg.startsWith("--date="));
@@ -176,6 +284,7 @@ if (import.meta.main) {
   const summariesFileArg = Deno.args.find((arg) =>
     arg.startsWith("--summaries-file=")
   );
+  const categoryArg = Deno.args.find((arg) => arg.startsWith("--category="));
 
   // --summaries-file が優先、なければ --summaries-json を使用
   let summariesJson: string | undefined;
@@ -198,5 +307,20 @@ if (import.meta.main) {
 
   const weekly = Deno.args.includes("--weekly");
 
-  await preview(date, summariesJson, weekly);
+  // カテゴリの解析（デフォルト: changelog）
+  let category: CategoryOption = "changelog";
+  if (categoryArg) {
+    const categoryValue = categoryArg.split("=")[1];
+    if (categoryValue === "changelog" || categoryValue === "blog") {
+      category = categoryValue;
+    } else {
+      console.warn(`Invalid category: ${categoryValue}. Using "changelog".`);
+    }
+  }
+
+  if (category === "blog") {
+    await previewBlog(date, summariesJson, weekly);
+  } else {
+    await previewChangelog(date, summariesJson, weekly);
+  }
 }

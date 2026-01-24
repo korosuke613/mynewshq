@@ -47,6 +47,18 @@ export interface ReleaseEntry {
   mutedBy?: string;
 }
 
+// ブログエントリの型（はてなブックマーク等）
+export interface BlogEntry {
+  title: string;
+  url: string;
+  description: string;
+  pubDate: string;
+  bookmarkCount?: number;
+  tags?: string[];
+  muted?: boolean;
+  mutedBy?: string;
+}
+
 // Changelogデータの型（JSON保存形式）
 export interface ChangelogData {
   date: string;
@@ -56,6 +68,14 @@ export interface ChangelogData {
   aws: ChangelogEntry[];
   claudeCode: ReleaseEntry[];
   linear: ChangelogEntry[];
+}
+
+// Blogデータの型（JSON保存形式）
+export interface BlogData {
+  date: string;
+  startDate?: string; // 週次の場合の開始日
+  endDate?: string; // 週次の場合の終了日
+  hatenaBookmark: BlogEntry[];
 }
 
 // 要約データの型（キーはURL、値は要約文）
@@ -107,4 +127,19 @@ export interface DailyLink {
 // determineLabels関数のオプション型
 export interface DetermineLabelsOptions {
   serviceOnly?: boolean; // trueの場合、サービス名ラベルのみを返す（週次用）
+}
+
+// Blog要約用の型
+export interface SelectedBlogTopic {
+  url: string;
+  title: string;
+  reason: string; // なぜこのトピックを選定したか
+}
+
+// Blog要約データの型
+export interface BlogSummaryData {
+  hatenaBookmark: {
+    selectedTopics: SelectedBlogTopic[]; // 選定されたトピック（上限なし）
+    overview: string; // 全体の解説
+  };
 }

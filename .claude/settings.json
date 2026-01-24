@@ -6,7 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.command' | grep -q '^git add' && deno fmt 2>/dev/null || true"
+            "command": "! jq -r '.tool_input.command' | grep -q '^git add' || deno fmt"
+          },
+          {
+            "type": "command",
+            "command": "if jq -r '.tool_input.command' | grep -q '^git commit'; then :; else deno lint; fi"
           }
         ]
       }

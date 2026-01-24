@@ -40,6 +40,7 @@ export const linearProvider: ProviderConfig<ChangelogEntry> = {
   displayName: "Linear Changelog",
   emoji: "\u{1F4D0}",
   labelName: "linear",
+  category: "changelog",
   titleField: "title",
   pubDateField: "pubDate",
   fetch: fetchLinearChangelog,

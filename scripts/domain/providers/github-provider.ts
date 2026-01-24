@@ -60,6 +60,7 @@ export const githubProvider: ProviderConfig<ChangelogEntry> = {
   displayName: "GitHub Changelog",
   emoji: "\u{1F419}",
   labelName: "github",
+  category: "changelog",
   labelPrefix: "gh:",
   titleField: "title",
   pubDateField: "pubDate",

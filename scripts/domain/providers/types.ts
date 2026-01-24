@@ -1,12 +1,19 @@
 // Provider関連の型定義
 // 各Providerの設定とフェッチ関数のシグネチャを定義
 
-import type { ChangelogEntry, ReleaseEntry } from "../types.ts";
+import type { BlogEntry, ChangelogEntry, ReleaseEntry } from "../types.ts";
 
 /**
- * 統一Entry型（ChangelogEntryまたはReleaseEntry）
+ * コンテンツカテゴリ
+ * - changelog: 技術系Changelog（GitHub, AWS, Claude Code, Linear等）
+ * - blog: 技術ブログ記事（はてなブックマーク等）
  */
-export type AnyEntry = ChangelogEntry | ReleaseEntry;
+export type ContentCategory = "changelog" | "blog";
+
+/**
+ * 統一Entry型（ChangelogEntry, ReleaseEntry, または BlogEntry）
+ */
+export type AnyEntry = ChangelogEntry | ReleaseEntry | BlogEntry;
 
 /**
  * Fetcherシグネチャ
@@ -30,6 +37,8 @@ export interface ProviderConfig<T extends AnyEntry = AnyEntry> {
   emoji: string;
   /** ラベル名（Discussion用） */
   labelName: string;
+  /** コンテンツカテゴリ（changelog または blog） */
+  category: ContentCategory;
   /** サブカテゴリラベルのプレフィックス（例: "gh:", "aws:"） */
   labelPrefix?: string;
   /** ラベル変換関数（例: AWS用のプレフィックス除去） */

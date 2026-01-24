@@ -15,13 +15,15 @@ import {
   extractLabelsFromAWSCategory,
   extractLabelsFromCategories,
 } from "./domain/label-extractor.ts";
+import type { ContentCategory } from "./domain/providers/types.ts";
 import {
   applyMuteFilterToAll,
-  fetchAll,
+  fetchByCategory,
   getProviderDisplayName,
+  getProvidersByCategory,
   getTotalEntryCount,
   hasNoEntries,
-  PROVIDER_CONFIGS,
+  toBlogData,
   toChangelogData,
 } from "./domain/providers/index.ts";
 
@@ -40,17 +42,22 @@ export {
 // 1日のミリ秒数
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
+// カテゴリオプションの型
+type CategoryOption = ContentCategory | "all";
+
 // コマンドライン引数からオプションを取得
 interface ParsedArgs {
   targetDate: Date;
   days: number;
   weekly: boolean;
+  category: CategoryOption;
 }
 
 function parseArgs(args: string[]): ParsedArgs {
   const dateArg = args.find((arg) => arg.startsWith("--date="));
   const daysArg = args.find((arg) => arg.startsWith("--days="));
   const weeklyArg = args.includes("--weekly");
+  const categoryArg = args.find((arg) => arg.startsWith("--category="));
 
   let targetDate: Date;
   if (dateArg) {
@@ -71,7 +78,21 @@ function parseArgs(args: string[]): ParsedArgs {
     }
   }
 
-  return { targetDate, days, weekly: weeklyArg };
+  // カテゴリの解析（デフォルト: all）
+  let category: CategoryOption = "all";
+  if (categoryArg) {
+    const categoryValue = categoryArg.split("=")[1];
+    if (
+      categoryValue === "changelog" || categoryValue === "blog" ||
+      categoryValue === "all"
+    ) {
+      category = categoryValue;
+    } else {
+      console.warn(`Invalid category: ${categoryValue}. Using "all".`);
+    }
+  }
+
+  return { targetDate, days, weekly: weeklyArg, category };
 }
 
 // コマンドライン引数から日付を取得（後方互換性のため）
@@ -114,14 +135,123 @@ export async function fetchMuteWords(
   }
 }
 
+// Changelogカテゴリのデータを取得・保存
+async function processChangelog(
+  targetDate: Date,
+  days: number,
+  weekly: boolean,
+  dateString: string,
+  muteWords: string[],
+): Promise<void> {
+  console.log("\n--- Processing Changelog ---");
+
+  // changelogカテゴリのプロバイダーからデータを取得
+  let results = await fetchByCategory("changelog", targetDate, days);
+
+  // ミュートフィルタを適用
+  if (muteWords.length > 0) {
+    const { filtered, mutedCount } = applyMuteFilterToAll(results, muteWords);
+    results = filtered;
+    if (mutedCount > 0) {
+      console.log(`Muted ${mutedCount} changelog entries`);
+    }
+  }
+
+  // 更新がない場合はスキップ
+  if (hasNoEntries(results)) {
+    console.log(`No changelog updates found in the last ${days} day(s).`);
+    return;
+  }
+
+  // 週次の場合は開始日・終了日を設定
+  const weeklyOptions = (weekly || days > 1)
+    ? {
+      startDate: new Date(targetDate.getTime() - days * MILLISECONDS_PER_DAY)
+        .toISOString().split("T")[0],
+      endDate: dateString,
+    }
+    : undefined;
+
+  const data = toChangelogData(results, dateString, weeklyOptions);
+
+  // 出力先ディレクトリを決定
+  const subDir = weekly ? "weekly" : "daily";
+  const outputPath = `data/changelogs/${subDir}/${data.date}.json`;
+  await Deno.mkdir(`data/changelogs/${subDir}`, { recursive: true });
+  await Deno.writeTextFile(outputPath, JSON.stringify(data, null, 2));
+
+  console.log(
+    `Saved ${getTotalEntryCount(results)} changelog updates to ${outputPath}`,
+  );
+  for (const config of getProvidersByCategory("changelog")) {
+    const count = results[config.id]?.length ?? 0;
+    console.log(`- ${getProviderDisplayName(config.id)}: ${count}`);
+  }
+}
+
+// Blogカテゴリのデータを取得・保存
+async function processBlog(
+  targetDate: Date,
+  days: number,
+  weekly: boolean,
+  dateString: string,
+  muteWords: string[],
+): Promise<void> {
+  console.log("\n--- Processing Blog ---");
+
+  // blogカテゴリのプロバイダーからデータを取得
+  let results = await fetchByCategory("blog", targetDate, days);
+
+  // ミュートフィルタを適用
+  if (muteWords.length > 0) {
+    const { filtered, mutedCount } = applyMuteFilterToAll(results, muteWords);
+    results = filtered;
+    if (mutedCount > 0) {
+      console.log(`Muted ${mutedCount} blog entries`);
+    }
+  }
+
+  // 更新がない場合はスキップ
+  if (hasNoEntries(results)) {
+    console.log(`No blog updates found in the last ${days} day(s).`);
+    return;
+  }
+
+  // 週次の場合は開始日・終了日を設定
+  const weeklyOptions = (weekly || days > 1)
+    ? {
+      startDate: new Date(targetDate.getTime() - days * MILLISECONDS_PER_DAY)
+        .toISOString().split("T")[0],
+      endDate: dateString,
+    }
+    : undefined;
+
+  const data = toBlogData(results, dateString, weeklyOptions);
+
+  // 出力先ディレクトリを決定
+  const subDir = weekly ? "weekly" : "daily";
+  const outputPath = `data/blogs/${subDir}/${data.date}.json`;
+  await Deno.mkdir(`data/blogs/${subDir}`, { recursive: true });
+  await Deno.writeTextFile(outputPath, JSON.stringify(data, null, 2));
+
+  console.log(
+    `Saved ${getTotalEntryCount(results)} blog updates to ${outputPath}`,
+  );
+  for (const config of getProvidersByCategory("blog")) {
+    const count = results[config.id]?.length ?? 0;
+    console.log(`- ${getProviderDisplayName(config.id)}: ${count}`);
+  }
+}
+
 // メイン処理
 async function main() {
-  console.log("Fetching changelogs...");
+  console.log("Fetching content...");
 
-  const { targetDate, days, weekly } = parseArgs(Deno.args);
+  const { targetDate, days, weekly, category } = parseArgs(Deno.args);
   const dateString = targetDate.toISOString().split("T")[0];
   console.log(`Target date: ${dateString}`);
   console.log(`Days: ${days}`);
+  console.log(`Category: ${category}`);
   if (weekly) {
     console.log("Mode: Weekly");
   }
@@ -151,46 +281,16 @@ async function main() {
     }
   }
 
-  // fetchAll()を使用して全Providerからデータを取得
-  let results = await fetchAll(targetDate, days);
-
-  // ミュートフィルタを適用
-  if (muteWords.length > 0) {
-    const { filtered, mutedCount } = applyMuteFilterToAll(results, muteWords);
-    results = filtered;
-    console.log(`Muted ${mutedCount} entries`);
+  // カテゴリに応じて処理を実行
+  if (category === "changelog" || category === "all") {
+    await processChangelog(targetDate, days, weekly, dateString, muteWords);
   }
 
-  // 更新がない場合は終了
-  if (hasNoEntries(results)) {
-    console.log(`No updates found in the last ${days} day(s).`);
-    Deno.exit(0);
+  if (category === "blog" || category === "all") {
+    await processBlog(targetDate, days, weekly, dateString, muteWords);
   }
 
-  // 週次の場合は開始日・終了日を設定
-  const weeklyOptions = (weekly || days > 1)
-    ? {
-      startDate: new Date(targetDate.getTime() - days * MILLISECONDS_PER_DAY)
-        .toISOString().split("T")[0],
-      endDate: dateString,
-    }
-    : undefined;
-
-  const data = toChangelogData(results, dateString, weeklyOptions);
-
-  // 出力先ディレクトリを決定
-  const subDir = weekly ? "weekly" : "daily";
-  const outputPath = `data/changelogs/${subDir}/${data.date}.json`;
-  await Deno.mkdir(`data/changelogs/${subDir}`, { recursive: true });
-  await Deno.writeTextFile(outputPath, JSON.stringify(data, null, 2));
-
-  console.log(
-    `Saved ${getTotalEntryCount(results)} updates to ${outputPath}`,
-  );
-  for (const config of PROVIDER_CONFIGS) {
-    const count = results[config.id]?.length ?? 0;
-    console.log(`- ${getProviderDisplayName(config.id)}: ${count}`);
-  }
+  console.log("\nDone!");
 }
 
 if (import.meta.main) {
