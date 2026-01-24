@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: コードレビューのスペシャリスト。品質、セキュリティ、保守性のために積極的にコードをレビューする。コードを書いたり修正したりした直後に使用する。
+description: コード変更をレビューし、品質・セキュリティをチェック
 tools: Read, Grep, Glob
 model: sonnet
 ---

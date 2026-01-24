@@ -87,7 +87,7 @@ $ARGUMENTS のプロバイダーを追加します。
 
 ### 4. [低優先度] Subagents の作成
 
-#### 5.1 コードレビュー用 Subagent
+#### 4.1 コードレビュー用 Subagent
 
 **ファイル**: `.claude/agents/code-reviewer.md`
 
