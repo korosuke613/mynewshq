@@ -66,7 +66,7 @@ type ContentCategory = "changelog" | "blog";
 ### フェーズ2: はてなブックマークプロバイダー
 
 5. `scripts/domain/providers/hatena-bookmark-provider.ts` 作成
-   - RDF 1.0 パーサー実装（`dc:date`, `dc:subject` 対応）
+   - `rss-parser` を利用して RSS/RDF フィードを解析（`dc:date`, `dc:subject` 対応）
    - RSS URL: `http://b.hatena.ne.jp/hotentry/it.rss`
 6. `scripts/domain/providers/index.ts` に登録
 7. `scripts/domain/providers/hatena-bookmark-provider_test.ts` 作成
