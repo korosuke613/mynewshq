@@ -17,7 +17,6 @@ import {
 import {
   generateBlogBodyWithSummaries,
   generateBlogTitle,
-  generateDefaultBlogBody,
 } from "./presentation/markdown/blog-generator.ts";
 
 // カテゴリオプション
@@ -246,7 +245,6 @@ async function previewBlog(
 
   // ボディを生成
   // デフォルトでダミーデータを設定し、JSONが指定されていれば上書き
-  let body: string;
   let summaries: BlogSummaryData = DUMMY_BLOG_SUMMARIES;
   if (summariesJson) {
     try {
@@ -259,7 +257,7 @@ async function previewBlog(
   } else {
     console.log(`📝 ダミーデータを使用してボディを生成（プレビュー用）`);
   }
-  body = generateBlogBodyWithSummaries(data, summaries);
+  const body = generateBlogBodyWithSummaries(data, summaries);
   const bodyWithMention = body + generateMention();
 
   // summary-blog.mdに保存

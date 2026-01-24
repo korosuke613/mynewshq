@@ -10,7 +10,7 @@
           },
           {
             "type": "command",
-            "command": "! jq -r '.tool_input.command' | grep -q '^git commit' || deno lint"
+            "command": "if jq -r '.tool_input.command' | grep -q '^git commit'; then :; else deno lint; fi"
           }
         ]
       }
