@@ -62,11 +62,7 @@ scripts/
 
 ### Provider Pattern
 
-新しいChangelogソースを追加する場合：
-
-1. `scripts/domain/providers/xxx-provider.ts` を作成（`ProviderConfig`に準拠）
-2. `scripts/domain/providers/index.ts` の `PROVIDER_CONFIGS` に登録、`toChangelogData()` を更新
-3. `scripts/domain/types.ts` の `ChangelogData` 型にフィールドを追加
+新しいプロバイダーを追加する場合は `/add-provider` スキルを使用。
 
 ### データフロー
 
