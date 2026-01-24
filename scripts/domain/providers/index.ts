@@ -1,25 +1,40 @@
 // Provider統合モジュール
 // 全Providerの登録、ヘルパー関数、fetchAll()を提供
 
-import type { AnyEntry, ProviderConfig } from "./types.ts";
-import type { ChangelogData, ChangelogEntry, ReleaseEntry } from "../types.ts";
+import type { AnyEntry, ContentCategory, ProviderConfig } from "./types.ts";
+import type {
+  BlogData,
+  BlogEntry,
+  ChangelogData,
+  ChangelogEntry,
+  ReleaseEntry,
+} from "../types.ts";
 import { githubProvider } from "./github-provider.ts";
 import { awsProvider } from "./aws-provider.ts";
 import { claudeCodeProvider } from "./claude-code-provider.ts";
 import { linearProvider } from "./linear-provider.ts";
+import { hatenaBookmarkProvider } from "./hatena-bookmark-provider.ts";
 import { applyMuteFilter } from "../mute-filter.ts";
 
 // 型を再エクスポート
-export type { AnyEntry, FetcherFn, ProviderConfig } from "./types.ts";
+export type {
+  AnyEntry,
+  ContentCategory,
+  FetcherFn,
+  ProviderConfig,
+} from "./types.ts";
 
 /**
  * Providerリスト（登録順序を保持）
  */
 export const PROVIDER_CONFIGS: ProviderConfig[] = [
+  // Changelog プロバイダー
   githubProvider,
   awsProvider,
   claudeCodeProvider,
   linearProvider,
+  // Blog プロバイダー
+  hatenaBookmarkProvider,
 ];
 
 /**
@@ -75,6 +90,24 @@ export function getProviderIds(): string[] {
 }
 
 /**
+ * カテゴリに属するプロバイダー設定を取得
+ * @param category コンテンツカテゴリ（"changelog" | "blog"）
+ */
+export function getProvidersByCategory(
+  category: ContentCategory,
+): ProviderConfig[] {
+  return PROVIDER_CONFIGS.filter((config) => config.category === category);
+}
+
+/**
+ * カテゴリに属するプロバイダーIDを取得
+ * @param category コンテンツカテゴリ
+ */
+export function getProviderIdsByCategory(category: ContentCategory): string[] {
+  return getProvidersByCategory(category).map((config) => config.id);
+}
+
+/**
  * 全Providerを並列実行してデータを取得
  * @param targetDate 対象日
  * @param days 取得する日数（デフォルト: 1）
@@ -86,6 +119,29 @@ export async function fetchAll(
 ): Promise<Record<string, AnyEntry[]>> {
   const results = await Promise.all(
     PROVIDER_CONFIGS.map(async (config) => {
+      const entries = await config.fetch(targetDate, days);
+      return [config.id, entries] as const;
+    }),
+  );
+
+  return Object.fromEntries(results);
+}
+
+/**
+ * 指定カテゴリのProviderを並列実行してデータを取得
+ * @param category コンテンツカテゴリ
+ * @param targetDate 対象日
+ * @param days 取得する日数（デフォルト: 1）
+ * @returns 各ProviderのID → エントリ配列のマップ
+ */
+export async function fetchByCategory(
+  category: ContentCategory,
+  targetDate: Date,
+  days: number = 1,
+): Promise<Record<string, AnyEntry[]>> {
+  const providers = getProvidersByCategory(category);
+  const results = await Promise.all(
+    providers.map(async (config) => {
       const entries = await config.fetch(targetDate, days);
       return [config.id, entries] as const;
     }),
@@ -137,6 +193,41 @@ export function toChangelogData(
     aws: (results.aws ?? []) as ChangelogEntry[],
     claudeCode: (results.claudeCode ?? []) as ReleaseEntry[],
     linear: (results.linear ?? []) as ChangelogEntry[],
+  };
+
+  // startDateとendDateは両方指定されるか、両方とも指定されないかのどちらか
+  const hasStartDate = options?.startDate !== undefined;
+  const hasEndDate = options?.endDate !== undefined;
+
+  if (hasStartDate !== hasEndDate) {
+    throw new Error("Both startDate and endDate must be provided together.");
+  }
+
+  if (hasStartDate && hasEndDate) {
+    return {
+      ...base,
+      startDate: options!.startDate,
+      endDate: options!.endDate,
+    };
+  }
+
+  return base;
+}
+
+/**
+ * fetchByCategory結果をBlogData形式に変換
+ * @param results fetchByCategory("blog")の結果（ミュートフィルタ適用済み）
+ * @param dateString 対象日（YYYY-MM-DD形式）
+ * @param options オプション（週次の場合の開始日・終了日）
+ */
+export function toBlogData(
+  results: Record<string, AnyEntry[]>,
+  dateString: string,
+  options?: { startDate?: string; endDate?: string },
+): BlogData {
+  const base: BlogData = {
+    date: dateString,
+    hatenaBookmark: (results.hatenaBookmark ?? []) as BlogEntry[],
   };
 
   // startDateとendDateは両方指定されるか、両方とも指定されないかのどちらか

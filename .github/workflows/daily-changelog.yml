@@ -38,7 +38,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      - name: Fetch changelogs
+      - name: Fetch changelogs and blogs
         id: fetch
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
@@ -53,18 +53,27 @@ jobs:
           fi
           echo "target_date=${TARGET_DATE}" >> $GITHUB_OUTPUT
 
-          # ファイル存在確認
+          # Changelog ファイル存在確認
           if [ -f "data/changelogs/daily/${TARGET_DATE}.json" ]; then
-            echo "has_data=true" >> $GITHUB_OUTPUT
-            echo "Data file created: data/changelogs/daily/${TARGET_DATE}.json"
+            echo "has_changelog=true" >> $GITHUB_OUTPUT
+            echo "Changelog data file created: data/changelogs/daily/${TARGET_DATE}.json"
           else
-            echo "has_data=false" >> $GITHUB_OUTPUT
-            echo "No data file created (no updates found)"
+            echo "has_changelog=false" >> $GITHUB_OUTPUT
+            echo "No changelog data file created (no updates found)"
+          fi
+
+          # Blog ファイル存在確認
+          if [ -f "data/blogs/daily/${TARGET_DATE}.json" ]; then
+            echo "has_blog=true" >> $GITHUB_OUTPUT
+            echo "Blog data file created: data/blogs/daily/${TARGET_DATE}.json"
+          else
+            echo "has_blog=false" >> $GITHUB_OUTPUT
+            echo "No blog data file created (no updates found)"
           fi
 
       - name: Login GitHub App
         id: login-gh-app
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_changelog == 'true' || steps.fetch.outputs.has_blog == 'true'
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
@@ -72,9 +81,12 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      - name: Generate summaries with Claude Code
-        id: summarize
-        if: steps.fetch.outputs.has_data == 'true'
+      # ========================================
+      # Changelog処理
+      # ========================================
+      - name: Generate changelog summaries with Claude Code
+        id: summarize-changelog
+        if: steps.fetch.outputs.has_changelog == 'true'
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
@@ -95,25 +107,71 @@ jobs:
             各カテゴリ（github, aws, claudeCode, linear）について、エントリのURLをキー、要約文を値とするオブジェクトを返してください。
             該当するエントリがないカテゴリは空オブジェクト `{}` としてください。
 
-      - name: Post to Discussion
-        if: steps.fetch.outputs.has_data == 'true'
+      - name: Post Changelog to Discussion
+        if: steps.fetch.outputs.has_changelog == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
           # Claude Code の structured_output をファイルに書き出し
-          # シェル変数展開時の特殊文字問題を回避するため、ファイル経由で渡す
-          cat <<'EOF' > /tmp/summaries.json
-          ${{ steps.summarize.outputs.structured_output }}
+          cat <<'EOF' > /tmp/changelog-summaries.json
+          ${{ steps.summarize-changelog.outputs.structured_output }}
           EOF
 
-          # ファイル内容をトリムしてキャッシュ（catの重複呼び出しを回避）
-          TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/summaries.json)"
+          TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/changelog-summaries.json)"
 
-          # ファイルが有効な場合のみ --summaries-file を使用
-          if [ -s /tmp/summaries.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
-            echo "Using summaries from file"
-            deno task post --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/summaries.json korosuke613 mynewshq Daily
+          if [ -s /tmp/changelog-summaries.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
+            echo "Using changelog summaries from file"
+            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/changelog-summaries.json korosuke613 mynewshq Daily
           else
-            echo "Warning: No valid summaries JSON from Claude Code, using default body"
-            deno task post --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq Daily
+            echo "Warning: No valid changelog summaries JSON from Claude Code, using default body"
+            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq Daily
+          fi
+
+      # ========================================
+      # Blog処理
+      # ========================================
+      - name: Generate blog summaries with Claude Code
+        id: summarize-blog
+        if: steps.fetch.outputs.has_blog == 'true'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+        with:
+          github_token: ${{ steps.login-gh-app.outputs.token }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --json-schema '{"type":"object","properties":{"hatenaBookmark":{"type":"object","properties":{"selectedTopics":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"}},"required":["url","title","reason"]}},"overview":{"type":"string"}},"required":["selectedTopics","overview"]}},"required":["hatenaBookmark"]}'
+          prompt: |
+            data/blogs/daily/${{ steps.fetch.outputs.target_date }}.json を読み込み、開発者向けのトピックを選定してまとめて解説してください。
+
+            ## トピック選定のルール
+            - `muted: true` のエントリはスキップしてください
+            - 開発者向けの記事を選定してください（上限なし、関連するものは全て含める）
+            - 選定基準: 開発生産性、GitHub、AWS、Claude、プログラミング全般、DevOps、AI/ML など
+
+            ## 出力形式
+            - selectedTopics: 選定した記事のリスト（url, title, reason を含む）
+              - reason: なぜこの記事を選定したか（1文で簡潔に）
+            - overview: 選定した記事全体の解説・トレンド分析（2-3段落程度）
+
+            該当するエントリがない場合は selectedTopics を空配列 `[]`、overview を空文字列としてください。
+
+      - name: Post Blog to Discussion
+        if: steps.fetch.outputs.has_blog == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+        run: |
+          # Claude Code の structured_output をファイルに書き出し
+          cat <<'EOF' > /tmp/blog-summaries.json
+          ${{ steps.summarize-blog.outputs.structured_output }}
+          EOF
+
+          TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/blog-summaries.json)"
+
+          if [ -s /tmp/blog-summaries.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
+            echo "Using blog summaries from file"
+            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/blog-summaries.json korosuke613 mynewshq Daily
+          else
+            echo "Warning: No valid blog summaries JSON from Claude Code, using default body"
+            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq Daily
           fi

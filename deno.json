@@ -1,10 +1,13 @@
 {
   "tasks": {
     "fetch": "deno run --allow-net --allow-read --allow-write --allow-env scripts/fetch-changelogs.ts",
+    "fetch-changelog": "deno run --allow-net --allow-read --allow-write --allow-env scripts/fetch-changelogs.ts --category=changelog",
+    "fetch-blog": "deno run --allow-net --allow-read --allow-write --allow-env scripts/fetch-changelogs.ts --category=blog",
     "fetch-weekly": "deno run --allow-net --allow-read --allow-write --allow-env scripts/fetch-changelogs.ts --days=7 --weekly",
     "post": "deno run --allow-net --allow-read --allow-env scripts/create-discussion.ts",
     "preview": "deno run --allow-read --allow-write --allow-env scripts/preview-discussion.ts",
     "preview-weekly": "deno run --allow-read --allow-write --allow-env scripts/preview-discussion.ts --weekly",
+    "preview-blog": "deno run --allow-read --allow-write --allow-env scripts/preview-discussion.ts --category=blog",
     "reply-discussion": "deno run --allow-net --allow-env scripts/reply-discussion.ts",
     "test": "deno test --allow-read"
   },
