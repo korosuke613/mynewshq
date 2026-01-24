@@ -1,9 +1,5 @@
 // Blog用 Markdown生成
-import type {
-  BlogData,
-  BlogEntry,
-  BlogSummaryData,
-} from "../../domain/types.ts";
+import type { BlogData, BlogSummaryData } from "../../domain/types.ts";
 import { getProviderDisplayName } from "../../domain/providers/index.ts";
 import { generateMutedSection } from "./muted-section.ts";
 
@@ -81,7 +77,7 @@ export function generateDefaultBlogBody(data: BlogData): string {
         body += "\n";
       }
     }
-    body += generateMutedSection(data.hatenaBookmark as unknown as BlogEntry[]);
+    body += generateMutedSection(data.hatenaBookmark);
     if (
       activeEntries.length > 0 || data.hatenaBookmark.some((e) => e.muted)
     ) {
@@ -131,7 +127,7 @@ export function generateBlogBodyWithSummaries(
       }
     }
 
-    body += generateMutedSection(data.hatenaBookmark as unknown as BlogEntry[]);
+    body += generateMutedSection(data.hatenaBookmark);
     if (
       hatenaData?.selectedTopics?.length > 0 ||
       data.hatenaBookmark.some((e) => e.muted)
