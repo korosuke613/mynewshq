@@ -1,0 +1,8 @@
+# データファイル（大量のJSON）
+data/
+
+# 依存関係ロックファイル
+deno.lock
+
+# Git
+.git/
