@@ -5,6 +5,7 @@ import type { ChangelogData, ProviderWeeklySummary } from "./domain/types.ts";
 import type { WeeklyContext } from "./domain/weekly/types.ts";
 import {
   createOrchestrator,
+  filterMutedEntries,
   getAdapter,
   getProviderDataFromChangelog,
 } from "./domain/weekly/orchestrator.ts";
@@ -264,12 +265,7 @@ async function renderPrompt(options: {
   );
 
   // mutedエントリを除外
-  const filteredData = currentData.filter((entry) => {
-    if (typeof entry === "object" && entry !== null && "muted" in entry) {
-      return !(entry as { muted?: boolean }).muted;
-    }
-    return true;
-  });
+  const filteredData = filterMutedEntries(currentData);
 
   // プロンプトを生成
   const config = adapter.getSummarizeConfig();
