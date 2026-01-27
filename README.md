@@ -18,36 +18,9 @@ Actionで日本語要約を生成してGitHub Discussionsに投稿します。
   [GitHub Releases](https://github.com/anthropics/claude-code/releases)
 - **Linear Changelog** - [RSS](https://linear.app/rss/changelog.xml)
 
-## アーキテクチャ
+### 対象Blog
 
-```
-[cron 12:00 JST (日次) / 10:00 JST 水曜 (週次)]
-      │
-      ▼
-┌─────────────────────────────────────────────────┐
-│ daily-changelog.yml / weekly-changelog.yml      │
-│                                                 │
-│ Step 1: データ取得                              │
-│   Provider Pattern で各サービスから並列取得     │
-│   ├── GitHub Changelog (RSS)                   │
-│   ├── AWS What's New (RSS)                     │
-│   ├── Claude Code (GitHub Releases)            │
-│   └── Linear Changelog (RSS)                   │
-│   → data/changelogs/{daily,weekly}/ に保存     │
-│                                                 │
-│ Step 2: 要約生成（Claude Code Action）          │
-│   JSON読込 → 構造化要約JSON出力                 │
-│                                                 │
-│ Step 3: Discussion投稿                          │
-│   Presentation層でMarkdown生成                  │
-│   → GitHub Discussionに投稿                     │
-└─────────────────────────────────────────────────┘
-```
-
-**設計ポイント**:
-- **Provider Pattern**: 各サービスの設定・取得ロジックを統一的に管理。新サービス追加が容易
-- **クリーンアーキテクチャ**: Domain層（ビジネスロジック）とPresentation層（Markdown生成）を分離
-- **構造化出力**: Claude Code Actionは要約JSONのみ出力し、Markdownはコードで生成
+- **はてなブックマーク** - テクノロジーカテゴリのホットエントリ
 
 ## セットアップ
 
@@ -101,52 +74,6 @@ GitHub Appに以下の権限を付与してください：
 3. 本文に箇条書きでミュートワードを記載（上記の例を参照）
 4. Issueを作成
 
-### 5. ローカルテスト
-
-```bash
-# データ取得をテスト（ミュートワード機能が自動で有効）
-GITHUB_TOKEN=$(gh auth token) deno task fetch
-
-# 過去の日付でデータ取得
-GITHUB_TOKEN=$(gh auth token) deno task fetch -- --date=2026-01-15
-
-# 特定のIssue番号からミュートワードを取得
-GITHUB_TOKEN=$(gh auth token) MUTE_WORDS_ISSUE_NUMBER=2 deno task fetch
-
-# Discussion投稿をテスト（GITHUB_TOKEN必要）
-GITHUB_TOKEN=$(gh auth token) deno task post korosuke613 mynewshq General
-
-# 過去の日付のデータで投稿
-GITHUB_TOKEN=$(gh auth token) deno task post --date=2026-01-15 korosuke613 mynewshq General
-
-# 構造化要約JSONを指定して投稿（新機能）
-GITHUB_TOKEN=$(gh auth token) deno task post --date=2026-01-15 --summaries-json='{"github":{},"aws":{},"claudeCode":{},"linear":{}}' korosuke613 mynewshq General
-
-# メンション先を変更して投稿
-GITHUB_TOKEN=$(gh auth token) MENTION_USER=your-username deno task post korosuke613 mynewshq General
-
-# Discussion投稿内容をプレビュー（日次）
-deno task preview
-deno task preview --date=2026-01-13
-
-# Discussion投稿内容をプレビュー（週次）
-deno task preview-weekly
-deno task preview-weekly --date=2026-01-20
-
-# 構造化要約JSONを指定してプレビュー
-deno task preview --date=2026-01-13 --summaries-json='{"github":{"https://example.com":"テスト要約"},"aws":{},"claudeCode":{},"linear":{}}'
-
-# 週次データを取得（7日間）
-GITHUB_TOKEN=$(gh auth token) deno task fetch-weekly
-GITHUB_TOKEN=$(gh auth token) deno task fetch-weekly -- --date=2026-01-20
-
-# Discussionにコメントを投稿
-GITHUB_TOKEN=$(gh auth token) deno task reply-discussion 1 korosuke613 mynewshq "コメント内容"
-
-# テストの実行
-deno task test
-```
-
 ## 使い方
 
 ### 自動実行
@@ -173,52 +100,6 @@ GitHub Actionsページから手動でワークフローを実行できます：
 実行後、[Discussions](../../discussions)で要約が投稿されているか確認できます。
 
 **注意**: 過去の日付を指定してもRSSフィードは最新のエントリのみを返すため、新しい記事しか取得できません。GitHub Releasesは過去データも取得可能です。
-
-## ファイル構造
-
-```
-mynewshq/
-├── .github/workflows/
-│   ├── daily-changelog.yml         # 日次ワークフロー（収集→要約→投稿）
-│   ├── weekly-changelog.yml        # 週次ワークフロー（毎週水曜日）
-│   ├── discussion-claude-answer.yml # Claudeによる質問回答
-│   ├── discussion-claude-mention.yml # @claudeメンションのトリガー
-│   └── quality-check.yml           # コード品質チェック
-├── scripts/
-│   ├── fetch-changelogs.ts         # データ取得エントリポイント
-│   ├── create-discussion.ts        # Discussion投稿 + ラベル自動付与
-│   ├── preview-discussion.ts       # Discussion投稿内容をプレビュー
-│   ├── reply-discussion.ts         # Discussionにコメントを投稿
-│   ├── domain/                     # ドメインロジック層
-│   │   ├── types.ts                # 共通型定義
-│   │   ├── date-filter.ts          # 日付フィルタリング
-│   │   ├── mute-filter.ts          # ミュートフィルタリング
-│   │   ├── label-extractor.ts      # ラベル抽出
-│   │   ├── url-normalizer.ts       # URL正規化
-│   │   └── providers/              # Provider Pattern
-│   │       ├── index.ts            # Provider統合・ヘルパー関数
-│   │       ├── types.ts            # Provider型定義
-│   │       ├── github-provider.ts  # GitHub Changelog取得
-│   │       ├── aws-provider.ts     # AWS What's New取得
-│   │       ├── claude-code-provider.ts # Claude Code取得
-│   │       └── linear-provider.ts  # Linear Changelog取得
-│   └── presentation/markdown/      # プレゼンテーション層
-│       ├── daily-generator.ts      # 日次Markdown生成
-│       ├── weekly-generator.ts     # 週次Markdown生成
-│       ├── helpers.ts              # 共通ヘルパー
-│       └── muted-section.ts        # ミュートセクション生成
-├── data/changelogs/                # 収集データ（Git管理）
-│   ├── daily/                      # 日次データ
-│   │   └── YYYY-MM-DD.json
-│   └── weekly/                     # 週次データ
-│       └── YYYY-MM-DD.json
-├── plans/                          # 実装計画ドキュメント
-│   └── YYYY-MM-DD-説明.md
-├── deno.json                       # Denoタスク定義
-├── deno.lock                       # 依存関係ロックファイル
-├── CLAUDE.md                       # Claude Code Action設定
-└── README.md
-```
 
 ## 機能
 
@@ -265,13 +146,6 @@ Discussion内のコメントで `@claude` とメンションすると、Claude C
 - **動作**: タイトルに部分一致（大文字小文字無視）でマッチ
 - **表示**: AI要約対象外とし、Discussionでは折りたたみでタイトルとリンクのみ表示
 
-### 🔗 URL正規化機能
-
-AWS RSSフィードなどで稀に発生するURL破損（`.com` の後の `/` が欠落）を自動修正します：
-
-- **入力**: `https://aws.amazon.comabout-aws/...`
-- **出力**: `https://aws.amazon.com/about-aws/...`
-
 #### ミュートワード設定例
 
 Issue #1 の本文:
@@ -292,148 +166,6 @@ Issue #1 の本文:
 - `MUTE_WORDS_ISSUE_NUMBER` - ミュートワード設定用のIssue番号（デフォルト: 1）
 
 **注意**: `GITHUB_TOKEN` が設定されていない場合、ミュート機能は動作しません。`MUTE_WORDS_ISSUE_NUMBER` は未設定時に自動的に Issue #1 を使用します。
-
-## JSONデータフォーマット
-
-```json
-{
-  "date": "2025-01-18",
-  "github": [
-    {
-      "title": "...",
-      "url": "...",
-      "content": "...",
-      "pubDate": "...",
-      "muted": false,
-      "mutedBy": "keyword"
-    }
-  ],
-  "aws": [...],
-  "claudeCode": [
-    {
-      "version": "...",
-      "url": "...",
-      "body": "...",
-      "publishedAt": "...",
-      "muted": false,
-      "mutedBy": "keyword"
-    }
-  ],
-  "linear": [
-    {
-      "title": "...",
-      "url": "...",
-      "content": "...",
-      "pubDate": "...",
-      "muted": false,
-      "mutedBy": "keyword"
-    }
-  ]
-}
-```
-
-`muted` と `mutedBy` フィールドはミュートワード機能が有効な場合のみ含まれます。
-
-## カスタマイズ
-
-### 実行時刻の変更
-
-`.github/workflows/daily-changelog.yml` の `cron` を編集：
-
-```yaml
-schedule:
-  - cron: "0 3 * * *" # UTC 3:00 = JST 12:00 = PST 19:00/PDT 20:00
-```
-
-`.github/workflows/weekly-changelog.yml` の `cron` を編集：
-
-```yaml
-schedule:
-  - cron: "0 1 * * 3" # 毎週水曜日 UTC 1:00 = JST 10:00
-```
-
-### 要約フォーマットの変更
-
-`CLAUDE.md` を編集して、Claude Code Actionへのプロンプトを調整してください。
-
-### Discussionカテゴリの変更
-
-ワークフローの投稿コマンドで最後の引数を変更してください：
-- 日次: `General` カテゴリ
-- 週次: `Weekly` カテゴリ
-
-### 新しいChangelogソースの追加
-
-Provider Patternにより、新しいChangelogソースを追加する場合は以下のファイルを変更します：
-
-1. `scripts/domain/providers/xxx-provider.ts` - 新規Providerを作成
-2. `scripts/domain/providers/index.ts` - Providerを登録・`toChangelogData`を更新
-3. `scripts/domain/types.ts` - `ChangelogData`型にフィールドを追加
-
-## 開発
-
-### Discussion投稿内容のプレビュー
-
-Discussion投稿前に、生成されるMarkdownを確認できます：
-
-```bash
-# 最新のデータをプレビュー
-deno task preview
-
-# 特定の日付のデータをプレビュー
-deno task preview --date=2026-01-13
-
-# 構造化要約JSONを指定してプレビュー
-deno task preview --date=2026-01-13 --summaries-json='{"github":{"https://example.com":"テスト要約"},"aws":{},"claudeCode":{},"linear":{}}'
-```
-
-**出力内容:**
-- 📊 データ統計（アクティブ/ミュート件数）
-- 📝 要約JSON使用時はその旨を表示
-- ✅ `summary.md` に自動保存
-- 📄 ターミナルにプレビュー表示
-
-**要約JSONフォーマット:**
-```json
-{
-  "github": { "エントリのURL": "要約文", ... },
-  "aws": { "エントリのURL": "要約文", ... },
-  "claudeCode": { "エントリのURL": "要約文", ... },
-  "linear": { "エントリのURL": "要約文", ... }
-}
-```
-
-### テストの実行
-
-```bash
-deno task test
-```
-
-テストファイルは各モジュールと同じディレクトリに配置されています：
-- `scripts/*_test.ts` - エントリポイントのテスト
-- `scripts/domain/*_test.ts` - ドメインロジックのテスト
-- `scripts/domain/providers/*_test.ts` - Providerのテスト
-- `scripts/presentation/markdown/*_test.ts` - Markdown生成のテスト
-
-### コード品質チェック
-
-```bash
-deno fmt        # フォーマット
-deno lint       # リント
-deno check scripts/*.ts scripts/**/*.ts  # 型チェック
-```
-
-### 依存関係
-
-プロジェクトは以下のパッケージを使用しています：
-
-- `@octokit/rest` - GitHub REST API クライアント
-- `@octokit/graphql` - GitHub GraphQL API クライアント
-- `rss-parser` - RSSフィード解析
-- `xml` - XMLパーサー（GitHub Changelog用）
-- `@std/assert` - Deno標準アサーションライブラリ（テスト用）
-
-依存関係の更新は `deno.json` と `deno.lock` で管理されています。
 
 ## トラブルシューティング
 
@@ -506,6 +238,10 @@ GITHUB_TOKEN=$(gh auth token) MUTE_WORDS_ISSUE_NUMBER=1 deno task fetch
   env:
     GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
 ```
+
+## 開発者向け情報
+
+開発コマンド、アーキテクチャ、ファイル構造などの詳細は [CLAUDE.md](./CLAUDE.md) を参照してください。
 
 ## ライセンス
 
