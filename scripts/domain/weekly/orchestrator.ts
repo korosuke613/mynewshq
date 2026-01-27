@@ -62,6 +62,15 @@ export function getProviderDataFromChangelog(
 }
 
 /**
+ * mutedエントリを除外するユーティリティ関数
+ */
+export function filterMutedEntries<T extends Array<{ muted?: boolean }>>(
+  data: T,
+): T {
+  return data.filter((entry) => !entry.muted) as T;
+}
+
+/**
  * Weekly Orchestrator
  * 全プロバイダーの週次処理を統括
  */
@@ -118,8 +127,8 @@ export class WeeklyOrchestrator {
     for (const [providerId, adapter] of this.adapters.entries()) {
       const currentData = this.getProviderData(changelogData, providerId);
 
-      // mutedエントリを除外（型を保持するためにプロバイダーごとに処理）
-      const filteredData = this.filterMutedEntries(currentData, providerId);
+      // mutedエントリを除外
+      const filteredData = filterMutedEntries(currentData);
 
       // データがない場合はスキップ
       if (filteredData.length === 0) {
@@ -200,19 +209,6 @@ export class WeeklyOrchestrator {
     providerId: string,
   ): ChangelogEntry[] | ReleaseEntry[] {
     return getProviderDataFromChangelog(changelogData, providerId);
-  }
-
-  /**
-   * mutedエントリを除外（型を保持）
-   */
-  private filterMutedEntries(
-    data: ChangelogEntry[] | ReleaseEntry[],
-    _providerId: string,
-  ): ChangelogEntry[] | ReleaseEntry[] {
-    // プロバイダーに依存せず muted フラグのみでフィルタリング
-    return (data as Array<ChangelogEntry | ReleaseEntry>).filter(
-      (entry) => !entry.muted,
-    ) as ChangelogEntry[] | ReleaseEntry[];
   }
 
   /**

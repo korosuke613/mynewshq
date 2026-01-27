@@ -285,6 +285,7 @@ jobs:
           echo "{" > /tmp/all-summaries.json
           FIRST=true
 
+          # NOTE: このリストは scripts/domain/weekly/types.ts の WEEKLY_PROVIDER_IDS と同期が必要
           for provider in github aws claudeCode linear; do
             FILE="/tmp/summaries/${provider}.json"
             if [ -f "$FILE" ]; then
