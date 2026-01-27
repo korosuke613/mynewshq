@@ -42,6 +42,14 @@ export {
 // 1日のミリ秒数
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
+// GitHub Actions用の出力を書き込む
+export function writeGitHubOutput(key: string, value: string): void {
+  const outputFile = Deno.env.get("GITHUB_OUTPUT");
+  if (outputFile) {
+    Deno.writeTextFileSync(outputFile, `${key}=${value}\n`, { append: true });
+  }
+}
+
 // カテゴリオプションの型
 type CategoryOption = ContentCategory | "all";
 
@@ -160,6 +168,10 @@ async function processChangelog(
   // 更新がない場合はスキップ
   if (hasNoEntries(results)) {
     console.log(`No changelog updates found in the last ${days} day(s).`);
+    // GitHub Actions向けに全プロバイダーfalseを出力
+    for (const config of getProvidersByCategory("changelog")) {
+      writeGitHubOutput(`has_${config.id}`, "false");
+    }
     return;
   }
 
@@ -183,9 +195,19 @@ async function processChangelog(
   console.log(
     `Saved ${getTotalEntryCount(results)} changelog updates to ${outputPath}`,
   );
+
+  // GitHub Actions向けにプロバイダーごとのデータ有無を出力
   for (const config of getProvidersByCategory("changelog")) {
-    const count = results[config.id]?.length ?? 0;
-    console.log(`- ${getProviderDisplayName(config.id)}: ${count}`);
+    const entries = results[config.id] ?? [];
+    // muted: true を除いたアクティブエントリ数をカウント
+    const activeCount = entries.filter((e) => !e.muted).length;
+    const hasData = activeCount > 0;
+    writeGitHubOutput(`has_${config.id}`, String(hasData));
+    console.log(
+      `- ${
+        getProviderDisplayName(config.id)
+      }: ${activeCount} active entries (has_${config.id}=${hasData})`,
+    );
   }
 }
 

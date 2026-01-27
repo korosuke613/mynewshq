@@ -59,7 +59,7 @@ jobs:
         run: |
           deno task fetch --days=7 --weekly --date=${{ steps.target-date.outputs.end_date }}
 
-          # ファイル存在確認
+          # ファイル存在確認（後方互換性のため維持）
           if [ -f "data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json" ]; then
             echo "has_data=true" >> $GITHUB_OUTPUT
             echo "Data file created"
@@ -67,6 +67,8 @@ jobs:
             echo "has_data=false" >> $GITHUB_OUTPUT
             echo "No data file created (no updates found)"
           fi
+          # 注: has_github, has_aws, has_claudeCode, has_linear は
+          # fetch-changelogs.ts から直接 GITHUB_OUTPUT に書き込まれる
 
       - name: Fetch past discussions
         id: fetch-past
@@ -90,7 +92,7 @@ jobs:
       # GitHub用の要約生成
       - name: Generate GitHub summaries with Claude Code
         id: summarize-github
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_github == 'true'
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
@@ -131,7 +133,7 @@ jobs:
       # AWS用の要約生成
       - name: Generate AWS summaries with Claude Code
         id: summarize-aws
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_aws == 'true'
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
@@ -172,7 +174,7 @@ jobs:
       # Claude Code用の要約生成
       - name: Generate Claude Code summaries with Claude Code
         id: summarize-claudecode
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_claudeCode == 'true'
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
@@ -215,7 +217,7 @@ jobs:
       # Linear用の要約生成
       - name: Generate Linear summaries with Claude Code
         id: summarize-linear
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_linear == 'true'
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
@@ -257,7 +259,7 @@ jobs:
 
       # 各プロバイダーのDiscussion投稿
       - name: Post GitHub Discussion
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_github == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
@@ -274,7 +276,7 @@ jobs:
           fi
 
       - name: Post AWS Discussion
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_aws == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
@@ -291,7 +293,7 @@ jobs:
           fi
 
       - name: Post Claude Code Discussion
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_claudeCode == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
@@ -308,7 +310,7 @@ jobs:
           fi
 
       - name: Post Linear Discussion
-        if: steps.fetch.outputs.has_data == 'true'
+        if: steps.fetch.outputs.has_linear == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
