@@ -16,8 +16,17 @@ permissions:
   id-token: write
 
 jobs:
-  changelog:
+  # Phase 1: データ取得 + 過去Discussion取得（並列）
+  fetch-data:
     runs-on: ubuntu-latest
+    outputs:
+      has_data: ${{ steps.fetch.outputs.has_data }}
+      has_github: ${{ steps.fetch.outputs.has_github }}
+      has_aws: ${{ steps.fetch.outputs.has_aws }}
+      has_claudeCode: ${{ steps.fetch.outputs.has_claudeCode }}
+      has_linear: ${{ steps.fetch.outputs.has_linear }}
+      end_date: ${{ steps.target-date.outputs.end_date }}
+      start_date: ${{ steps.target-date.outputs.start_date }}
 
     steps:
       - name: Checkout repository
@@ -28,8 +37,8 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Login GitHub App (for fetching changelogs)
-        id: login-gh-app-fetch
+      - name: Login GitHub App
+        id: login-gh-app
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
@@ -54,12 +63,12 @@ jobs:
       - name: Fetch changelogs (7 days)
         id: fetch
         env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
           MUTE_WORDS_ISSUE_NUMBER: "1"
         run: |
           deno task fetch --days=7 --weekly --date=${{ steps.target-date.outputs.end_date }}
 
-          # ファイル存在確認（後方互換性のため維持）
+          # ファイル存在確認
           if [ -f "data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json" ]; then
             echo "has_data=true" >> $GITHUB_OUTPUT
             echo "Data file created"
@@ -70,9 +79,72 @@ jobs:
           # 注: has_github, has_aws, has_claudeCode, has_linear は
           # fetch-changelogs.ts から直接 GITHUB_OUTPUT に書き込まれる
 
-      - name: Login GitHub App
-        id: login-gh-app
+      - name: Fetch all past discussions (parallel)
         if: steps.fetch.outputs.has_data == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+        run: |
+          deno task fetch-past-discussions-all \
+            --date=${{ steps.target-date.outputs.end_date }} \
+            --output=data/past-discussions.json
+
+      - name: Upload changelog data
+        if: steps.fetch.outputs.has_data == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog-data
+          path: |
+            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json
+            data/past-discussions.json
+          retention-days: 1
+
+  # Phase 2: 要約生成（matrix戦略で並列実行）
+  summarize:
+    needs: fetch-data
+    if: needs.fetch-data.outputs.has_data == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - provider: github
+            has_data: ${{ needs.fetch-data.outputs.has_github }}
+            json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"github"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
+          - provider: aws
+            has_data: ${{ needs.fetch-data.outputs.has_aws }}
+            json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"aws"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
+          - provider: claudeCode
+            has_data: ${{ needs.fetch-data.outputs.has_claudeCode }}
+            json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"claudeCode"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
+          - provider: linear
+            has_data: ${{ needs.fetch-data.outputs.has_linear }}
+            json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"linear"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
+      fail-fast: false
+
+    steps:
+      - name: Check if provider has data
+        id: check
+        run: |
+          if [ "${{ matrix.has_data }}" == "true" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "Skipping ${{ matrix.provider }}: no data"
+          fi
+
+      - name: Checkout repository
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Download changelog data
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog-data
+          path: data/
+
+      - name: Login GitHub App
+        if: steps.check.outputs.should_run == 'true'
+        id: login-gh-app
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
@@ -80,18 +152,9 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      # GitHub用の過去Discussion取得と要約生成
-      - name: Fetch past discussions (GitHub)
-        if: steps.fetch.outputs.has_github == 'true'
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
-        run: |
-          deno task fetch-past-discussions --provider=github --output=/tmp/past-discussions-github.json
-          echo "GitHub past discussions saved to /tmp/past-discussions-github.json"
-
-      - name: Generate GitHub summaries with Claude Code
-        id: summarize-github
-        if: steps.fetch.outputs.has_github == 'true'
+      - name: Generate summaries with Claude Code
+        if: steps.check.outputs.should_run == 'true'
+        id: summarize
         uses: anthropics/claude-code-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
@@ -99,240 +162,151 @@ jobs:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"github"},"highlights":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
+            --json-schema '${{ matrix.json_schema }}'
           prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のGitHub部分と /tmp/past-discussions-github.json の過去Discussion情報を読み込み、GitHub用の週次レポートを生成してください。
+            data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json の ${{ matrix.provider }} 部分と data/past-discussions.json の過去Discussion情報を読み込み、${{ matrix.provider }}用の週次レポートを生成してください。
 
             ## タスク
-            GitHub Changelogの週次分析を行い、プロバイダー単位の要約を生成します。
+            ${{ matrix.provider }}の週次分析を行い、プロバイダー単位の要約を生成します。
 
             ## ルール
             - `muted: true` のエントリはスキップしてください
-            - `labels.changelog-label` でカテゴリ分類してください
             - 過去のDiscussionを参照し、比較コメントを含めてください
+            - すべて日本語で記述してください
 
             ## 出力構造
 
-            ### 1. highlights (3-5件の箇条書き文)
-            今週のGitHub全体の重要な変更点を箇条書きで記述:
+            ### 1. highlights (1-5件の箇条書き文)
+            今週の重要な変更点を箇条書きで記述:
             - 各項目は1~5文で簡潔にまとめる
             - 技術者に影響のある更新のポイントを含める
-            - 例: "Copilot SDKがTechnical Previewで公開され、AIアシスタント開発が身近に"
 
-            ### 2. categories
-            labels.changelog-label でグループ化し、各カテゴリに:
-            - category: カテゴリ名（copilot, actions等）
-            - entries: [{url, title}] の配列
-            - comment: カテゴリの概要（2-5文）
-            - historicalContext: 過去との比較（1-2文）
+            ### 2. 詳細データ
+            - GitHub/AWS: `categories` でカテゴリ別にグループ化（labels.changelog-label または labels.products）
+            - Claude Code/Linear: `entries` でリスト形式
 
-      # AWS用の過去Discussion取得と要約生成
-      - name: Fetch past discussions (AWS)
-        if: steps.fetch.outputs.has_aws == 'true'
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
+            ### 3. コメント
+            - GitHub/AWS: 各カテゴリに `comment`（2-5文）と `historicalContext`（1-2文）
+            - Claude Code/Linear: `overallComment`（2-5文）と `historicalContext`（1-2文）
+
+      - name: Save summary to file
+        if: steps.check.outputs.should_run == 'true'
         run: |
-          deno task fetch-past-discussions --provider=aws --output=/tmp/past-discussions-aws.json
-          echo "AWS past discussions saved to /tmp/past-discussions-aws.json"
+          mkdir -p /tmp/summaries
+          cat <<'EOF' > /tmp/summaries/${{ matrix.provider }}.json
+          ${{ steps.summarize.outputs.structured_output }}
+          EOF
 
-      - name: Generate AWS summaries with Claude Code
-        id: summarize-aws
-        if: steps.fetch.outputs.has_aws == 'true'
-        uses: anthropics/claude-code-action@v1
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+          # 内容確認
+          echo "Summary for ${{ matrix.provider }}:"
+          cat /tmp/summaries/${{ matrix.provider }}.json
+
+      - name: Upload summary artifact
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          github_token: ${{ steps.login-gh-app.outputs.token }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: >-
-            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"aws"},"highlights":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
-          prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のAWS部分と /tmp/past-discussions-aws.json の過去Discussion情報を読み込み、AWS用の週次レポートを生成してください。
+          name: summary-${{ matrix.provider }}
+          path: /tmp/summaries/${{ matrix.provider }}.json
+          retention-days: 1
 
-            ## タスク
-            AWS What's Newの週次分析を行い、プロバイダー単位の要約を生成します。
+  # Phase 3: Discussion投稿（並列実行）
+  post-discussions:
+    needs: [fetch-data, summarize]
+    if: needs.fetch-data.outputs.has_data == 'true'
+    runs-on: ubuntu-latest
 
-            ## ルール
-            - `muted: true` のエントリはスキップしてください
-            - `labels.products` でカテゴリ分類してください（プレフィックスは除去）
-            - 過去のDiscussionを参照し、比較コメントを含めてください
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            ## 出力構造
-
-            ### 1. highlights (3-5件の箇条書き文)
-            今週のAWS全体の重要な変更点を箇条書きで記述:
-            - 各項目は1~5文で簡潔にまとめる
-            - 技術者に影響のある更新のポイントを含める
-            - 例: "S3 Express One ZoneがAsia Pacific (Tokyo)リージョンで利用可能に"
-
-            ### 2. categories
-            labels.products でグループ化し、各カテゴリに:
-            - category: サービス名（S3, Lambda等、プレフィックス除去）
-            - entries: [{url, title}] の配列
-            - comment: カテゴリの概要（2-5文）
-            - historicalContext: 過去との比較（1-2文）
-
-      # Claude Code用の過去Discussion取得と要約生成
-      - name: Fetch past discussions (Claude Code)
-        if: steps.fetch.outputs.has_claudeCode == 'true'
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
-        run: |
-          deno task fetch-past-discussions --provider=claudeCode --output=/tmp/past-discussions-claudeCode.json
-          echo "Claude Code past discussions saved to /tmp/past-discussions-claudeCode.json"
-
-      - name: Generate Claude Code summaries with Claude Code
-        id: summarize-claudecode
-        if: steps.fetch.outputs.has_claudeCode == 'true'
-        uses: anthropics/claude-code-action@v1
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
         with:
-          github_token: ${{ steps.login-gh-app.outputs.token }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: >-
-            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"claudeCode"},"highlights":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
-          prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のclaudeCode部分と /tmp/past-discussions-claudeCode.json の過去Discussion情報を読み込み、Claude Code用の週次レポートを生成してください。
+          deno-version: v2.x
 
-            ## タスク
-            Claude Codeリリースの週次分析を行い、プロバイダー単位の要約を生成します。
-
-            ## ルール
-            - `muted: true` のエントリはスキップしてください
-            - カテゴリ分類は不要（リリース一覧として表示）
-            - 過去のDiscussionを参照し、比較コメントを含めてください
-
-            ## 出力構造
-
-            ### 1. highlights (3-5件の箇条書き文)
-            今週のClaude Code全体の重要な変更点を箇条書きで記述:
-            - 各項目は1~5文で簡潔にまとめる
-            - 技術者に影響のある更新のポイントを含める
-            - 例: "v2.1.19でセッション管理機能が大幅に改善され、長時間作業が快適に"
-
-            ### 2. entries
-            全リリースの [{url, title}] 配列
-
-            ### 3. overallComment
-            今週のリリース全体のコメント（2-5文）
-
-            ### 4. historicalContext
-            過去との比較（1-2文）
-
-      # Linear用の過去Discussion取得と要約生成
-      - name: Fetch past discussions (Linear)
-        if: steps.fetch.outputs.has_linear == 'true'
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
-        run: |
-          deno task fetch-past-discussions --provider=linear --output=/tmp/past-discussions-linear.json
-          echo "Linear past discussions saved to /tmp/past-discussions-linear.json"
-
-      - name: Generate Linear summaries with Claude Code
-        id: summarize-linear
-        if: steps.fetch.outputs.has_linear == 'true'
-        uses: anthropics/claude-code-action@v1
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+      - name: Login GitHub App
+        id: login-gh-app
+        uses: actions/create-github-app-token@v2
         with:
-          github_token: ${{ steps.login-gh-app.outputs.token }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: >-
-            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"linear"},"highlights":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
-          prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のlinear部分と /tmp/past-discussions-linear.json の過去Discussion情報を読み込み、Linear用の週次レポートを生成してください。
+          app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
+          private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
 
-            ## タスク
-            Linear Changelogの週次分析を行い、プロバイダー単位の要約を生成します。
+      - name: Download changelog data
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog-data
+          path: data/
 
-            ## ルール
-            - `muted: true` のエントリはスキップしてください
-            - カテゴリ分類は不要（エントリ一覧として表示）
-            - 過去のDiscussionを参照し、比較コメントを含めてください
+      # 各要約ファイルをダウンロード（存在する場合のみ）
+      - name: Download GitHub summary
+        if: needs.fetch-data.outputs.has_github == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: summary-github
+          path: /tmp/summaries/
+        continue-on-error: true
 
-            ## 出力構造
+      - name: Download AWS summary
+        if: needs.fetch-data.outputs.has_aws == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: summary-aws
+          path: /tmp/summaries/
+        continue-on-error: true
 
-            ### 1. highlights (3-5件の箇条書き文)
-            今週のLinear全体の重要な変更点を箇条書きで記述:
-            - 各項目は1~5文で簡潔にまとめる
-            - 技術者に影響のある更新のポイントを含める
-            - 例: "新しいプロジェクトビューが追加され、チーム間のコラボレーションが向上"
+      - name: Download Claude Code summary
+        if: needs.fetch-data.outputs.has_claudeCode == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: summary-claudeCode
+          path: /tmp/summaries/
+        continue-on-error: true
 
-            ### 2. entries
-            全エントリの [{url, title}] 配列
+      - name: Download Linear summary
+        if: needs.fetch-data.outputs.has_linear == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: summary-linear
+          path: /tmp/summaries/
+        continue-on-error: true
 
-            ### 3. overallComment
-            今週のエントリ全体のコメント（2-3文）
-
-            ### 4. historicalContext
-            過去との比較（1-2文）
-
-      # 各プロバイダーのDiscussion投稿
-      - name: Post GitHub Discussion
-        if: steps.fetch.outputs.has_github == 'true'
+      - name: Merge summaries and post discussions
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
         run: |
-          cat <<'EOF' > /tmp/summary-github.json
-          ${{ steps.summarize-github.outputs.structured_output }}
-          EOF
+          # 要約ファイルを統合
+          echo "Merging summaries..."
+          mkdir -p /tmp/summaries
 
-          TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/summary-github.json)"
-          if [ -s /tmp/summary-github.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
-            echo "Posting GitHub discussion..."
-            deno task post-weekly-provider --provider=github --date=${{ steps.target-date.outputs.end_date }} --summaries-file=/tmp/summary-github.json
-          else
-            echo "Warning: No valid GitHub summaries, skipping"
-          fi
+          # 有効な要約ファイルを統合
+          echo "{" > /tmp/all-summaries.json
+          FIRST=true
 
-      - name: Post AWS Discussion
-        if: steps.fetch.outputs.has_aws == 'true'
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
-        run: |
-          cat <<'EOF' > /tmp/summary-aws.json
-          ${{ steps.summarize-aws.outputs.structured_output }}
-          EOF
+          for provider in github aws claudeCode linear; do
+            FILE="/tmp/summaries/${provider}.json"
+            if [ -f "$FILE" ]; then
+              CONTENT=$(cat "$FILE" | tr -d '[:space:]')
+              if [ -n "$CONTENT" ] && [ "$CONTENT" != "null" ]; then
+                if [ "$FIRST" = true ]; then
+                  FIRST=false
+                else
+                  echo "," >> /tmp/all-summaries.json
+                fi
+                echo "\"$provider\": $(cat $FILE)" >> /tmp/all-summaries.json
+                echo "Added $provider summary"
+              fi
+            fi
+          done
 
-          TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/summary-aws.json)"
-          if [ -s /tmp/summary-aws.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
-            echo "Posting AWS discussion..."
-            deno task post-weekly-provider --provider=aws --date=${{ steps.target-date.outputs.end_date }} --summaries-file=/tmp/summary-aws.json
-          else
-            echo "Warning: No valid AWS summaries, skipping"
-          fi
+          echo "}" >> /tmp/all-summaries.json
 
-      - name: Post Claude Code Discussion
-        if: steps.fetch.outputs.has_claudeCode == 'true'
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
-        run: |
-          cat <<'EOF' > /tmp/summary-claudecode.json
-          ${{ steps.summarize-claudecode.outputs.structured_output }}
-          EOF
+          echo "Merged summaries:"
+          cat /tmp/all-summaries.json
 
-          TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/summary-claudecode.json)"
-          if [ -s /tmp/summary-claudecode.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
-            echo "Posting Claude Code discussion..."
-            deno task post-weekly-provider --provider=claudeCode --date=${{ steps.target-date.outputs.end_date }} --summaries-file=/tmp/summary-claudecode.json
-          else
-            echo "Warning: No valid Claude Code summaries, skipping"
-          fi
-
-      - name: Post Linear Discussion
-        if: steps.fetch.outputs.has_linear == 'true'
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
-        run: |
-          cat <<'EOF' > /tmp/summary-linear.json
-          ${{ steps.summarize-linear.outputs.structured_output }}
-          EOF
-
-          TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/summary-linear.json)"
-          if [ -s /tmp/summary-linear.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
-            echo "Posting Linear discussion..."
-            deno task post-weekly-provider --provider=linear --date=${{ steps.target-date.outputs.end_date }} --summaries-file=/tmp/summary-linear.json
-          else
-            echo "Warning: No valid Linear summaries, skipping"
-          fi
+          # Discussion投稿
+          deno task post-weekly-all \
+            --date=${{ needs.fetch-data.outputs.end_date }} \
+            --changelog-file=data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json \
+            --summaries-file=/tmp/all-summaries.json
