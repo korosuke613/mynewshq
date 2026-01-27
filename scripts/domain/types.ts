@@ -143,3 +143,75 @@ export interface BlogSummaryData {
     overview: string; // 全体の解説
   };
 }
+
+// =============================================================================
+// 週次Changelog V2（プロバイダー単位の新形式）
+// =============================================================================
+
+// カテゴリグループ（GitHub/AWS用）
+export interface CategoryGroup {
+  /** カテゴリ名（"copilot", "s3"等） */
+  category: string;
+  /** カテゴリに属するエントリ */
+  entries: Array<{
+    url: string;
+    title: string;
+  }>;
+  /** LLMによるコメント（2-3文） */
+  comment: string;
+  /** 過去との比較コメント（1-2文） */
+  historicalContext: string;
+}
+
+// ハイライトエントリ（プロバイダー単位）
+export interface ProviderHighlight {
+  /** エントリのURL */
+  url: string;
+  /** エントリのタイトル */
+  title: string;
+  /** 選定理由（2-3文） */
+  reason: string;
+  /** 技術者への影響（2-3文） */
+  impact: string;
+}
+
+// プロバイダー単位の週次要約
+export interface ProviderWeeklySummary {
+  /** プロバイダーID（"github", "aws", "claudeCode", "linear"） */
+  providerId: string;
+  /** ハイライト（1-2件） */
+  highlights: ProviderHighlight[];
+  /** カテゴリ別詳細（GitHub/AWS用） */
+  categories?: CategoryGroup[];
+  /** エントリ一覧（Claude Code/Linear用、カテゴリなしの場合） */
+  entries?: Array<{
+    url: string;
+    title: string;
+  }>;
+  /** 全体コメント（カテゴリなしプロバイダー用） */
+  overallComment?: string;
+  /** 過去比較コメント（カテゴリなしプロバイダー用） */
+  historicalContext?: string;
+  /** プロバイダー全体の傾向分析 */
+  trendAnalysis: string;
+}
+
+// 全プロバイダーの週次要約（新形式）
+export interface WeeklySummaryDataV2 {
+  github: ProviderWeeklySummary;
+  aws: ProviderWeeklySummary;
+  claudeCode: ProviderWeeklySummary;
+  linear: ProviderWeeklySummary;
+}
+
+// 過去のDiscussion内容（プロバイダー別）
+export interface PastWeeklyDiscussion {
+  /** プロバイダーID */
+  providerId: string;
+  /** Discussion作成日 */
+  date: string;
+  /** DiscussionのURL */
+  url: string;
+  /** Discussion本文 */
+  body: string;
+}

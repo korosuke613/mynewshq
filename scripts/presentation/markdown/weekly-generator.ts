@@ -1,11 +1,14 @@
 // 週次Markdown生成
 import type {
   ChangelogData,
+  ChangelogEntry,
   DailyLink,
+  ProviderWeeklySummary,
+  ReleaseEntry,
   WeeklySummaryData,
 } from "../../domain/types.ts";
 import { getProviderDisplayName } from "../../domain/providers/index.ts";
-import { getCategoryEmoji } from "./helpers.ts";
+import { getCategoryEmoji, getEntryTitle } from "./helpers.ts";
 import { generateWeeklyCoveragePeriod } from "./daily-generator.ts";
 
 // 週次用の要約データ付きボディ生成
@@ -69,6 +72,96 @@ export function generateWeeklyBodyWithSummaries(
     }
     body += "\n";
   }
+
+  return body;
+}
+
+// プロバイダー単位のDiscussionタイトルを生成
+export function generateProviderWeeklyTitle(
+  providerId: string,
+  endDate: string,
+): string {
+  const displayName = getProviderDisplayName(providerId);
+  return `📰 Tech Changelog - Weekly [${displayName}] (${endDate})`;
+}
+
+// プロバイダー単位のMarkdown生成（V2形式）
+export function generateProviderWeeklyBody(
+  providerId: string,
+  providerData: ChangelogEntry[] | ReleaseEntry[],
+  summary: ProviderWeeklySummary,
+  startDate: string,
+  endDate: string,
+): string {
+  const displayName = getProviderDisplayName(providerId);
+  const emoji = getCategoryEmoji(providerId);
+
+  // ヘッダー + 対象期間
+  let body = `# ${emoji} Tech Changelog - Weekly [${displayName}]\n\n`;
+  body += generateWeeklyCoveragePeriod(startDate, endDate) + "\n\n";
+
+  // ハイライトセクション
+  if (summary.highlights.length > 0) {
+    body += "## 🌟 今週のハイライト\n\n";
+    summary.highlights.forEach((highlight, index, highlights) => {
+      body += `### [${highlight.title}](${highlight.url})\n\n`;
+      body += `**選定理由**: ${highlight.reason}\n\n`;
+      body += `**技術者への影響**: ${highlight.impact}\n\n`;
+      // 最後のハイライト以外は区切り線を追加
+      if (index < highlights.length - 1) {
+        body += "---\n\n";
+      }
+    });
+  }
+
+  // カテゴリ別詳細（GitHub/AWS）またはリリース一覧（Claude Code/Linear）
+  const hasCategories = summary.categories && summary.categories.length > 0;
+
+  if (hasCategories) {
+    // カテゴリありプロバイダー（GitHub/AWS）
+    body += "## 📊 カテゴリ別詳細\n\n";
+    for (const categoryGroup of summary.categories!) {
+      const entryCount = categoryGroup.entries.length;
+      body += `### ${categoryGroup.category} (${entryCount}件)\n`;
+      for (const entry of categoryGroup.entries) {
+        body += `- [${entry.title}](${entry.url})\n`;
+      }
+      body += "\n";
+      body += `**コメント**: ${categoryGroup.comment}\n\n`;
+      if (categoryGroup.historicalContext) {
+        body += `**過去との比較**: ${categoryGroup.historicalContext}\n\n`;
+      }
+      body += "---\n\n";
+    }
+  } else {
+    // カテゴリなしプロバイダー（Claude Code/Linear）
+    const sectionTitle = providerId === "claudeCode"
+      ? "リリース一覧"
+      : "エントリ一覧";
+    body += `## 📊 ${sectionTitle}\n\n`;
+
+    // summary.entriesがある場合はそれを使用、なければproviderDataから生成
+    const entries = summary.entries ?? providerData.map((entry) => ({
+      url: "url" in entry ? entry.url : "",
+      title: getEntryTitle(entry),
+    }));
+
+    for (const entry of entries) {
+      body += `- [${entry.title}](${entry.url})\n`;
+    }
+    body += "\n";
+
+    if (summary.overallComment) {
+      body += `**コメント**: ${summary.overallComment}\n\n`;
+    }
+    if (summary.historicalContext) {
+      body += `**過去との比較**: ${summary.historicalContext}\n\n`;
+    }
+  }
+
+  // 傾向分析
+  body += "## 🔮 傾向分析\n\n";
+  body += `${summary.trendAnalysis}\n`;
 
   return body;
 }
