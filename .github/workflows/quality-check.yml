@@ -33,3 +33,6 @@ jobs:
 
       - name: Test
         run: deno task test
+
+      - name: Integration Test
+        run: deno task test:integration

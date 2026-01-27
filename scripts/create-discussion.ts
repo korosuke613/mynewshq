@@ -5,11 +5,14 @@ import type {
   ChangelogData,
   ChangelogEntry,
   DailyLink,
+  PastWeeklyDiscussion,
+  ProviderWeeklySummary,
   ReleaseEntry,
   SummaryData,
   WeeklySummaryData,
 } from "./domain/types.ts";
 import { determineLabels, stripAwsPrefix } from "./domain/label-extractor.ts";
+import { getProviderDisplayName } from "./domain/providers/index.ts";
 import {
   generateBodyWithSummaries,
   generateCoveragePeriod,
@@ -17,7 +20,11 @@ import {
   generateTitle,
   generateWeeklyCoveragePeriod,
 } from "./presentation/markdown/daily-generator.ts";
-import { generateWeeklyBodyWithSummaries } from "./presentation/markdown/weekly-generator.ts";
+import {
+  generateProviderWeeklyBody,
+  generateProviderWeeklyTitle,
+  generateWeeklyBodyWithSummaries,
+} from "./presentation/markdown/weekly-generator.ts";
 import {
   generateBlogBodyWithSummaries,
   generateBlogTitle,
@@ -37,6 +44,8 @@ export type {
   ChangelogData,
   ChangelogEntry,
   DailyLink,
+  PastWeeklyDiscussion,
+  ProviderWeeklySummary,
   ReleaseEntry,
   SummaryData,
   WeeklySummaryData,
@@ -48,6 +57,8 @@ export {
   generateDefaultBody,
   generateMention,
   generateMutedSection,
+  generateProviderWeeklyBody,
+  generateProviderWeeklyTitle,
   generateTitle,
   generateWeeklyBodyWithSummaries,
   generateWeeklyCoveragePeriod,
@@ -252,6 +263,284 @@ export async function fetchDailyDiscussionLinks(
   }
 
   return dailyLinks;
+}
+
+// プロバイダー別に過去のWeekly Discussionを取得
+export async function fetchPastWeeklyDiscussionsByProvider(
+  token: string,
+  owner: string,
+  repo: string,
+  providerId: string,
+  limit: number = 2,
+): Promise<PastWeeklyDiscussion[]> {
+  const graphqlWithAuth = graphql.defaults({
+    headers: {
+      authorization: `token ${token}`,
+    },
+  });
+
+  // プロバイダー名を取得
+  const displayName = getProviderDisplayName(providerId);
+  if (displayName === providerId) {
+    // getProviderDisplayNameは未知のIDの場合はID自体を返す
+    console.warn(`Unknown provider ID: ${providerId}`);
+    return [];
+  }
+
+  interface DiscussionNode {
+    title: string;
+    url: string;
+    body: string;
+    createdAt: string;
+  }
+
+  interface DiscussionSearchResult {
+    repository: {
+      discussions: {
+        nodes: DiscussionNode[];
+      };
+    };
+  }
+
+  const result = await graphqlWithAuth<DiscussionSearchResult>(
+    `
+    query($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        discussions(first: 50, orderBy: {field: CREATED_AT, direction: DESC}) {
+          nodes {
+            title
+            url
+            body
+            createdAt
+          }
+        }
+      }
+    }
+  `,
+    { owner, repo },
+  );
+
+  const discussions = result.repository.discussions.nodes;
+  const pastDiscussions: PastWeeklyDiscussion[] = [];
+
+  // "📰 Tech Changelog - Weekly [プロバイダー名] (YYYY-MM-DD)" 形式のタイトルをパース
+  const weeklyTitlePattern = new RegExp(
+    `📰 Tech Changelog - Weekly \\[${displayName}\\] \\((\\d{4}-\\d{2}-\\d{2})\\)$`,
+  );
+
+  for (const discussion of discussions) {
+    if (pastDiscussions.length >= limit) {
+      break;
+    }
+
+    const match = discussion.title.match(weeklyTitlePattern);
+    if (match) {
+      const date = match[1];
+      pastDiscussions.push({
+        providerId,
+        date,
+        url: discussion.url,
+        body: discussion.body,
+      });
+    }
+  }
+
+  return pastDiscussions;
+}
+
+// 全プロバイダーの過去Weekly Discussionを取得
+export async function fetchAllPastWeeklyDiscussions(
+  token: string,
+  owner: string,
+  repo: string,
+  limit: number = 2,
+): Promise<Record<string, PastWeeklyDiscussion[]>> {
+  const providerIds = ["github", "aws", "claudeCode", "linear"];
+
+  const results = await Promise.all(
+    providerIds.map(async (providerId) => {
+      const discussions = await fetchPastWeeklyDiscussionsByProvider(
+        token,
+        owner,
+        repo,
+        providerId,
+        limit,
+      );
+      return [providerId, discussions] as const;
+    }),
+  );
+
+  return Object.fromEntries(results);
+}
+
+// プロバイダー単位でDiscussionを作成
+export async function createProviderWeeklyDiscussion(
+  token: string,
+  owner: string,
+  repo: string,
+  categoryName: string,
+  providerId: string,
+  summary: ProviderWeeklySummary,
+  providerData: ChangelogEntry[] | ReleaseEntry[],
+  startDate: string,
+  endDate: string,
+): Promise<{ id: string; url: string }> {
+  const graphqlWithAuth = graphql.defaults({
+    headers: {
+      authorization: `token ${token}`,
+    },
+  });
+
+  // リポジトリIDとカテゴリID、ラベル一覧を取得
+  const repoData = await graphqlWithAuth<RepositoryData>(
+    `
+    query($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        id
+        discussionCategories(first: 10) {
+          nodes {
+            id
+            name
+          }
+        }
+        labels(first: 100) {
+          nodes {
+            id
+            name
+          }
+        }
+      }
+    }
+  `,
+    { owner, repo },
+  );
+
+  const repositoryId = repoData.repository.id;
+  const category = repoData.repository.discussionCategories.nodes.find(
+    (c: DiscussionCategory) => c.name === categoryName,
+  );
+
+  if (!category) {
+    throw new Error(
+      `Category "${categoryName}" not found. Available categories: ${
+        repoData.repository.discussionCategories.nodes
+          .map((c: DiscussionCategory) => c.name)
+          .join(", ")
+      }`,
+    );
+  }
+
+  // タイトルとボディを生成
+  const title = generateProviderWeeklyTitle(providerId, endDate);
+  const body = generateProviderWeeklyBody(
+    providerId,
+    providerData,
+    summary,
+    startDate,
+    endDate,
+  ) + generateMention();
+
+  // Discussion作成
+  const result = await graphqlWithAuth<CreateDiscussionResult>(
+    `
+    mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
+      createDiscussion(input: {
+        repositoryId: $repositoryId
+        categoryId: $categoryId
+        title: $title
+        body: $body
+      }) {
+        discussion {
+          id
+          url
+        }
+      }
+    }
+  `,
+    {
+      repositoryId,
+      categoryId: category.id,
+      title,
+      body,
+    },
+  );
+
+  const discussionId = result.createDiscussion.discussion.id;
+  const discussionUrl = result.createDiscussion.discussion.url;
+
+  console.log(`Created discussion: ${title}`);
+  console.log(`URL: ${discussionUrl}`);
+
+  // ラベル付与処理
+  // 単一プロバイダーのChangelogDataを構築してdetermineLabelsを使用
+  const singleProviderData: ChangelogData = {
+    date: endDate,
+    startDate,
+    endDate,
+    github: providerId === "github" ? (providerData as ChangelogEntry[]) : [],
+    aws: providerId === "aws" ? (providerData as ChangelogEntry[]) : [],
+    claudeCode: providerId === "claudeCode"
+      ? (providerData as ReleaseEntry[])
+      : [],
+    linear: providerId === "linear" ? (providerData as ChangelogEntry[]) : [],
+  };
+
+  // serviceOnly: false でサブカテゴリラベルも含める
+  const labelNames = determineLabels(singleProviderData, {
+    serviceOnly: false,
+  });
+  if (labelNames.length > 0) {
+    const existingLabels = new Map(
+      repoData.repository.labels.nodes.map((l) => [l.name, l.id]),
+    );
+
+    const labelIdPromises = labelNames.map(async (name) => {
+      if (existingLabels.has(name)) {
+        return existingLabels.get(name)!;
+      } else {
+        try {
+          console.log(`Label "${name}" not found. Creating it...`);
+          const newLabelId = await createNewLabel(
+            graphqlWithAuth,
+            repositoryId,
+            name,
+          );
+          existingLabels.set(name, newLabelId);
+          return newLabelId;
+        } catch (error) {
+          if (error instanceof Error) {
+            console.warn(
+              `Warning: Failed to create label "${name}":`,
+              error.message,
+            );
+          } else {
+            console.warn(
+              `Warning: Failed to create label "${name}" with unknown error:`,
+              error,
+            );
+          }
+          return null;
+        }
+      }
+    });
+
+    const labelIdResults = await Promise.all(labelIdPromises);
+    const labelIds = labelIdResults.filter((id): id is string => id !== null);
+
+    if (labelIds.length > 0) {
+      try {
+        await addLabelsToDiscussion(graphqlWithAuth, discussionId, labelIds);
+        console.log(`Labels added: ${labelNames.join(", ")}`);
+      } catch (error) {
+        console.error(
+          `Failed to add labels to discussion ${discussionId}:`,
+          error,
+        );
+      }
+    }
+  }
+
+  return { id: discussionId, url: discussionUrl };
 }
 
 // GitHub GraphQL APIでDiscussion作成

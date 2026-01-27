@@ -7,6 +7,7 @@ import {
   isRecent,
   isWithinDays,
   parseMuteWords,
+  writeGitHubOutput,
 } from "./fetch-changelogs.ts";
 
 const NOW = new Date("2026-01-18T12:00:00Z");
@@ -384,4 +385,13 @@ Deno.test("extractLabelsFromAWSCategory", async (t) => {
       });
     },
   );
+});
+
+// writeGitHubOutputの統合テストは別ファイル（scripts/fetch-changelogs_integration_test.ts）に移動
+// 理由: 環境変数の操作とファイル書き込みが必要なため、通常のテストでは実行できない
+// ここでは関数がエクスポートされていることのみ確認
+Deno.test("writeGitHubOutput", async (t) => {
+  await t.step("関数がエクスポートされている", () => {
+    assertEquals(typeof writeGitHubOutput, "function");
+  });
 });
