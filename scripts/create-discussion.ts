@@ -12,6 +12,7 @@ import type {
   WeeklySummaryData,
 } from "./domain/types.ts";
 import { determineLabels, stripAwsPrefix } from "./domain/label-extractor.ts";
+import { getProviderDisplayName } from "./domain/providers/index.ts";
 import {
   generateBodyWithSummaries,
   generateCoveragePeriod,
@@ -278,16 +279,10 @@ export async function fetchPastWeeklyDiscussionsByProvider(
     },
   });
 
-  // プロバイダー名のマッピング（タイトルで使用される名前）
-  const providerDisplayNames: Record<string, string> = {
-    github: "GitHub",
-    aws: "AWS",
-    claudeCode: "Claude Code",
-    linear: "Linear",
-  };
-
-  const displayName = providerDisplayNames[providerId];
-  if (!displayName) {
+  // プロバイダー名を取得
+  const displayName = getProviderDisplayName(providerId);
+  if (displayName === providerId) {
+    // getProviderDisplayNameは未知のIDの場合はID自体を返す
     console.warn(`Unknown provider ID: ${providerId}`);
     return [];
   }

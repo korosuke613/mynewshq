@@ -45,8 +45,20 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 // GitHub Actions用の出力を書き込む
 export function writeGitHubOutput(key: string, value: string): void {
   const outputFile = Deno.env.get("GITHUB_OUTPUT");
-  if (outputFile) {
+  if (!outputFile) {
+    console.warn(
+      `GITHUB_OUTPUT is not set; skipping write for key "${key}".`,
+    );
+    return;
+  }
+
+  try {
     Deno.writeTextFileSync(outputFile, `${key}=${value}\n`, { append: true });
+  } catch (error) {
+    console.warn(
+      `Failed to write GitHub Actions output for key "${key}" to "${outputFile}":`,
+      error,
+    );
   }
 }
 

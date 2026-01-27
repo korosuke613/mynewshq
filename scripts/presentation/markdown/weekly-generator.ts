@@ -136,10 +136,14 @@ export function generateProviderWeeklyBody(
     body += `## 📊 ${sectionTitle}\n\n`;
 
     // summary.entriesがある場合はそれを使用、なければproviderDataから生成
-    const entries = summary.entries ?? providerData.map((entry) => ({
-      url: "url" in entry ? entry.url : "",
-      title: getEntryTitle(entry),
-    }));
+    // mutedエントリはフォールバック時も除外
+    const fallbackEntries = providerData
+      .filter((entry) => !("muted" in entry && entry.muted))
+      .map((entry) => ({
+        url: "url" in entry ? entry.url : "",
+        title: getEntryTitle(entry),
+      }));
+    const entries = summary.entries ?? fallbackEntries;
 
     for (const entry of entries) {
       body += `- [${entry.title}](${entry.url})\n`;

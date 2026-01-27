@@ -60,12 +60,14 @@ function generateDummySummary(
   data: ChangelogEntry[] | ReleaseEntry[],
 ): ProviderWeeklySummary {
   const hasCategories = providerId === "github" || providerId === "aws";
-  const entries = data.filter((entry) => !entry.muted).map((entry) => ({
-    url: "url" in entry ? entry.url : "",
-    title: "title" in entry
-      ? entry.title
-      : ("version" in entry ? entry.version : "Unknown"),
-  }));
+  const entries = data
+    .filter((entry) => ("muted" in entry ? !entry.muted : true))
+    .map((entry) => ({
+      url: "url" in entry ? entry.url : "",
+      title: "title" in entry
+        ? entry.title
+        : ("version" in entry ? entry.version : "Unknown"),
+    }));
 
   const summary: ProviderWeeklySummary = {
     providerId,
@@ -136,8 +138,13 @@ async function main() {
     summary = generateDummySummary(provider, providerData);
   }
 
-  const startDate = changelogData.startDate!;
-  const endDate = changelogData.endDate!;
+  const { startDate, endDate } = changelogData;
+  if (!startDate || !endDate) {
+    console.error(
+      "Error: startDate and endDate must be defined in changelogData to generate a weekly preview.",
+    );
+    Deno.exit(1);
+  }
 
   // タイトルとボディを生成
   const title = generateProviderWeeklyTitle(provider, endDate);
