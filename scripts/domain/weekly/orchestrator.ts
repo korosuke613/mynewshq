@@ -41,6 +41,27 @@ export function getAllAdapters(): Map<string, WeeklyPipeline> {
 }
 
 /**
+ * ChangelogDataから特定プロバイダーのデータを取得するユーティリティ関数
+ */
+export function getProviderDataFromChangelog(
+  changelogData: ChangelogData,
+  providerId: string,
+): ChangelogEntry[] | ReleaseEntry[] {
+  switch (providerId) {
+    case "github":
+      return changelogData.github;
+    case "aws":
+      return changelogData.aws;
+    case "claudeCode":
+      return changelogData.claudeCode;
+    case "linear":
+      return changelogData.linear;
+    default:
+      return [];
+  }
+}
+
+/**
  * Weekly Orchestrator
  * 全プロバイダーの週次処理を統括
  */
@@ -174,22 +195,11 @@ export class WeeklyOrchestrator {
   /**
    * ChangelogDataから特定プロバイダーのデータを取得
    */
-  private getProviderData(
+  getProviderData(
     changelogData: ChangelogData,
     providerId: string,
   ): ChangelogEntry[] | ReleaseEntry[] {
-    switch (providerId) {
-      case "github":
-        return changelogData.github;
-      case "aws":
-        return changelogData.aws;
-      case "claudeCode":
-        return changelogData.claudeCode;
-      case "linear":
-        return changelogData.linear;
-      default:
-        return [];
-    }
+    return getProviderDataFromChangelog(changelogData, providerId);
   }
 
   /**
@@ -197,14 +207,12 @@ export class WeeklyOrchestrator {
    */
   private filterMutedEntries(
     data: ChangelogEntry[] | ReleaseEntry[],
-    providerId: string,
+    _providerId: string,
   ): ChangelogEntry[] | ReleaseEntry[] {
-    // プロバイダーごとに型を判定してフィルタリング
-    if (providerId === "claudeCode") {
-      return (data as ReleaseEntry[]).filter((entry) => !entry.muted);
-    } else {
-      return (data as ChangelogEntry[]).filter((entry) => !entry.muted);
-    }
+    // プロバイダーに依存せず muted フラグのみでフィルタリング
+    return (data as Array<ChangelogEntry | ReleaseEntry>).filter(
+      (entry) => !entry.muted,
+    ) as ChangelogEntry[] | ReleaseEntry[];
   }
 
   /**

@@ -6,6 +6,7 @@ import type { WeeklyContext } from "./domain/weekly/types.ts";
 import {
   createOrchestrator,
   getAdapter,
+  getProviderDataFromChangelog,
 } from "./domain/weekly/orchestrator.ts";
 import { renderPromptTemplate } from "./domain/weekly/pipeline.ts";
 
@@ -257,23 +258,10 @@ async function renderPrompt(options: {
   const pastDiscussions = pastResult.success ? pastResult.data : [];
 
   // プロバイダーのデータを取得
-  let currentData: unknown[];
-  switch (options.providerId) {
-    case "github":
-      currentData = changelogData.github;
-      break;
-    case "aws":
-      currentData = changelogData.aws;
-      break;
-    case "claudeCode":
-      currentData = changelogData.claudeCode;
-      break;
-    case "linear":
-      currentData = changelogData.linear;
-      break;
-    default:
-      currentData = [];
-  }
+  const currentData = getProviderDataFromChangelog(
+    changelogData,
+    options.providerId,
+  );
 
   // mutedエントリを除外
   const filteredData = currentData.filter((entry) => {

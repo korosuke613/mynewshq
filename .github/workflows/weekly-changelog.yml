@@ -287,8 +287,8 @@ jobs:
           for provider in github aws claudeCode linear; do
             FILE="/tmp/summaries/${provider}.json"
             if [ -f "$FILE" ]; then
-              CONTENT=$(cat "$FILE" | tr -d '[:space:]')
-              if [ -n "$CONTENT" ] && [ "$CONTENT" != "null" ]; then
+              # jqで有効なJSONかつnullでないことを確認
+              if jq -e '. != null' "$FILE" > /dev/null 2>&1; then
                 if [ "$FIRST" = true ]; then
                   FIRST=false
                 else

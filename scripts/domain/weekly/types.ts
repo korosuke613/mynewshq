@@ -141,9 +141,9 @@ export const CATEGORIZED_SUMMARY_SCHEMA = {
     highlights: {
       type: "array",
       items: { type: "string" },
-      minItems: 3,
+      minItems: 1,
       maxItems: 5,
-      description: "今週のハイライト（3-5文の箇条書き）",
+      description: "今週のハイライト（1-5文の箇条書き）",
     },
     categories: {
       type: "array",
