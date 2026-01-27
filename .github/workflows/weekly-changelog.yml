@@ -70,15 +70,6 @@ jobs:
           # 注: has_github, has_aws, has_claudeCode, has_linear は
           # fetch-changelogs.ts から直接 GITHUB_OUTPUT に書き込まれる
 
-      - name: Fetch past discussions
-        id: fetch-past
-        if: steps.fetch.outputs.has_data == 'true'
-        env:
-          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
-        run: |
-          deno task fetch-past-discussions --output=/tmp/past-discussions.json
-          echo "Past discussions saved to /tmp/past-discussions.json"
-
       - name: Login GitHub App
         id: login-gh-app
         if: steps.fetch.outputs.has_data == 'true'
@@ -89,7 +80,15 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      # GitHub用の要約生成
+      # GitHub用の過去Discussion取得と要約生成
+      - name: Fetch past discussions (GitHub)
+        if: steps.fetch.outputs.has_github == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
+        run: |
+          deno task fetch-past-discussions --provider=github --output=/tmp/past-discussions-github.json
+          echo "GitHub past discussions saved to /tmp/past-discussions-github.json"
+
       - name: Generate GitHub summaries with Claude Code
         id: summarize-github
         if: steps.fetch.outputs.has_github == 'true'
@@ -102,7 +101,7 @@ jobs:
           claude_args: >-
             --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"github"},"highlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","reason","impact"]},"minItems":1,"maxItems":2},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}},"trendAnalysis":{"type":"string"}},"required":["providerId","highlights","categories","trendAnalysis"]}'
           prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のGitHub部分と /tmp/past-discussions.json の過去Discussion情報を読み込み、GitHub用の週次レポートを生成してください。
+            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のGitHub部分と /tmp/past-discussions-github.json の過去Discussion情報を読み込み、GitHub用の週次レポートを生成してください。
 
             ## タスク
             GitHub Changelogの週次分析を行い、プロバイダー単位の要約を生成します。
@@ -130,7 +129,15 @@ jobs:
             ### 3. trendAnalysis
             GitHub全体の傾向分析（2-3文）
 
-      # AWS用の要約生成
+      # AWS用の過去Discussion取得と要約生成
+      - name: Fetch past discussions (AWS)
+        if: steps.fetch.outputs.has_aws == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
+        run: |
+          deno task fetch-past-discussions --provider=aws --output=/tmp/past-discussions-aws.json
+          echo "AWS past discussions saved to /tmp/past-discussions-aws.json"
+
       - name: Generate AWS summaries with Claude Code
         id: summarize-aws
         if: steps.fetch.outputs.has_aws == 'true'
@@ -143,7 +150,7 @@ jobs:
           claude_args: >-
             --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"aws"},"highlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","reason","impact"]},"minItems":1,"maxItems":2},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}},"trendAnalysis":{"type":"string"}},"required":["providerId","highlights","categories","trendAnalysis"]}'
           prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のAWS部分と /tmp/past-discussions.json の過去Discussion情報を読み込み、AWS用の週次レポートを生成してください。
+            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のAWS部分と /tmp/past-discussions-aws.json の過去Discussion情報を読み込み、AWS用の週次レポートを生成してください。
 
             ## タスク
             AWS What's Newの週次分析を行い、プロバイダー単位の要約を生成します。
@@ -171,7 +178,15 @@ jobs:
             ### 3. trendAnalysis
             AWS全体の傾向分析（2-3文）
 
-      # Claude Code用の要約生成
+      # Claude Code用の過去Discussion取得と要約生成
+      - name: Fetch past discussions (Claude Code)
+        if: steps.fetch.outputs.has_claudeCode == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
+        run: |
+          deno task fetch-past-discussions --provider=claudeCode --output=/tmp/past-discussions-claudeCode.json
+          echo "Claude Code past discussions saved to /tmp/past-discussions-claudeCode.json"
+
       - name: Generate Claude Code summaries with Claude Code
         id: summarize-claudecode
         if: steps.fetch.outputs.has_claudeCode == 'true'
@@ -184,7 +199,7 @@ jobs:
           claude_args: >-
             --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"claudeCode"},"highlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","reason","impact"]},"minItems":1,"maxItems":2},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"},"trendAnalysis":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext","trendAnalysis"]}'
           prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のclaudeCode部分と /tmp/past-discussions.json の過去Discussion情報を読み込み、Claude Code用の週次レポートを生成してください。
+            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のclaudeCode部分と /tmp/past-discussions-claudeCode.json の過去Discussion情報を読み込み、Claude Code用の週次レポートを生成してください。
 
             ## タスク
             Claude Codeリリースの週次分析を行い、プロバイダー単位の要約を生成します。
@@ -214,7 +229,15 @@ jobs:
             ### 5. trendAnalysis
             Claude Code全体の傾向分析（2-3文）
 
-      # Linear用の要約生成
+      # Linear用の過去Discussion取得と要約生成
+      - name: Fetch past discussions (Linear)
+        if: steps.fetch.outputs.has_linear == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
+        run: |
+          deno task fetch-past-discussions --provider=linear --output=/tmp/past-discussions-linear.json
+          echo "Linear past discussions saved to /tmp/past-discussions-linear.json"
+
       - name: Generate Linear summaries with Claude Code
         id: summarize-linear
         if: steps.fetch.outputs.has_linear == 'true'
@@ -227,7 +250,7 @@ jobs:
           claude_args: >-
             --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"linear"},"highlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","reason","impact"]},"minItems":1,"maxItems":2},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"},"trendAnalysis":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext","trendAnalysis"]}'
           prompt: |
-            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のlinear部分と /tmp/past-discussions.json の過去Discussion情報を読み込み、Linear用の週次レポートを生成してください。
+            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のlinear部分と /tmp/past-discussions-linear.json の過去Discussion情報を読み込み、Linear用の週次レポートを生成してください。
 
             ## タスク
             Linear Changelogの週次分析を行い、プロバイダー単位の要約を生成します。

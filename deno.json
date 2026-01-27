@@ -12,7 +12,7 @@
     "preview-weekly-provider": "deno run --allow-read --allow-write --allow-env scripts/preview-weekly-provider.ts",
     "preview-blog": "deno run --allow-read --allow-write --allow-env scripts/preview-discussion.ts --category=blog",
     "reply-discussion": "deno run --allow-net --allow-env scripts/reply-discussion.ts",
-    "test": "deno test --allow-read",
+    "test": "deno test --allow-read --ignore=scripts/fetch-changelogs_integration_test.ts",
     "test:integration": "deno test --allow-read --allow-write --allow-env scripts/fetch-changelogs_integration_test.ts"
   },
   "imports": {

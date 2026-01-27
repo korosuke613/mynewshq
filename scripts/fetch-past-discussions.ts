@@ -1,13 +1,18 @@
 // 過去のWeekly Discussionを取得するスクリプト
 // 全プロバイダーの過去Discussion内容をJSON形式で出力
 
-import { fetchAllPastWeeklyDiscussions } from "./create-discussion.ts";
+import {
+  fetchAllPastWeeklyDiscussions,
+  fetchPastWeeklyDiscussionsByProvider,
+} from "./create-discussion.ts";
+import type { PastWeeklyDiscussion } from "./domain/types.ts";
 
 interface FetchPastDiscussionsArgs {
   owner: string;
   repo: string;
   limit: number;
   outputFile: string | null;
+  provider: string | null;
 }
 
 function parseArgs(args: string[]): FetchPastDiscussionsArgs {
@@ -15,12 +20,14 @@ function parseArgs(args: string[]): FetchPastDiscussionsArgs {
   const repoArg = args.find((arg) => arg.startsWith("--repo="));
   const limitArg = args.find((arg) => arg.startsWith("--limit="));
   const outputArg = args.find((arg) => arg.startsWith("--output="));
+  const providerArg = args.find((arg) => arg.startsWith("--provider="));
 
   return {
     owner: ownerArg ? ownerArg.split("=")[1] : "korosuke613",
     repo: repoArg ? repoArg.split("=")[1] : "mynewshq",
     limit: limitArg ? parseInt(limitArg.split("=")[1], 10) : 2,
     outputFile: outputArg ? outputArg.split("=")[1] : null,
+    provider: providerArg ? providerArg.split("=")[1] : null,
   };
 }
 
@@ -31,17 +38,33 @@ async function main() {
     Deno.exit(1);
   }
 
-  const { owner, repo, limit, outputFile } = parseArgs(Deno.args);
+  const { owner, repo, limit, outputFile, provider } = parseArgs(Deno.args);
 
   console.log(`Fetching past weekly discussions from ${owner}/${repo}...`);
   console.log(`Limit: ${limit} discussions per provider`);
 
-  const pastDiscussions = await fetchAllPastWeeklyDiscussions(
-    token,
-    owner,
-    repo,
-    limit,
-  );
+  let pastDiscussions: Record<string, PastWeeklyDiscussion[]>;
+
+  if (provider) {
+    // 単一プロバイダーのみ取得
+    console.log(`Provider filter: ${provider}`);
+    const discussions = await fetchPastWeeklyDiscussionsByProvider(
+      token,
+      owner,
+      repo,
+      provider,
+      limit,
+    );
+    pastDiscussions = { [provider]: discussions };
+  } else {
+    // 全プロバイダー取得（既存動作）
+    pastDiscussions = await fetchAllPastWeeklyDiscussions(
+      token,
+      owner,
+      repo,
+      limit,
+    );
+  }
 
   // 各プロバイダーの結果を表示
   for (const [providerId, discussions] of Object.entries(pastDiscussions)) {
