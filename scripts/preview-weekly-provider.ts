@@ -67,20 +67,13 @@ function generateDummySummary(
       : ("version" in entry ? entry.version : "Unknown"),
   }));
 
-  const firstEntry = entries[0];
   const summary: ProviderWeeklySummary = {
     providerId,
-    highlights: firstEntry
-      ? [
-        {
-          url: firstEntry.url,
-          title: firstEntry.title,
-          reason: "[プレビュー] 選定理由がここに入ります",
-          impact: "[プレビュー] 技術者への影響がここに入ります",
-        },
-      ]
-      : [],
-    trendAnalysis: "[プレビュー] 傾向分析がここに入ります",
+    highlights: [
+      "[プレビュー] 今週のハイライト1がここに入ります",
+      "[プレビュー] 今週のハイライト2がここに入ります",
+      "[プレビュー] 今週のハイライト3がここに入ります",
+    ],
   };
 
   if (hasCategories) {

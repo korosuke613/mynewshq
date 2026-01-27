@@ -103,15 +103,10 @@ export function generateProviderWeeklyBody(
   // ハイライトセクション
   if (summary.highlights.length > 0) {
     body += "## 🌟 今週のハイライト\n\n";
-    summary.highlights.forEach((highlight, index, highlights) => {
-      body += `### [${highlight.title}](${highlight.url})\n\n`;
-      body += `**選定理由**: ${highlight.reason}\n\n`;
-      body += `**技術者への影響**: ${highlight.impact}\n\n`;
-      // 最後のハイライト以外は区切り線を追加
-      if (index < highlights.length - 1) {
-        body += "---\n\n";
-      }
-    });
+    for (const highlight of summary.highlights) {
+      body += `- ${highlight}\n`;
+    }
+    body += "\n";
   }
 
   // カテゴリ別詳細（GitHub/AWS）またはリリース一覧（Claude Code/Linear）
@@ -158,10 +153,6 @@ export function generateProviderWeeklyBody(
       body += `**過去との比較**: ${summary.historicalContext}\n\n`;
     }
   }
-
-  // 傾向分析
-  body += "## 🔮 傾向分析\n\n";
-  body += `${summary.trendAnalysis}\n`;
 
   return body;
 }

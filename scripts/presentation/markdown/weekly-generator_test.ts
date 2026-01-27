@@ -51,12 +51,9 @@ Deno.test("generateProviderWeeklyBody - カテゴリありプロバイダー（G
   const summary: ProviderWeeklySummary = {
     providerId: "github",
     highlights: [
-      {
-        url: "https://github.blog/changelog/copilot-sdk",
-        title: "Copilot SDK in Technical Preview",
-        reason: "AIアシスタントの開発がより身近になる重要なSDKリリース",
-        impact: "自社プロダクトへのAI支援機能の組み込みが容易に",
-      },
+      "Copilot SDKがTechnical Previewで公開され、AIアシスタント開発が身近に",
+      "GitHub Actionsの実行環境が改善され、CI/CDパイプラインの効率が向上",
+      "AI支援開発ツールへの継続的な投資が見られる",
     ],
     categories: [
       {
@@ -82,8 +79,6 @@ Deno.test("generateProviderWeeklyBody - カテゴリありプロバイダー（G
         historicalContext: "Actions関連は安定した更新ペースを維持",
       },
     ],
-    trendAnalysis:
-      "今週のGitHub全体の動向として、AI支援開発ツールへの投資が継続しています",
   };
 
   const body = generateProviderWeeklyBody(
@@ -100,10 +95,13 @@ Deno.test("generateProviderWeeklyBody - カテゴリありプロバイダー（G
 
   // ハイライトセクションの確認
   assertStringIncludes(body, "## 🌟 今週のハイライト");
-  assertStringIncludes(body, "[Copilot SDK in Technical Preview]");
   assertStringIncludes(
     body,
-    "**選定理由**: AIアシスタントの開発がより身近になる重要なSDKリリース",
+    "- Copilot SDKがTechnical Previewで公開され、AIアシスタント開発が身近に",
+  );
+  assertStringIncludes(
+    body,
+    "- GitHub Actionsの実行環境が改善され、CI/CDパイプラインの効率が向上",
   );
 
   // カテゴリ別詳細の確認
@@ -114,10 +112,6 @@ Deno.test("generateProviderWeeklyBody - カテゴリありプロバイダー（G
     body,
     "**コメント**: 今週はCopilot関連の機能が大幅に強化されました",
   );
-
-  // 傾向分析の確認
-  assertStringIncludes(body, "## 🔮 傾向分析");
-  assertStringIncludes(body, "AI支援開発ツールへの投資が継続");
 });
 
 Deno.test("generateProviderWeeklyBody - カテゴリなしプロバイダー（Claude Code）のMarkdown生成", () => {
@@ -139,12 +133,9 @@ Deno.test("generateProviderWeeklyBody - カテゴリなしプロバイダー（C
   const summary: ProviderWeeklySummary = {
     providerId: "claudeCode",
     highlights: [
-      {
-        url: "https://github.com/anthropics/claude-code/releases/tag/v2.1.19",
-        title: "v2.1.19",
-        reason: "セッション管理機能の大幅改善",
-        impact: "長時間のコーディングセッションがより快適に",
-      },
+      "v2.1.19でセッション管理機能が大幅に改善され、長時間作業が快適に",
+      "今週は2つのリリースがあり、UI改善とバグ修正が中心",
+      "VSCode向け機能の追加が増加傾向",
     ],
     entries: [
       {
@@ -158,8 +149,6 @@ Deno.test("generateProviderWeeklyBody - カテゴリなしプロバイダー（C
     ],
     overallComment: "今週は2つのリリースがあり、主にUI改善とバグ修正が中心",
     historicalContext: "VSCode向け機能の追加が増加傾向にあります",
-    trendAnalysis:
-      "Claude Codeは継続的にリリースを重ねており、開発者体験の向上に注力しています",
   };
 
   const body = generateProviderWeeklyBody(
@@ -186,10 +175,6 @@ Deno.test("generateProviderWeeklyBody - カテゴリなしプロバイダー（C
     body,
     "**過去との比較**: VSCode向け機能の追加が増加傾向",
   );
-
-  // 傾向分析の確認
-  assertStringIncludes(body, "## 🔮 傾向分析");
-  assertStringIncludes(body, "Claude Codeは継続的にリリースを重ねており");
 });
 
 Deno.test("generateProviderWeeklyBody - mutedエントリを含むデータの処理", () => {
@@ -213,12 +198,8 @@ Deno.test("generateProviderWeeklyBody - mutedエントリを含むデータの�
   const summary: ProviderWeeklySummary = {
     providerId: "linear",
     highlights: [
-      {
-        url: "https://example.com/active",
-        title: "Active entry",
-        reason: "重要な更新",
-        impact: "ユーザー体験の向上",
-      },
+      "重要な更新でユーザー体験が向上",
+      "今週の変更点の概要",
     ],
     entries: [
       {
@@ -228,7 +209,6 @@ Deno.test("generateProviderWeeklyBody - mutedエントリを含むデータの�
     ],
     overallComment: "今週の更新",
     historicalContext: "先週からの変化",
-    trendAnalysis: "傾向分析",
   };
 
   const body = generateProviderWeeklyBody(
