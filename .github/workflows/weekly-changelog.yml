@@ -115,7 +115,7 @@ jobs:
 
             ### 1. highlights (3-5件の箇条書き文)
             今週のGitHub全体の重要な変更点を箇条書きで記述:
-            - 各項目は1文で簡潔にまとめる
+            - 各項目は1~5文で簡潔にまとめる
             - 技術者に影響のある更新のポイントを含める
             - 例: "Copilot SDKがTechnical Previewで公開され、AIアシスタント開発が身近に"
 
@@ -123,7 +123,7 @@ jobs:
             labels.changelog-label でグループ化し、各カテゴリに:
             - category: カテゴリ名（copilot, actions等）
             - entries: [{url, title}] の配列
-            - comment: カテゴリの概要（2-3文）
+            - comment: カテゴリの概要（2-5文）
             - historicalContext: 過去との比較（1-2文）
 
       # AWS用の過去Discussion取得と要約生成
@@ -161,7 +161,7 @@ jobs:
 
             ### 1. highlights (3-5件の箇条書き文)
             今週のAWS全体の重要な変更点を箇条書きで記述:
-            - 各項目は1文で簡潔にまとめる
+            - 各項目は1~5文で簡潔にまとめる
             - 技術者に影響のある更新のポイントを含める
             - 例: "S3 Express One ZoneがAsia Pacific (Tokyo)リージョンで利用可能に"
 
@@ -169,7 +169,7 @@ jobs:
             labels.products でグループ化し、各カテゴリに:
             - category: サービス名（S3, Lambda等、プレフィックス除去）
             - entries: [{url, title}] の配列
-            - comment: カテゴリの概要（2-3文）
+            - comment: カテゴリの概要（2-5文）
             - historicalContext: 過去との比較（1-2文）
 
       # Claude Code用の過去Discussion取得と要約生成
@@ -207,7 +207,7 @@ jobs:
 
             ### 1. highlights (3-5件の箇条書き文)
             今週のClaude Code全体の重要な変更点を箇条書きで記述:
-            - 各項目は1文で簡潔にまとめる
+            - 各項目は1~5文で簡潔にまとめる
             - 技術者に影響のある更新のポイントを含める
             - 例: "v2.1.19でセッション管理機能が大幅に改善され、長時間作業が快適に"
 
@@ -215,7 +215,7 @@ jobs:
             全リリースの [{url, title}] 配列
 
             ### 3. overallComment
-            今週のリリース全体のコメント（2-3文）
+            今週のリリース全体のコメント（2-5文）
 
             ### 4. historicalContext
             過去との比較（1-2文）
@@ -255,7 +255,7 @@ jobs:
 
             ### 1. highlights (3-5件の箇条書き文)
             今週のLinear全体の重要な変更点を箇条書きで記述:
-            - 各項目は1文で簡潔にまとめる
+            - 各項目は1~5文で簡潔にまとめる
             - 技術者に影響のある更新のポイントを含める
             - 例: "新しいプロジェクトビューが追加され、チーム間のコラボレーションが向上"
 
