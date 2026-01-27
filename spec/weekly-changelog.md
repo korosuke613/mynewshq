@@ -44,9 +44,8 @@
 各Discussionは以下のセクションで構成されます：
 
 1. **ヘッダー**: タイトルと対象期間
-2. **今週のハイライト**: 1-2件の注目エントリ
+2. **今週のハイライト**: 3-5行の箇条書きでプロバイダー全体の重要な変更点をまとめる
 3. **カテゴリ別詳細**（GitHub/AWS）またはリリース一覧（Claude Code/Linear）
-4. **傾向分析**: プロバイダー全体の動向
 
 ---
 
@@ -104,19 +103,20 @@ AWSのエントリは`labels`フィールドの`products`を使用して分類�
 
 ## 4. LLM生成コンテンツ
 
-### ハイライト選定基準
+### ハイライト
 
-各プロバイダーDiscussionに1-2件のハイライトを含めます。選定基準：
+各プロバイダーDiscussionに3-5行のハイライトを箇条書きで含めます。
 
+ハイライトの内容：
+- プロバイダー全体の重要な変更点や傾向
+- 技術者に影響のある更新のポイント
+- 注目すべき新機能やセキュリティ更新
+
+選定基準：
 1. **技術的インパクト**: 開発者の日常業務に影響を与える変更
 2. **新機能**: これまでできなかったことが可能になる機能
 3. **セキュリティ**: セキュリティに関する重要な更新
 4. **GA/Preview移行**: Public PreviewからGAへの移行など節目の更新
-
-ハイライトには以下の情報を含めます：
-- タイトルとURL
-- 選定理由（2-3文）
-- 技術者への影響（2-3文）
 
 ### カテゴリ別コメント
 
@@ -132,14 +132,6 @@ GitHub/AWSでは各カテゴリに対してコメントを生成します：
 - 前週からの継続傾向（例：「先週に続きCopilot関連の更新が活発」）
 - 新しい動き（例：「今週はセキュリティ関連の更新が増加」）
 - 注目すべき変化（例：「3週連続でActions関連の改善が続いている」）
-
-### 傾向分析
-
-各プロバイダーDiscussionの最後に傾向分析セクションを含めます：
-
-- 今週の全体的な傾向
-- 注目すべき方向性
-- 技術者へのアドバイス
 
 ---
 
@@ -171,7 +163,6 @@ export async function fetchPastWeeklyDiscussionsByProvider(
 
 1. LLMプロンプトに過去Discussionの本文を含める
 2. LLMが過去の内容を参照し、比較コメントを生成
-3. 傾向分析にも過去の情報を反映
 
 ---
 
@@ -225,23 +216,6 @@ export interface CategoryGroup {
 }
 ```
 
-### ProviderHighlight
-
-プロバイダー単位のハイライトエントリ。
-
-```typescript
-export interface ProviderHighlight {
-  /** エントリのURL */
-  url: string;
-  /** エントリのタイトル */
-  title: string;
-  /** 選定理由（2-3文） */
-  reason: string;
-  /** 技術者への影響（2-3文） */
-  impact: string;
-}
-```
-
 ### ProviderWeeklySummary
 
 プロバイダー単位の週次要約。
@@ -250,8 +224,8 @@ export interface ProviderHighlight {
 export interface ProviderWeeklySummary {
   /** プロバイダーID（"github", "aws", "claudeCode", "linear"） */
   providerId: string;
-  /** ハイライト（1-2件） */
-  highlights: ProviderHighlight[];
+  /** ハイライト（3-5行の箇条書き文） */
+  highlights: string[];
   /** カテゴリ別詳細（GitHub/AWS用） */
   categories?: CategoryGroup[];
   /** エントリ一覧（Claude Code/Linear用、カテゴリなしの場合） */
@@ -263,8 +237,6 @@ export interface ProviderWeeklySummary {
   overallComment?: string;
   /** 過去比較コメント（カテゴリなしプロバイダー用） */
   historicalContext?: string;
-  /** プロバイダー全体の傾向分析 */
-  trendAnalysis: string;
 }
 ```
 
@@ -311,13 +283,9 @@ export interface PastWeeklyDiscussion {
 
 ## 🌟 今週のハイライト
 
-### [Copilot SDK in Technical Preview](URL)
-
-**選定理由**: AIアシスタントの開発がより身近になる重要なSDKリリース...
-
-**技術者への影響**: 自社プロダクトへのAI支援機能の組み込みが容易に...
-
----
+- Copilot SDKがTechnical Previewで公開され、AIアシスタント開発が身近に
+- GitHub Actionsの実行環境が改善され、CI/CDパイプラインの効率が向上
+- AI支援開発ツールへの継続的な投資が見られる
 
 ## 📊 カテゴリ別詳細
 
@@ -339,12 +307,6 @@ export interface PastWeeklyDiscussion {
 **コメント**: GitHub Actionsの実行環境が改善され...
 
 **過去との比較**: Actions関連は安定した更新ペースを維持...
-
----
-
-## 🔮 傾向分析
-
-今週のGitHub全体の動向として、AI支援開発ツールへの投資が継続しています...
 ```
 
 ### Claude Code/Linear（カテゴリなしプロバイダー）
@@ -356,13 +318,9 @@ export interface PastWeeklyDiscussion {
 
 ## 🌟 今週のハイライト
 
-### [v2.1.19](URL)
-
-**選定理由**: セッション管理機能の大幅改善...
-
-**技術者への影響**: 長時間のコーディングセッションがより快適に...
-
----
+- v2.1.19でセッション管理機能が大幅に改善され、長時間作業が快適に
+- 今週は2つのリリースがあり、UI改善とバグ修正が中心
+- VSCode向け機能の追加が増加傾向
 
 ## 📊 リリース一覧
 
@@ -372,12 +330,6 @@ export interface PastWeeklyDiscussion {
 **コメント**: 今週は2つのリリースがあり、主にUI改善とバグ修正が中心...
 
 **過去との比較**: VSCode向け機能の追加が増加傾向にあります...
-
----
-
-## 🔮 傾向分析
-
-Claude Codeは継続的にリリースを重ねており、開発者体験の向上に注力しています...
 ```
 
 ---
