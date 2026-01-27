@@ -396,22 +396,19 @@ export async function createProviderWeeklyDiscussion(
     },
   });
 
-  // リポジトリIDとカテゴリIDを取得
-  interface SimpleRepositoryData {
-    repository: {
-      id: string;
-      discussionCategories: {
-        nodes: DiscussionCategory[];
-      };
-    };
-  }
-
-  const repoData = await graphqlWithAuth<SimpleRepositoryData>(
+  // リポジトリIDとカテゴリID、ラベル一覧を取得
+  const repoData = await graphqlWithAuth<RepositoryData>(
     `
     query($owner: String!, $repo: String!) {
       repository(owner: $owner, name: $repo) {
         id
         discussionCategories(first: 10) {
+          nodes {
+            id
+            name
+          }
+        }
+        labels(first: 100) {
           nodes {
             id
             name
@@ -478,6 +475,75 @@ export async function createProviderWeeklyDiscussion(
 
   console.log(`Created discussion: ${title}`);
   console.log(`URL: ${discussionUrl}`);
+
+  // ラベル付与処理
+  // 単一プロバイダーのChangelogDataを構築してdetermineLabelsを使用
+  const singleProviderData: ChangelogData = {
+    date: endDate,
+    startDate,
+    endDate,
+    github: providerId === "github" ? (providerData as ChangelogEntry[]) : [],
+    aws: providerId === "aws" ? (providerData as ChangelogEntry[]) : [],
+    claudeCode: providerId === "claudeCode"
+      ? (providerData as ReleaseEntry[])
+      : [],
+    linear: providerId === "linear" ? (providerData as ChangelogEntry[]) : [],
+  };
+
+  // serviceOnly: false でサブカテゴリラベルも含める
+  const labelNames = determineLabels(singleProviderData, {
+    serviceOnly: false,
+  });
+  if (labelNames.length > 0) {
+    const existingLabels = new Map(
+      repoData.repository.labels.nodes.map((l) => [l.name, l.id]),
+    );
+
+    const labelIdPromises = labelNames.map(async (name) => {
+      if (existingLabels.has(name)) {
+        return existingLabels.get(name)!;
+      } else {
+        try {
+          console.log(`Label "${name}" not found. Creating it...`);
+          const newLabelId = await createNewLabel(
+            graphqlWithAuth,
+            repositoryId,
+            name,
+          );
+          existingLabels.set(name, newLabelId);
+          return newLabelId;
+        } catch (error) {
+          if (error instanceof Error) {
+            console.warn(
+              `Warning: Failed to create label "${name}":`,
+              error.message,
+            );
+          } else {
+            console.warn(
+              `Warning: Failed to create label "${name}" with unknown error:`,
+              error,
+            );
+          }
+          return null;
+        }
+      }
+    });
+
+    const labelIdResults = await Promise.all(labelIdPromises);
+    const labelIds = labelIdResults.filter((id): id is string => id !== null);
+
+    if (labelIds.length > 0) {
+      try {
+        await addLabelsToDiscussion(graphqlWithAuth, discussionId, labelIds);
+        console.log(`Labels added: ${labelNames.join(", ")}`);
+      } catch (error) {
+        console.error(
+          `Failed to add labels to discussion ${discussionId}:`,
+          error,
+        );
+      }
+    }
+  }
 
   return { id: discussionId, url: discussionUrl };
 }
