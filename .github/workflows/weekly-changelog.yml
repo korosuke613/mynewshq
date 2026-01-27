@@ -99,7 +99,7 @@ jobs:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"github"},"highlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","reason","impact"]},"minItems":1,"maxItems":2},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}},"trendAnalysis":{"type":"string"}},"required":["providerId","highlights","categories","trendAnalysis"]}'
+            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"github"},"highlights":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
           prompt: |
             data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のGitHub部分と /tmp/past-discussions-github.json の過去Discussion情報を読み込み、GitHub用の週次レポートを生成してください。
 
@@ -113,11 +113,11 @@ jobs:
 
             ## 出力構造
 
-            ### 1. highlights (1-2件)
-            最も重要なエントリを選び、以下を含めてください:
-            - url, title: エントリ情報
-            - reason: 選定理由（2-3文）
-            - impact: 技術者への影響（2-3文）
+            ### 1. highlights (3-5件の箇条書き文)
+            今週のGitHub全体の重要な変更点を箇条書きで記述:
+            - 各項目は1文で簡潔にまとめる
+            - 技術者に影響のある更新のポイントを含める
+            - 例: "Copilot SDKがTechnical Previewで公開され、AIアシスタント開発が身近に"
 
             ### 2. categories
             labels.changelog-label でグループ化し、各カテゴリに:
@@ -125,9 +125,6 @@ jobs:
             - entries: [{url, title}] の配列
             - comment: カテゴリの概要（2-3文）
             - historicalContext: 過去との比較（1-2文）
-
-            ### 3. trendAnalysis
-            GitHub全体の傾向分析（2-3文）
 
       # AWS用の過去Discussion取得と要約生成
       - name: Fetch past discussions (AWS)
@@ -148,7 +145,7 @@ jobs:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"aws"},"highlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","reason","impact"]},"minItems":1,"maxItems":2},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}},"trendAnalysis":{"type":"string"}},"required":["providerId","highlights","categories","trendAnalysis"]}'
+            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"aws"},"highlights":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
           prompt: |
             data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のAWS部分と /tmp/past-discussions-aws.json の過去Discussion情報を読み込み、AWS用の週次レポートを生成してください。
 
@@ -162,11 +159,11 @@ jobs:
 
             ## 出力構造
 
-            ### 1. highlights (1-2件)
-            最も重要なエントリを選び、以下を含めてください:
-            - url, title: エントリ情報
-            - reason: 選定理由（2-3文）
-            - impact: 技術者への影響（2-3文）
+            ### 1. highlights (3-5件の箇条書き文)
+            今週のAWS全体の重要な変更点を箇条書きで記述:
+            - 各項目は1文で簡潔にまとめる
+            - 技術者に影響のある更新のポイントを含める
+            - 例: "S3 Express One ZoneがAsia Pacific (Tokyo)リージョンで利用可能に"
 
             ### 2. categories
             labels.products でグループ化し、各カテゴリに:
@@ -174,9 +171,6 @@ jobs:
             - entries: [{url, title}] の配列
             - comment: カテゴリの概要（2-3文）
             - historicalContext: 過去との比較（1-2文）
-
-            ### 3. trendAnalysis
-            AWS全体の傾向分析（2-3文）
 
       # Claude Code用の過去Discussion取得と要約生成
       - name: Fetch past discussions (Claude Code)
@@ -197,7 +191,7 @@ jobs:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"claudeCode"},"highlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","reason","impact"]},"minItems":1,"maxItems":2},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"},"trendAnalysis":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext","trendAnalysis"]}'
+            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"claudeCode"},"highlights":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
           prompt: |
             data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のclaudeCode部分と /tmp/past-discussions-claudeCode.json の過去Discussion情報を読み込み、Claude Code用の週次レポートを生成してください。
 
@@ -211,11 +205,11 @@ jobs:
 
             ## 出力構造
 
-            ### 1. highlights (1-2件)
-            最も重要なリリースを選び、以下を含めてください:
-            - url, title: リリース情報
-            - reason: 選定理由（2-3文）
-            - impact: 技術者への影響（2-3文）
+            ### 1. highlights (3-5件の箇条書き文)
+            今週のClaude Code全体の重要な変更点を箇条書きで記述:
+            - 各項目は1文で簡潔にまとめる
+            - 技術者に影響のある更新のポイントを含める
+            - 例: "v2.1.19でセッション管理機能が大幅に改善され、長時間作業が快適に"
 
             ### 2. entries
             全リリースの [{url, title}] 配列
@@ -225,9 +219,6 @@ jobs:
 
             ### 4. historicalContext
             過去との比較（1-2文）
-
-            ### 5. trendAnalysis
-            Claude Code全体の傾向分析（2-3文）
 
       # Linear用の過去Discussion取得と要約生成
       - name: Fetch past discussions (Linear)
@@ -248,7 +239,7 @@ jobs:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"linear"},"highlights":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"},"impact":{"type":"string"}},"required":["url","title","reason","impact"]},"minItems":1,"maxItems":2},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"},"trendAnalysis":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext","trendAnalysis"]}'
+            --json-schema '{"type":"object","properties":{"providerId":{"type":"string","const":"linear"},"highlights":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
           prompt: |
             data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json のlinear部分と /tmp/past-discussions-linear.json の過去Discussion情報を読み込み、Linear用の週次レポートを生成してください。
 
@@ -262,11 +253,11 @@ jobs:
 
             ## 出力構造
 
-            ### 1. highlights (1-2件)
-            最も重要なエントリを選び、以下を含めてください:
-            - url, title: エントリ情報
-            - reason: 選定理由（2-3文）
-            - impact: 技術者への影響（2-3文）
+            ### 1. highlights (3-5件の箇条書き文)
+            今週のLinear全体の重要な変更点を箇条書きで記述:
+            - 各項目は1文で簡潔にまとめる
+            - 技術者に影響のある更新のポイントを含める
+            - 例: "新しいプロジェクトビューが追加され、チーム間のコラボレーションが向上"
 
             ### 2. entries
             全エントリの [{url, title}] 配列
@@ -276,9 +267,6 @@ jobs:
 
             ### 4. historicalContext
             過去との比較（1-2文）
-
-            ### 5. trendAnalysis
-            Linear全体の傾向分析（2-3文）
 
       # 各プロバイダーのDiscussion投稿
       - name: Post GitHub Discussion
