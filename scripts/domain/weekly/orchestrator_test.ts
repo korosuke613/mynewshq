@@ -229,24 +229,8 @@ Deno.test("postAllDiscussions should filter muted entries before generating mark
     linear: [],
   };
 
-  const summary: ProviderWeeklySummary = {
-    providerId: "github",
-    highlights: ["Highlight 1"],
-    categories: [
-      {
-        category: "copilot",
-        entries: [
-          { url: "https://github.blog/changelog/active", title: "Active Entry" },
-        ],
-        comment: "Test comment",
-        historicalContext: "Test context",
-      },
-    ],
-  };
-
   // generateMarkdown が正しくフィルタされたデータを受け取ることを確認
   // （実際の投稿はテストしない）
-  const adapter = orchestrator["adapters"].get("github");
   const data = orchestrator.getProviderData(changelogData, "github");
 
   // フィルタ前: 2エントリ（1つmuted）
