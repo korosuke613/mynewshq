@@ -10,6 +10,26 @@ on:
         description: "終了日 (YYYY-MM-DD形式、空欄で今日)"
         required: false
         type: string
+      run_github:
+        description: "GitHub Changelogを実行"
+        required: false
+        type: boolean
+        default: true
+      run_aws:
+        description: "AWS What's Newを実行"
+        required: false
+        type: boolean
+        default: true
+      run_claudeCode:
+        description: "Claude Codeを実行"
+        required: false
+        type: boolean
+        default: true
+      run_linear:
+        description: "Linear Changelogを実行"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -21,10 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has_data: ${{ steps.fetch.outputs.has_data }}
-      has_github: ${{ steps.fetch.outputs.has_github }}
-      has_aws: ${{ steps.fetch.outputs.has_aws }}
-      has_claudeCode: ${{ steps.fetch.outputs.has_claudeCode }}
-      has_linear: ${{ steps.fetch.outputs.has_linear }}
+      has_github: ${{ steps.provider-flags.outputs.has_github }}
+      has_aws: ${{ steps.provider-flags.outputs.has_aws }}
+      has_claudeCode: ${{ steps.provider-flags.outputs.has_claudeCode }}
+      has_linear: ${{ steps.provider-flags.outputs.has_linear }}
       end_date: ${{ steps.target-date.outputs.end_date }}
       start_date: ${{ steps.target-date.outputs.start_date }}
 
@@ -94,6 +114,42 @@ jobs:
           deno task filter-muted \
             --input=data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json \
             --output=data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}-filtered.json
+
+      - name: Calculate final provider flags
+        id: provider-flags
+        run: |
+          # workflow_dispatchの場合は入力値とfetch結果の両方を考慮
+          # scheduleの場合はfetch結果をそのまま使用
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # 入力値がtrueかつデータが存在する場合のみtrue
+            if [ "${{ inputs.run_github }}" == "true" ] && [ "${{ steps.fetch.outputs.has_github }}" == "true" ]; then
+              echo "has_github=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_github=false" >> $GITHUB_OUTPUT
+            fi
+            if [ "${{ inputs.run_aws }}" == "true" ] && [ "${{ steps.fetch.outputs.has_aws }}" == "true" ]; then
+              echo "has_aws=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_aws=false" >> $GITHUB_OUTPUT
+            fi
+            if [ "${{ inputs.run_claudeCode }}" == "true" ] && [ "${{ steps.fetch.outputs.has_claudeCode }}" == "true" ]; then
+              echo "has_claudeCode=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_claudeCode=false" >> $GITHUB_OUTPUT
+            fi
+            if [ "${{ inputs.run_linear }}" == "true" ] && [ "${{ steps.fetch.outputs.has_linear }}" == "true" ]; then
+              echo "has_linear=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_linear=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # schedule実行の場合はfetchの結果をそのまま使用
+            echo "has_github=${{ steps.fetch.outputs.has_github }}" >> $GITHUB_OUTPUT
+            echo "has_aws=${{ steps.fetch.outputs.has_aws }}" >> $GITHUB_OUTPUT
+            echo "has_claudeCode=${{ steps.fetch.outputs.has_claudeCode }}" >> $GITHUB_OUTPUT
+            echo "has_linear=${{ steps.fetch.outputs.has_linear }}" >> $GITHUB_OUTPUT
+          fi
+          echo "Final provider flags calculated for event: ${{ github.event_name }}"
 
       - name: Upload changelog data
         if: steps.fetch.outputs.has_data == 'true'
@@ -321,9 +377,16 @@ jobs:
           echo "Merged summaries:"
           cat /tmp/all-summaries.json
 
+          # autoCloseフラグを設定（workflow_dispatch時のみ）
+          AUTO_CLOSE_FLAG=""
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            AUTO_CLOSE_FLAG="--auto-close"
+          fi
+
           # Discussion投稿
           deno task post-weekly-all \
             --date=${{ needs.fetch-data.outputs.end_date }} \
             --changelog-file=data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json \
             --summaries-file=/tmp/all-summaries.json \
-            --category="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Weekly' }}"
+            --category="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Weekly' }}" \
+            $AUTO_CLOSE_FLAG

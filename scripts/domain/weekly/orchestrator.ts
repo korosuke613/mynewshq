@@ -8,7 +8,7 @@ import type {
   ProviderWeeklySummary,
   ReleaseEntry,
 } from "../types.ts";
-import type { WeeklyPipeline } from "./pipeline.ts";
+import type { PostDiscussionData, WeeklyPipeline } from "./pipeline.ts";
 import type {
   OrchestratorResult,
   PipelineResult,
@@ -162,7 +162,7 @@ export class WeeklyOrchestrator {
     changelogData: ChangelogData,
     summaries: Record<string, ProviderWeeklySummary>,
     ctx: WeeklyContext,
-  ): Promise<OrchestratorResult<{ url: string; title: string }>> {
+  ): Promise<OrchestratorResult<PostDiscussionData>> {
     const results = await Promise.all(
       Object.entries(summaries).map(async ([providerId, summary]) => {
         const adapter = this.adapters.get(providerId);
@@ -172,10 +172,7 @@ export class WeeklyOrchestrator {
             {
               success: false,
               error: `Unknown provider: ${providerId}`,
-            } as PipelineResult<{
-              url: string;
-              title: string;
-            }>,
+            } as PipelineResult<PostDiscussionData>,
           ] as const;
         }
 
@@ -187,7 +184,7 @@ export class WeeklyOrchestrator {
       }),
     );
 
-    const succeeded: Record<string, { url: string; title: string }> = {};
+    const succeeded: Record<string, PostDiscussionData> = {};
     const failed: Record<string, string> = {};
 
     for (const [providerId, result] of results) {

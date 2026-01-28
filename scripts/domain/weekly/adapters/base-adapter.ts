@@ -274,6 +274,7 @@ export abstract class BaseAdapter implements WeeklyPipeline {
       return {
         success: true,
         data: {
+          id: "(dry-run)",
           url: `(dry-run) ${title}`,
           title,
         },
@@ -373,6 +374,7 @@ export abstract class BaseAdapter implements WeeklyPipeline {
       return {
         success: true,
         data: {
+          id: discussionId,
           url: discussionUrl,
           title,
         },

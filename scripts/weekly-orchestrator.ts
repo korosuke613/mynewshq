@@ -10,6 +10,7 @@ import {
   getProviderDataFromChangelog,
 } from "./domain/weekly/orchestrator.ts";
 import { renderPromptTemplate } from "./domain/weekly/pipeline.ts";
+import { closeDiscussion } from "./create-discussion.ts";
 
 /**
  * コマンドライン引数をパース
@@ -21,6 +22,7 @@ function parseArgs(args: string[]): {
   repo: string;
   categoryName: string;
   dryRun: boolean;
+  autoClose: boolean;
   summariesFile: string | null;
   changelogFile: string | null;
   outputFile: string | null;
@@ -40,6 +42,7 @@ function parseArgs(args: string[]): {
   const outputFileArg = args.find((arg) => arg.startsWith("--output="));
   const limitArg = args.find((arg) => arg.startsWith("--limit="));
   const dryRun = args.includes("--dry-run");
+  const autoClose = args.includes("--auto-close");
 
   return {
     command,
@@ -48,6 +51,7 @@ function parseArgs(args: string[]): {
     repo: repoArg?.split("=")[1] ?? "mynewshq",
     categoryName: categoryArg?.split("=")[1] ?? "General",
     dryRun,
+    autoClose,
     summariesFile: summariesFileArg?.split("=")[1] ?? null,
     changelogFile: changelogFileArg?.split("=")[1] ?? null,
     outputFile: outputFileArg?.split("=")[1] ?? null,
@@ -306,6 +310,7 @@ async function postAll(options: {
   repo: string;
   categoryName: string;
   dryRun: boolean;
+  autoClose: boolean;
   summariesFile: string | null;
   changelogFile: string | null;
 }): Promise<void> {
@@ -369,6 +374,22 @@ async function postAll(options: {
     Deno.exit(1);
   }
 
+  // autoCloseが有効な場合、投稿したDiscussionをクローズ
+  if (options.autoClose && Object.keys(result.succeeded).length > 0) {
+    console.log("\n=== Closing Discussions (auto-close enabled) ===");
+    for (const [providerId, data] of Object.entries(result.succeeded)) {
+      try {
+        await closeDiscussion(token, data.id);
+        console.log(`  ${providerId}: closed`);
+      } catch (error) {
+        const errorMessage = error instanceof Error
+          ? error.message
+          : String(error);
+        console.error(`  ${providerId}: failed to close - ${errorMessage}`);
+      }
+    }
+  }
+
   console.log("\n✅ All discussions posted successfully!");
 }
 
@@ -399,6 +420,7 @@ Options:
   --output=PATH           出力ファイルパス
   --limit=N               過去Discussion取得件数（デフォルト: 2）
   --dry-run               ドライラン（投稿せずに結果表示）
+  --auto-close            投稿後にDiscussionを自動クローズ
 
 Examples:
   # 過去Discussionを取得
