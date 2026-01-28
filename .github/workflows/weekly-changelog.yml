@@ -151,6 +151,13 @@ jobs:
           name: changelog-data
           path: data/
 
+      - name: Remove unfiltered JSON to prevent AI from reading it
+        if: steps.check.outputs.should_run == 'true'
+        run: |
+          # Claude Code Actionが-filtered.jsonのみを読むよう、元のJSONを削除
+          rm -f data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json
+          echo "Removed unfiltered JSON to ensure AI reads only filtered data"
+
       - name: Login GitHub App
         if: steps.check.outputs.should_run == 'true'
         id: login-gh-app
