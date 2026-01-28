@@ -10,6 +10,7 @@ import type {
 import { getProviderDisplayName } from "../../domain/providers/index.ts";
 import { getCategoryEmoji, getEntryTitle } from "./helpers.ts";
 import { generateWeeklyCoveragePeriod } from "./daily-generator.ts";
+import { generateMutedSection } from "./muted-section.ts";
 
 // 週次用の要約データ付きボディ生成
 export function generateWeeklyBodyWithSummaries(
@@ -157,6 +158,15 @@ export function generateProviderWeeklyBody(
       body += `**過去との比較**: ${summary.historicalContext}\n\n`;
     }
   }
+
+  // ミュートセクションを追加（日次と同じフォーマット）
+  // providerDataはChangelogEntry[]またはReleaseEntry[]のどちらか
+  // generateMutedSectionは共通フィールド（url, muted, mutedBy, title/version）のみを使用
+  body += generateMutedSection(
+    providerData as Array<
+      { title?: string; version?: string; url: string; mutedBy?: string }
+    >,
+  );
 
   return body;
 }

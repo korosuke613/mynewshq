@@ -1,0 +1,150 @@
+#!/usr/bin/env -S deno run --allow-read --allow-write
+
+/**
+ * ミュート済みエントリをChangelogデータから除外するスクリプト
+ *
+ * 使用方法:
+ *   deno task filter-muted --input=<入力ファイル> --output=<出力ファイル>
+ *
+ * 例:
+ *   deno task filter-muted \
+ *     --input=data/changelogs/weekly/2026-01-21.json \
+ *     --output=data/changelogs/weekly/2026-01-21-filtered.json
+ */
+
+import type {
+  ChangelogData,
+  ChangelogEntry,
+  ReleaseEntry,
+} from "./domain/types.ts";
+
+/**
+ * ChangelogEntryからmuted: trueのエントリを除外
+ */
+export function filterMutedChangelogEntries(
+  entries: ChangelogEntry[],
+): ChangelogEntry[] {
+  return entries.filter((entry) => !entry.muted);
+}
+
+/**
+ * ReleaseEntryからmuted: trueのエントリを除外
+ */
+export function filterMutedReleaseEntries(
+  entries: ReleaseEntry[],
+): ReleaseEntry[] {
+  return entries.filter((entry) => !entry.muted);
+}
+
+/**
+ * ChangelogData全体からmuted: trueのエントリを除外
+ */
+export function filterMutedFromChangelog(data: ChangelogData): ChangelogData {
+  return {
+    ...data,
+    github: filterMutedChangelogEntries(data.github),
+    aws: filterMutedChangelogEntries(data.aws),
+    claudeCode: filterMutedReleaseEntries(data.claudeCode),
+    linear: filterMutedChangelogEntries(data.linear),
+  };
+}
+
+/**
+ * コマンドライン引数をパース
+ */
+function parseArgs(args: string[]): { input: string; output: string } {
+  let input = "";
+  let output = "";
+
+  for (const arg of args) {
+    if (arg.startsWith("--input=")) {
+      input = arg.slice("--input=".length);
+    } else if (arg.startsWith("--output=")) {
+      output = arg.slice("--output=".length);
+    }
+  }
+
+  if (!input || !output) {
+    console.error(
+      "使用方法: deno task filter-muted --input=<入力> --output=<出力>",
+    );
+    Deno.exit(1);
+  }
+
+  return { input, output };
+}
+
+/**
+ * メイン処理
+ */
+async function main(): Promise<void> {
+  const { input, output } = parseArgs(Deno.args);
+
+  // 入力ファイルを読み込み
+  let rawContent: string;
+  try {
+    rawContent = await Deno.readTextFile(input);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      console.error(`入力ファイルが見つかりません: ${input}`);
+    } else {
+      console.error(`入力ファイルの読み込みに失敗: ${input}`);
+    }
+    console.error(error instanceof Error ? error.message : String(error));
+    Deno.exit(1);
+  }
+
+  // JSONをパース
+  let data: ChangelogData;
+  try {
+    data = JSON.parse(rawContent) as ChangelogData;
+  } catch (error) {
+    console.error(`入力ファイルのJSONパースに失敗: ${input}`);
+    console.error(error instanceof Error ? error.message : String(error));
+    Deno.exit(1);
+  }
+
+  // ミュート済みエントリを除外
+  const filteredData = filterMutedFromChangelog(data);
+
+  // 統計情報を出力
+  const stats = {
+    github: {
+      before: data.github.length,
+      after: filteredData.github.length,
+    },
+    aws: { before: data.aws.length, after: filteredData.aws.length },
+    claudeCode: {
+      before: data.claudeCode.length,
+      after: filteredData.claudeCode.length,
+    },
+    linear: { before: data.linear.length, after: filteredData.linear.length },
+  };
+
+  console.log("フィルタリング結果:");
+  for (const [provider, stat] of Object.entries(stats)) {
+    const removed = stat.before - stat.after;
+    if (removed > 0) {
+      console.log(
+        `  ${provider}: ${stat.before} -> ${stat.after} (${removed}件ミュート除外)`,
+      );
+    } else {
+      console.log(`  ${provider}: ${stat.after}件 (ミュートなし)`);
+    }
+  }
+
+  // 出力ファイルに書き込み
+  try {
+    await Deno.writeTextFile(output, JSON.stringify(filteredData, null, 2));
+    console.log(`\n出力ファイル: ${output}`);
+  } catch (error) {
+    console.error(`出力ファイルの書き込みに失敗: ${output}`);
+    console.error(error instanceof Error ? error.message : String(error));
+    Deno.exit(1);
+  }
+}
+
+// スクリプトとして実行された場合のみmain()を呼び出し
+if (import.meta.main) {
+  main();
+}

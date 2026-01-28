@@ -23,7 +23,21 @@
 
 ---
 
-## 2. Discussion構成
+## 2. ワークフロートリガー
+
+### スケジュール実行
+
+- **実行時刻**: 毎週水曜日 10:00 JST（UTC 1:00）
+- **投稿先カテゴリ**: `Weekly`
+
+### 手動実行
+
+- **パラメータ**: 終了日（YYYY-MM-DD形式、省略時は当日）
+- **投稿先カテゴリ**: `manual trigger`
+
+---
+
+## 3. Discussion構成
 
 ### タイトル形式
 
@@ -49,7 +63,7 @@
 
 ---
 
-## 3. カテゴリ分類ルール
+## 4. カテゴリ分類ルール
 
 ### GitHub（labelベースの分類）
 
@@ -101,7 +115,7 @@ AWSのエントリは`labels`フィールドの`products`を使用して分類�
 
 ---
 
-## 4. LLM生成コンテンツ
+## 5. LLM生成コンテンツ
 
 ### ハイライト
 
@@ -135,7 +149,7 @@ GitHub/AWSでは各カテゴリに対してコメントを生成します：
 
 ---
 
-## 5. 過去Discussion参照
+## 6. 過去Discussion参照
 
 ### 参照範囲
 
@@ -166,7 +180,7 @@ export async function fetchPastWeeklyDiscussionsByProvider(
 
 ---
 
-## 6. データフロー
+## 7. データフロー
 
 ### 入力データ
 
@@ -194,7 +208,7 @@ export async function fetchPastWeeklyDiscussionsByProvider(
 
 ---
 
-## 7. 型定義
+## 8. 型定義
 
 ### CategoryGroup（GitHub/AWS用）
 
@@ -272,7 +286,7 @@ export interface PastWeeklyDiscussion {
 
 ---
 
-## 8. Markdown出力形式
+## 9. Markdown出力形式
 
 ### GitHub/AWS（カテゴリありプロバイダー）
 
@@ -334,7 +348,7 @@ export interface PastWeeklyDiscussion {
 
 ---
 
-## 9. 実装ファイル一覧
+## 10. 実装ファイル一覧
 
 | ファイル | 役割 |
 |---------|------|
@@ -348,7 +362,7 @@ export interface PastWeeklyDiscussion {
 
 ---
 
-## 10. コマンド一覧
+## 11. コマンド一覧
 
 ```bash
 # 過去Discussion取得

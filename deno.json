@@ -16,7 +16,8 @@
     "preview-blog": "deno run --allow-read --allow-write --allow-env scripts/preview-discussion.ts --category=blog",
     "reply-discussion": "deno run --allow-net --allow-env scripts/reply-discussion.ts",
     "test": "deno test --allow-read --allow-env --ignore=scripts/fetch-changelogs_integration_test.ts",
-    "test:integration": "deno test --allow-read --allow-write --allow-env scripts/fetch-changelogs_integration_test.ts"
+    "test:integration": "deno test --allow-read --allow-write --allow-env scripts/fetch-changelogs_integration_test.ts",
+    "filter-muted": "deno run --allow-read --allow-write scripts/filter-muted-entries.ts"
   },
   "imports": {
     "@octokit/rest": "npm:@octokit/rest@21.0.2",
