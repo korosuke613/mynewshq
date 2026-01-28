@@ -1,4 +1,5 @@
 import { graphql } from "@octokit/graphql";
+import { Octokit } from "@octokit/rest";
 import type {
   BlogData,
   BlogSummaryData,
@@ -35,6 +36,7 @@ import {
   getCategoryEmoji,
 } from "./presentation/markdown/helpers.ts";
 import { generateMutedSection } from "./presentation/markdown/muted-section.ts";
+import { getCategoryNameFromEnv } from "./domain/category-config.ts";
 
 // カテゴリオプション
 type CategoryOption = "changelog" | "blog";
@@ -979,7 +981,17 @@ async function main() {
   } = parseArgs(Deno.args);
   const owner = otherArgs[0] || "korosuke613";
   const repo = otherArgs[1] || "mynewshq";
-  const categoryName = otherArgs[2] || "General";
+
+  // カテゴリ名の決定：環境変数から設定を取得
+  const octokit = new Octokit({ auth: token });
+  const categoryName = await getCategoryNameFromEnv(
+    octokit,
+    owner,
+    repo,
+    category,
+    weekly,
+  );
+  console.log(`Using category from config: ${categoryName}`);
 
   // 要約JSONの取得：--summaries-file が優先、なければ --summaries-json を使用
   let summariesJson: string | null = summariesJsonArg;
@@ -995,8 +1007,8 @@ async function main() {
     }
   }
 
-  // 引数から要約を取得（4番目以降の引数をすべて結合）- 後方互換性のため維持
-  const legacySummary = otherArgs.slice(3).join(" ");
+  // 引数から要約を取得（3番目以降の引数をすべて結合）- 後方互換性のため維持
+  const legacySummary = otherArgs.slice(2).join(" ");
 
   if (category === "blog") {
     await createBlogDiscussion(

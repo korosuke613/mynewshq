@@ -86,6 +86,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
           MUTE_WORDS_ISSUE_NUMBER: "1"
+          CATEGORY_CONFIG_ISSUE_NUMBER: "104"
         run: |
           deno task fetch --days=7 --weekly --date=${{ steps.target-date.outputs.end_date }}
 
@@ -299,6 +300,8 @@ jobs:
       - name: Merge summaries and post discussions
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+          CATEGORY_CONFIG_ISSUE_NUMBER: "104"
+          WORKFLOW_TRIGGER: ${{ github.event_name }}
         run: |
           # 要約ファイルを統合
           echo "Merging summaries..."
@@ -336,10 +339,9 @@ jobs:
             AUTO_CLOSE_FLAG="--auto-close"
           fi
 
-          # Discussion投稿
+          # Discussion投稿（カテゴリはスクリプト内で環境変数から取得）
           deno task post-weekly-all \
             --date=${{ needs.fetch-data.outputs.end_date }} \
             --changelog-file=data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json \
             --summaries-file=/tmp/all-summaries.json \
-            --category="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Weekly' }}" \
             $AUTO_CLOSE_FLAG

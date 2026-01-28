@@ -1,6 +1,7 @@
 // 週次処理Orchestratorエントリポイント
 // fetch-past-all, post-all サブコマンドをサポート
 
+import { Octokit } from "@octokit/rest";
 import type { ChangelogData, ProviderWeeklySummary } from "./domain/types.ts";
 import type { WeeklyContext } from "./domain/weekly/types.ts";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./domain/weekly/orchestrator.ts";
 import { renderPromptTemplate } from "./domain/weekly/pipeline.ts";
 import { closeDiscussion } from "./create-discussion.ts";
+import { getCategoryNameFromEnv } from "./domain/category-config.ts";
 
 /**
  * コマンドライン引数をパース
@@ -20,7 +22,6 @@ function parseArgs(args: string[]): {
   date: string;
   owner: string;
   repo: string;
-  categoryName: string;
   dryRun: boolean;
   autoClose: boolean;
   summariesFile: string | null;
@@ -32,7 +33,6 @@ function parseArgs(args: string[]): {
   const dateArg = args.find((arg) => arg.startsWith("--date="));
   const ownerArg = args.find((arg) => arg.startsWith("--owner="));
   const repoArg = args.find((arg) => arg.startsWith("--repo="));
-  const categoryArg = args.find((arg) => arg.startsWith("--category="));
   const summariesFileArg = args.find((arg) =>
     arg.startsWith("--summaries-file=")
   );
@@ -49,7 +49,6 @@ function parseArgs(args: string[]): {
     date: dateArg?.split("=")[1] ?? new Date().toISOString().split("T")[0],
     owner: ownerArg?.split("=")[1] ?? "korosuke613",
     repo: repoArg?.split("=")[1] ?? "mynewshq",
-    categoryName: categoryArg?.split("=")[1] ?? "General",
     dryRun,
     autoClose,
     summariesFile: summariesFileArg?.split("=")[1] ?? null,
@@ -101,7 +100,6 @@ async function fetchPastAll(options: {
   date: string;
   owner: string;
   repo: string;
-  categoryName: string;
   limit: number;
   outputFile: string | null;
 }): Promise<void> {
@@ -119,7 +117,7 @@ async function fetchPastAll(options: {
     token,
     owner: options.owner,
     repo: options.repo,
-    categoryName: options.categoryName,
+    categoryName: "General", // 過去Discussion取得では使用されない
   };
 
   const orchestrator = createOrchestrator();
@@ -162,7 +160,6 @@ async function prepareSummarize(options: {
   date: string;
   owner: string;
   repo: string;
-  categoryName: string;
   changelogFile: string | null;
   outputFile: string | null;
   limit: number;
@@ -183,7 +180,7 @@ async function prepareSummarize(options: {
     token,
     owner: options.owner,
     repo: options.repo,
-    categoryName: options.categoryName,
+    categoryName: "General", // 要約準備では使用されない
   };
 
   const orchestrator = createOrchestrator();
@@ -227,7 +224,6 @@ async function renderPrompt(options: {
   date: string;
   owner: string;
   repo: string;
-  categoryName: string;
   changelogFile: string | null;
   outputFile: string | null;
   limit: number;
@@ -254,7 +250,7 @@ async function renderPrompt(options: {
     token,
     owner: options.owner,
     repo: options.repo,
-    categoryName: options.categoryName,
+    categoryName: "General", // プロンプト生成では使用されない
   };
 
   // 過去Discussionを取得
@@ -308,7 +304,6 @@ async function postAll(options: {
   date: string;
   owner: string;
   repo: string;
-  categoryName: string;
   dryRun: boolean;
   autoClose: boolean;
   summariesFile: string | null;
@@ -335,13 +330,24 @@ async function postAll(options: {
     summariesContent,
   );
 
+  // カテゴリ名の決定：環境変数から設定を取得
+  const octokit = new Octokit({ auth: token });
+  const categoryName = await getCategoryNameFromEnv(
+    octokit,
+    options.owner,
+    options.repo,
+    "changelog",
+    true, // 週次処理
+  );
+  console.log(`Using category from config: ${categoryName}`);
+
   const ctx: WeeklyContext = {
     startDate: changelogData.startDate ?? options.date,
     endDate: changelogData.endDate ?? options.date,
     token,
     owner: options.owner,
     repo: options.repo,
-    categoryName: options.categoryName,
+    categoryName,
     dryRun: options.dryRun,
   };
 
@@ -414,13 +420,16 @@ Options:
   --date=YYYY-MM-DD       対象日（デフォルト: 今日）
   --owner=OWNER           リポジトリオーナー（デフォルト: korosuke613）
   --repo=REPO             リポジトリ名（デフォルト: mynewshq）
-  --category=CATEGORY     Discussionカテゴリ（デフォルト: General）
   --changelog-file=PATH   Changelogファイルパス（省略時は日付から推定）
   --summaries-file=PATH   要約JSONファイルパス（post-allで必須）
   --output=PATH           出力ファイルパス
   --limit=N               過去Discussion取得件数（デフォルト: 2）
   --dry-run               ドライラン（投稿せずに結果表示）
   --auto-close            投稿後にDiscussionを自動クローズ
+
+Environment Variables:
+  CATEGORY_CONFIG_ISSUE_NUMBER  カテゴリ設定を管理するIssue番号
+  WORKFLOW_TRIGGER              ワークフロートリガー（schedule/workflow_dispatch）
 
 Examples:
   # 過去Discussionを取得

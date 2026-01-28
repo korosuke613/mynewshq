@@ -43,6 +43,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
           MUTE_WORDS_ISSUE_NUMBER: "1"
+          CATEGORY_CONFIG_ISSUE_NUMBER: "104"
         run: |
           if [ -n "${{ inputs.date }}" ]; then
             TARGET_DATE="${{ inputs.date }}"
@@ -111,6 +112,8 @@ jobs:
         if: steps.fetch.outputs.has_changelog == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+          CATEGORY_CONFIG_ISSUE_NUMBER: "104"
+          WORKFLOW_TRIGGER: ${{ github.event_name }}
         run: |
           # Claude Code の structured_output をファイルに書き出し
           cat <<'EOF' > /tmp/changelog-summaries.json
@@ -119,13 +122,13 @@ jobs:
 
           TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/changelog-summaries.json)"
 
-          DISCUSSION_CATEGORY="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Daily' }}"
+          # カテゴリはスクリプト内で環境変数から取得
           if [ -s /tmp/changelog-summaries.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
             echo "Using changelog summaries from file"
-            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/changelog-summaries.json korosuke613 mynewshq "$DISCUSSION_CATEGORY"
+            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/changelog-summaries.json korosuke613 mynewshq
           else
             echo "Warning: No valid changelog summaries JSON from Claude Code, using default body"
-            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq "$DISCUSSION_CATEGORY"
+            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq
           fi
 
       # ========================================
@@ -161,6 +164,8 @@ jobs:
         if: steps.fetch.outputs.has_blog == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+          CATEGORY_CONFIG_ISSUE_NUMBER: "104"
+          WORKFLOW_TRIGGER: ${{ github.event_name }}
         run: |
           # Claude Code の structured_output をファイルに書き出し
           cat <<'EOF' > /tmp/blog-summaries.json
@@ -169,11 +174,11 @@ jobs:
 
           TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/blog-summaries.json)"
 
-          DISCUSSION_CATEGORY="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Daily' }}"
+          # カテゴリはスクリプト内で環境変数から取得
           if [ -s /tmp/blog-summaries.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
             echo "Using blog summaries from file"
-            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/blog-summaries.json korosuke613 mynewshq "$DISCUSSION_CATEGORY"
+            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/blog-summaries.json korosuke613 mynewshq
           else
             echo "Warning: No valid blog summaries JSON from Claude Code, using default body"
-            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq "$DISCUSSION_CATEGORY"
+            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq
           fi

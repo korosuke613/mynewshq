@@ -1,5 +1,6 @@
 // プロバイダー単位でWeekly Discussionを投稿するスクリプト
 
+import { Octokit } from "@octokit/rest";
 import type {
   ChangelogData,
   ChangelogEntry,
@@ -7,6 +8,7 @@ import type {
   ReleaseEntry,
 } from "./domain/types.ts";
 import { createProviderWeeklyDiscussion } from "./create-discussion.ts";
+import { getCategoryNameFromEnv } from "./domain/category-config.ts";
 
 interface PostWeeklyProviderArgs {
   date: string;
@@ -14,7 +16,6 @@ interface PostWeeklyProviderArgs {
   summariesFile: string | null;
   owner: string;
   repo: string;
-  categoryName: string;
   dryRun: boolean;
 }
 
@@ -26,7 +27,6 @@ function parseArgs(args: string[]): PostWeeklyProviderArgs {
   );
   const ownerArg = args.find((arg) => arg.startsWith("--owner="));
   const repoArg = args.find((arg) => arg.startsWith("--repo="));
-  const categoryArg = args.find((arg) => arg.startsWith("--category="));
   const dryRunArg = args.includes("--dry-run");
 
   const date = dateArg
@@ -55,7 +55,6 @@ function parseArgs(args: string[]): PostWeeklyProviderArgs {
     summariesFile: summariesFileArg ? summariesFileArg.split("=")[1] : null,
     owner: ownerArg ? ownerArg.split("=")[1] : "korosuke613",
     repo: repoArg ? repoArg.split("=")[1] : "mynewshq",
-    categoryName: categoryArg ? categoryArg.split("=")[1] : "Weekly",
     dryRun: dryRunArg,
   };
 }
@@ -67,8 +66,14 @@ async function main() {
     Deno.exit(1);
   }
 
-  const { date, provider, summariesFile, owner, repo, categoryName, dryRun } =
-    parseArgs(Deno.args);
+  const {
+    date,
+    provider,
+    summariesFile,
+    owner,
+    repo,
+    dryRun,
+  } = parseArgs(Deno.args);
 
   // 週次データを読み込む
   const changelogPath = `data/changelogs/weekly/${date}.json`;
@@ -95,6 +100,17 @@ async function main() {
     console.error(`Failed to read summaries file ${summariesFile}:`, error);
     Deno.exit(1);
   }
+
+  // カテゴリ名の決定：環境変数から設定を取得
+  const octokit = new Octokit({ auth: token });
+  const categoryName = await getCategoryNameFromEnv(
+    octokit,
+    owner,
+    repo,
+    "changelog",
+    true, // 週次処理
+  );
+  console.log(`Using category from config: ${categoryName}`);
 
   // プロバイダーのデータを取得
   const providerData = changelogData[
