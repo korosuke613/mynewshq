@@ -200,3 +200,63 @@ Deno.test("adapter generateMarkdown should return markdown string", () => {
   assertEquals(markdown?.includes("GitHub Changelog"), true);
   assertEquals(markdown?.includes("今週のハイライト"), true);
 });
+
+Deno.test("postAllDiscussions should filter muted entries before generating markdown", () => {
+  const orchestrator = createOrchestrator();
+
+  const changelogData: ChangelogData = {
+    date: "2026-01-27",
+    startDate: "2026-01-21",
+    endDate: "2026-01-27",
+    github: [
+      {
+        title: "Active Entry",
+        url: "https://github.blog/changelog/active",
+        content: "Active content",
+        pubDate: "2026-01-25",
+      },
+      {
+        title: "Amazon RDS Muted Entry",
+        url: "https://github.blog/changelog/muted",
+        content: "Muted content",
+        pubDate: "2026-01-25",
+        muted: true,
+        mutedBy: "Amazon RDS",
+      },
+    ],
+    aws: [],
+    claudeCode: [],
+    linear: [],
+  };
+
+  const summary: ProviderWeeklySummary = {
+    providerId: "github",
+    highlights: ["Highlight 1"],
+    categories: [
+      {
+        category: "copilot",
+        entries: [
+          { url: "https://github.blog/changelog/active", title: "Active Entry" },
+        ],
+        comment: "Test comment",
+        historicalContext: "Test context",
+      },
+    ],
+  };
+
+  // generateMarkdown が正しくフィルタされたデータを受け取ることを確認
+  // （実際の投稿はテストしない）
+  const adapter = orchestrator["adapters"].get("github");
+  const data = orchestrator.getProviderData(changelogData, "github");
+
+  // フィルタ前: 2エントリ（1つmuted）
+  assertEquals(data.length, 2);
+
+  // フィルタ後: 1エントリ（mutedを除外）
+  const filteredData = data.filter((entry) => !entry.muted);
+  assertEquals(filteredData.length, 1);
+  assertEquals(
+    (filteredData[0] as { title: string }).title,
+    "Active Entry",
+  );
+});

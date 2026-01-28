@@ -180,7 +180,9 @@ export class WeeklyOrchestrator {
         }
 
         const data = this.getProviderData(changelogData, providerId);
-        const markdown = adapter.generateMarkdown(data, summary, ctx);
+        // mutedエントリを除外
+        const filteredData = filterMutedEntries(data);
+        const markdown = adapter.generateMarkdown(filteredData, summary, ctx);
         const result = await adapter.postDiscussion(markdown, summary, ctx);
 
         return [providerId, result] as const;
@@ -227,7 +229,9 @@ export class WeeklyOrchestrator {
     }
 
     const data = this.getProviderData(changelogData, providerId);
-    const markdown = adapter.generateMarkdown(data, summary, ctx);
+    // mutedエントリを除外
+    const filteredData = filterMutedEntries(data);
+    const markdown = adapter.generateMarkdown(filteredData, summary, ctx);
     return await adapter.postDiscussion(markdown, summary, ctx);
   }
 }
