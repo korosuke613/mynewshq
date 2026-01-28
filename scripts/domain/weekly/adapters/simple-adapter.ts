@@ -3,7 +3,7 @@
 
 import type {
   ChangelogData,
-  ProviderWeeklySummary,
+  ChangelogEntry,
   ReleaseEntry,
 } from "../../types.ts";
 import type { SummarizeConfig } from "../pipeline.ts";
@@ -70,25 +70,17 @@ export class ClaudeCodeAdapter extends BaseAdapter {
     };
   }
 
-  protected buildSingleProviderChangelogData(
-    summary: ProviderWeeklySummary,
+  protected buildChangelogDataFromProviderData(
+    providerData: ChangelogEntry[] | ReleaseEntry[],
     ctx: WeeklyContext,
   ): ChangelogData {
-    // summaryからReleaseEntryを復元
-    const releases: ReleaseEntry[] = summary.entries?.map((e) => ({
-      version: e.title,
-      url: e.url,
-      body: "",
-      publishedAt: ctx.endDate,
-    })) ?? [];
-
     return {
       date: ctx.endDate,
       startDate: ctx.startDate,
       endDate: ctx.endDate,
       github: [],
       aws: [],
-      claudeCode: releases,
+      claudeCode: providerData as ReleaseEntry[],
       linear: [],
     };
   }
@@ -107,18 +99,10 @@ export class LinearAdapter extends BaseAdapter {
     };
   }
 
-  protected buildSingleProviderChangelogData(
-    summary: ProviderWeeklySummary,
+  protected buildChangelogDataFromProviderData(
+    providerData: ChangelogEntry[] | ReleaseEntry[],
     ctx: WeeklyContext,
   ): ChangelogData {
-    // summaryからChangelogEntryを復元
-    const entries = summary.entries?.map((e) => ({
-      title: e.title,
-      url: e.url,
-      content: "",
-      pubDate: ctx.endDate,
-    })) ?? [];
-
     return {
       date: ctx.endDate,
       startDate: ctx.startDate,
@@ -126,7 +110,7 @@ export class LinearAdapter extends BaseAdapter {
       github: [],
       aws: [],
       claudeCode: [],
-      linear: entries,
+      linear: providerData as ChangelogEntry[],
     };
   }
 }

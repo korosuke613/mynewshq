@@ -266,8 +266,8 @@ export abstract class BaseAdapter implements WeeklyPipeline {
    */
   async postDiscussion(
     markdown: string,
-    summary: ProviderWeeklySummary,
     ctx: WeeklyContext,
+    providerData: ChangelogEntry[] | ReleaseEntry[],
   ): Promise<PipelineResult<PostDiscussionData>> {
     if (ctx.dryRun) {
       const title = generateProviderWeeklyTitle(this.providerId, ctx.endDate);
@@ -361,13 +361,13 @@ export abstract class BaseAdapter implements WeeklyPipeline {
       console.log(`Created discussion: ${title}`);
       console.log(`URL: ${discussionUrl}`);
 
-      // ラベル付与
+      // ラベル付与（元データから抽出）
       await this.addLabels(
         graphqlWithAuth,
         repositoryId,
         discussionId,
         repoData.repository.labels.nodes,
-        summary,
+        providerData,
         ctx,
       );
 
@@ -387,22 +387,22 @@ export abstract class BaseAdapter implements WeeklyPipeline {
 
   /**
    * ラベルを追加
-   * プロバイダー固有のChangelogDataを構築してdetermineLabelsを使用
+   * 元データから直接ChangelogDataを構築してdetermineLabelsを使用
    */
   protected async addLabels(
     graphqlWithAuth: typeof graphql,
     repositoryId: string,
     discussionId: string,
     existingLabelsNodes: Label[],
-    summary: ProviderWeeklySummary,
+    providerData: ChangelogEntry[] | ReleaseEntry[],
     ctx: WeeklyContext,
   ): Promise<void> {
-    // 単一プロバイダーのChangelogDataを構築
-    const singleProviderData = this.buildSingleProviderChangelogData(
-      summary,
+    // 元データからChangelogDataを構築
+    const changelogData = this.buildChangelogDataFromProviderData(
+      providerData,
       ctx,
     );
-    const labelNames = determineLabels(singleProviderData, {
+    const labelNames = determineLabels(changelogData, {
       serviceOnly: false,
     });
 
@@ -454,11 +454,11 @@ export abstract class BaseAdapter implements WeeklyPipeline {
   }
 
   /**
-   * 単一プロバイダー用のChangelogDataを構築
-   * 派生クラスでオーバーライドしてプロバイダー固有のデータを設定
+   * 元データからChangelogDataを構築
+   * 派生クラスでオーバーライドしてプロバイダー固有のフィールドに設定
    */
-  protected abstract buildSingleProviderChangelogData(
-    summary: ProviderWeeklySummary,
+  protected abstract buildChangelogDataFromProviderData(
+    providerData: ChangelogEntry[] | ReleaseEntry[],
     ctx: WeeklyContext,
   ): ChangelogData;
 }

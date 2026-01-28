@@ -1,7 +1,11 @@
 // カテゴリ分類ありアダプタ（GitHub/AWS用）
 // labels フィールドを使用してカテゴリ別要約を生成
 
-import type { ChangelogData, ProviderWeeklySummary } from "../../types.ts";
+import type {
+  ChangelogData,
+  ChangelogEntry,
+  ReleaseEntry,
+} from "../../types.ts";
 import type { SummarizeConfig } from "../pipeline.ts";
 import type { WeeklyContext } from "../types.ts";
 import { CATEGORIZED_SUMMARY_SCHEMA } from "../types.ts";
@@ -62,27 +66,15 @@ export class GitHubAdapter extends BaseAdapter {
     };
   }
 
-  protected buildSingleProviderChangelogData(
-    summary: ProviderWeeklySummary,
+  protected buildChangelogDataFromProviderData(
+    providerData: ChangelogEntry[] | ReleaseEntry[],
     ctx: WeeklyContext,
   ): ChangelogData {
-    // summaryからエントリを復元（カテゴリ内のエントリを収集）
-    const entries =
-      summary.categories?.flatMap((cat) =>
-        cat.entries.map((e) => ({
-          title: e.title,
-          url: e.url,
-          content: "",
-          pubDate: ctx.endDate,
-          labels: { "changelog-label": [cat.category] },
-        }))
-      ) ?? [];
-
     return {
       date: ctx.endDate,
       startDate: ctx.startDate,
       endDate: ctx.endDate,
-      github: entries,
+      github: providerData as ChangelogEntry[],
       aws: [],
       claudeCode: [],
       linear: [],
@@ -103,28 +95,16 @@ export class AWSAdapter extends BaseAdapter {
     };
   }
 
-  protected buildSingleProviderChangelogData(
-    summary: ProviderWeeklySummary,
+  protected buildChangelogDataFromProviderData(
+    providerData: ChangelogEntry[] | ReleaseEntry[],
     ctx: WeeklyContext,
   ): ChangelogData {
-    // summaryからエントリを復元（カテゴリ内のエントリを収集）
-    const entries =
-      summary.categories?.flatMap((cat) =>
-        cat.entries.map((e) => ({
-          title: e.title,
-          url: e.url,
-          content: "",
-          pubDate: ctx.endDate,
-          labels: { "changelog-label": [cat.category] },
-        }))
-      ) ?? [];
-
     return {
       date: ctx.endDate,
       startDate: ctx.startDate,
       endDate: ctx.endDate,
       github: [],
-      aws: entries,
+      aws: providerData as ChangelogEntry[],
       claudeCode: [],
       linear: [],
     };
