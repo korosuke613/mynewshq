@@ -231,8 +231,6 @@ export async function closeDiscussion(
   `,
     { discussionId },
   );
-
-  console.log(`Discussion closed: ${discussionId}`);
 }
 
 // Daily Discussion のリンクを期間内で取得

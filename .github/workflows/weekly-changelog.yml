@@ -123,33 +123,41 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             # 入力値がtrueかつデータが存在する場合のみtrue
             if [ "${{ inputs.run_github }}" == "true" ] && [ "${{ steps.fetch.outputs.has_github }}" == "true" ]; then
-              echo "has_github=true" >> $GITHUB_OUTPUT
+              has_github_flag=true
             else
-              echo "has_github=false" >> $GITHUB_OUTPUT
+              has_github_flag=false
             fi
+            echo "has_github=${has_github_flag}" >> $GITHUB_OUTPUT
             if [ "${{ inputs.run_aws }}" == "true" ] && [ "${{ steps.fetch.outputs.has_aws }}" == "true" ]; then
-              echo "has_aws=true" >> $GITHUB_OUTPUT
+              has_aws_flag=true
             else
-              echo "has_aws=false" >> $GITHUB_OUTPUT
+              has_aws_flag=false
             fi
+            echo "has_aws=${has_aws_flag}" >> $GITHUB_OUTPUT
             if [ "${{ inputs.run_claudeCode }}" == "true" ] && [ "${{ steps.fetch.outputs.has_claudeCode }}" == "true" ]; then
-              echo "has_claudeCode=true" >> $GITHUB_OUTPUT
+              has_claudeCode_flag=true
             else
-              echo "has_claudeCode=false" >> $GITHUB_OUTPUT
+              has_claudeCode_flag=false
             fi
+            echo "has_claudeCode=${has_claudeCode_flag}" >> $GITHUB_OUTPUT
             if [ "${{ inputs.run_linear }}" == "true" ] && [ "${{ steps.fetch.outputs.has_linear }}" == "true" ]; then
-              echo "has_linear=true" >> $GITHUB_OUTPUT
+              has_linear_flag=true
             else
-              echo "has_linear=false" >> $GITHUB_OUTPUT
+              has_linear_flag=false
             fi
+            echo "has_linear=${has_linear_flag}" >> $GITHUB_OUTPUT
           else
             # schedule実行の場合はfetchの結果をそのまま使用
-            echo "has_github=${{ steps.fetch.outputs.has_github }}" >> $GITHUB_OUTPUT
-            echo "has_aws=${{ steps.fetch.outputs.has_aws }}" >> $GITHUB_OUTPUT
-            echo "has_claudeCode=${{ steps.fetch.outputs.has_claudeCode }}" >> $GITHUB_OUTPUT
-            echo "has_linear=${{ steps.fetch.outputs.has_linear }}" >> $GITHUB_OUTPUT
+            has_github_flag="${{ steps.fetch.outputs.has_github }}"
+            has_aws_flag="${{ steps.fetch.outputs.has_aws }}"
+            has_claudeCode_flag="${{ steps.fetch.outputs.has_claudeCode }}"
+            has_linear_flag="${{ steps.fetch.outputs.has_linear }}"
+            echo "has_github=${has_github_flag}" >> $GITHUB_OUTPUT
+            echo "has_aws=${has_aws_flag}" >> $GITHUB_OUTPUT
+            echo "has_claudeCode=${has_claudeCode_flag}" >> $GITHUB_OUTPUT
+            echo "has_linear=${has_linear_flag}" >> $GITHUB_OUTPUT
           fi
-          echo "Final provider flags calculated for event: ${{ github.event_name }}"
+          echo "Final provider flags for event '${{ github.event_name }}': github=${has_github_flag}, aws=${has_aws_flag}, claudeCode=${has_claudeCode_flag}, linear=${has_linear_flag}"
 
       - name: Upload changelog data
         if: steps.fetch.outputs.has_data == 'true'
