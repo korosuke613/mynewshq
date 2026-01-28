@@ -119,12 +119,13 @@ jobs:
 
           TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/changelog-summaries.json)"
 
+          DISCUSSION_CATEGORY="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Daily' }}"
           if [ -s /tmp/changelog-summaries.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
             echo "Using changelog summaries from file"
-            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/changelog-summaries.json korosuke613 mynewshq Daily
+            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/changelog-summaries.json korosuke613 mynewshq "$DISCUSSION_CATEGORY"
           else
             echo "Warning: No valid changelog summaries JSON from Claude Code, using default body"
-            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq Daily
+            deno task post --category=changelog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq "$DISCUSSION_CATEGORY"
           fi
 
       # ========================================
@@ -168,10 +169,11 @@ jobs:
 
           TRIMMED_CONTENT="$(tr -d '[:space:]' < /tmp/blog-summaries.json)"
 
+          DISCUSSION_CATEGORY="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Daily' }}"
           if [ -s /tmp/blog-summaries.json ] && [ "$TRIMMED_CONTENT" != "null" ] && [ -n "$TRIMMED_CONTENT" ]; then
             echo "Using blog summaries from file"
-            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/blog-summaries.json korosuke613 mynewshq Daily
+            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} --summaries-file=/tmp/blog-summaries.json korosuke613 mynewshq "$DISCUSSION_CATEGORY"
           else
             echo "Warning: No valid blog summaries JSON from Claude Code, using default body"
-            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq Daily
+            deno task post --category=blog --date=${{ steps.fetch.outputs.target_date }} korosuke613 mynewshq "$DISCUSSION_CATEGORY"
           fi

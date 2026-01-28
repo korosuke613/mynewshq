@@ -318,4 +318,5 @@ jobs:
           deno task post-weekly-all \
             --date=${{ needs.fetch-data.outputs.end_date }} \
             --changelog-file=data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json \
-            --summaries-file=/tmp/all-summaries.json
+            --summaries-file=/tmp/all-summaries.json \
+            --category="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Weekly' }}"
