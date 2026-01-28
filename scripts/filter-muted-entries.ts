@@ -81,12 +81,25 @@ async function main(): Promise<void> {
   const { input, output } = parseArgs(Deno.args);
 
   // 入力ファイルを読み込み
+  let rawContent: string;
+  try {
+    rawContent = await Deno.readTextFile(input);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      console.error(`入力ファイルが見つかりません: ${input}`);
+    } else {
+      console.error(`入力ファイルの読み込みに失敗: ${input}`);
+    }
+    console.error(error instanceof Error ? error.message : String(error));
+    Deno.exit(1);
+  }
+
+  // JSONをパース
   let data: ChangelogData;
   try {
-    const content = await Deno.readTextFile(input);
-    data = JSON.parse(content) as ChangelogData;
+    data = JSON.parse(rawContent) as ChangelogData;
   } catch (error) {
-    console.error(`入力ファイルの読み込みに失敗: ${input}`);
+    console.error(`入力ファイルのJSONパースに失敗: ${input}`);
     console.error(error instanceof Error ? error.message : String(error));
     Deno.exit(1);
   }
