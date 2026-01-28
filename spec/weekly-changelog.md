@@ -61,6 +61,17 @@
 2. **今週のハイライト**: 3-5行の箇条書きでプロバイダー全体の重要な変更点をまとめる
 3. **カテゴリ別詳細**（GitHub/AWS）またはリリース一覧（Claude Code/Linear）
 
+### Discussionラベル
+
+各Discussionには以下のラベルが自動付与されます：
+
+1. **プロバイダーラベル**: `GitHub Changelog`, `AWS`, `Claude Code`, `Linear`
+2. **サブカテゴリラベル**: 元データの`labels`フィールドから抽出
+   - GitHub: `gh:copilot`, `gh:actions`, `gh:security` など
+   - AWS: `aws:s3`, `aws:lambda`, `aws:ec2` など
+
+ラベル生成ルールは日次と同じです（`spec/daily-changelog.md` 参照）。
+
 ---
 
 ## 4. カテゴリ分類ルール

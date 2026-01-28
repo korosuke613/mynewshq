@@ -178,7 +178,7 @@ export class WeeklyOrchestrator {
 
         const data = this.getProviderData(changelogData, providerId);
         const markdown = adapter.generateMarkdown(data, summary, ctx);
-        const result = await adapter.postDiscussion(markdown, summary, ctx);
+        const result = await adapter.postDiscussion(markdown, ctx, data);
 
         return [providerId, result] as const;
       }),
@@ -225,7 +225,7 @@ export class WeeklyOrchestrator {
 
     const data = this.getProviderData(changelogData, providerId);
     const markdown = adapter.generateMarkdown(data, summary, ctx);
-    return await adapter.postDiscussion(markdown, summary, ctx);
+    return await adapter.postDiscussion(markdown, ctx, data);
   }
 }
 

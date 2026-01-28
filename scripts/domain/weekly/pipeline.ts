@@ -53,14 +53,14 @@ export interface WeeklyPipeline {
   /**
    * Discussionを投稿
    * @param markdown 投稿するMarkdown
-   * @param summary 要約データ（タイトル生成等に使用）
    * @param ctx 週次処理コンテキスト
+   * @param providerData 元データ（ラベル抽出に使用）
    * @returns 投稿結果（URL等）のPipelineResult
    */
   postDiscussion(
     markdown: string,
-    summary: ProviderWeeklySummary,
     ctx: WeeklyContext,
+    providerData: ChangelogEntry[] | ReleaseEntry[],
   ): Promise<PipelineResult<PostDiscussionData>>;
 }
 

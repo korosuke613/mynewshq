@@ -159,7 +159,7 @@
 1. **プロバイダーラベル**: データが存在するプロバイダーのラベルを付与
    - `GitHub Changelog`, `AWS`, `Claude Code`, `Linear`
 
-2. **サブカテゴリラベル**（日次のみ）:
+2. **サブカテゴリラベル**:
    - GitHub: `gh:copilot`, `gh:actions`, `gh:security` など
    - AWS: `aws:s3`, `aws:lambda`, `aws:ec2` など
 
