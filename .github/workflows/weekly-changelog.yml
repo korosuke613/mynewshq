@@ -41,10 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has_data: ${{ steps.fetch.outputs.has_data }}
-      has_github: ${{ steps.provider-flags.outputs.has_github }}
-      has_aws: ${{ steps.provider-flags.outputs.has_aws }}
-      has_claudeCode: ${{ steps.provider-flags.outputs.has_claudeCode }}
-      has_linear: ${{ steps.provider-flags.outputs.has_linear }}
+      has_github: ${{ steps.fetch.outputs.has_github }}
+      has_aws: ${{ steps.fetch.outputs.has_aws }}
+      has_claudeCode: ${{ steps.fetch.outputs.has_claudeCode }}
+      has_linear: ${{ steps.fetch.outputs.has_linear }}
       end_date: ${{ steps.target-date.outputs.end_date }}
       start_date: ${{ steps.target-date.outputs.start_date }}
 
@@ -115,50 +115,6 @@ jobs:
             --input=data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json \
             --output=data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}-filtered.json
 
-      - name: Calculate final provider flags
-        id: provider-flags
-        run: |
-          # workflow_dispatchの場合は入力値とfetch結果の両方を考慮
-          # scheduleの場合はfetch結果をそのまま使用
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            # 入力値がtrueかつデータが存在する場合のみtrue
-            if [ "${{ inputs.run_github }}" == "true" ] && [ "${{ steps.fetch.outputs.has_github }}" == "true" ]; then
-              has_github_flag=true
-            else
-              has_github_flag=false
-            fi
-            echo "has_github=${has_github_flag}" >> $GITHUB_OUTPUT
-            if [ "${{ inputs.run_aws }}" == "true" ] && [ "${{ steps.fetch.outputs.has_aws }}" == "true" ]; then
-              has_aws_flag=true
-            else
-              has_aws_flag=false
-            fi
-            echo "has_aws=${has_aws_flag}" >> $GITHUB_OUTPUT
-            if [ "${{ inputs.run_claudeCode }}" == "true" ] && [ "${{ steps.fetch.outputs.has_claudeCode }}" == "true" ]; then
-              has_claudeCode_flag=true
-            else
-              has_claudeCode_flag=false
-            fi
-            echo "has_claudeCode=${has_claudeCode_flag}" >> $GITHUB_OUTPUT
-            if [ "${{ inputs.run_linear }}" == "true" ] && [ "${{ steps.fetch.outputs.has_linear }}" == "true" ]; then
-              has_linear_flag=true
-            else
-              has_linear_flag=false
-            fi
-            echo "has_linear=${has_linear_flag}" >> $GITHUB_OUTPUT
-          else
-            # schedule実行の場合はfetchの結果をそのまま使用
-            has_github_flag="${{ steps.fetch.outputs.has_github }}"
-            has_aws_flag="${{ steps.fetch.outputs.has_aws }}"
-            has_claudeCode_flag="${{ steps.fetch.outputs.has_claudeCode }}"
-            has_linear_flag="${{ steps.fetch.outputs.has_linear }}"
-            echo "has_github=${has_github_flag}" >> $GITHUB_OUTPUT
-            echo "has_aws=${has_aws_flag}" >> $GITHUB_OUTPUT
-            echo "has_claudeCode=${has_claudeCode_flag}" >> $GITHUB_OUTPUT
-            echo "has_linear=${has_linear_flag}" >> $GITHUB_OUTPUT
-          fi
-          echo "Final provider flags for event '${{ github.event_name }}': github=${has_github_flag}, aws=${has_aws_flag}, claudeCode=${has_claudeCode_flag}, linear=${has_linear_flag}"
-
       - name: Upload changelog data
         if: steps.fetch.outputs.has_data == 'true'
         uses: actions/upload-artifact@v4
@@ -180,16 +136,16 @@ jobs:
       matrix:
         include:
           - provider: github
-            has_data: ${{ needs.fetch-data.outputs.has_github }}
+            has_data: ${{ (github.event_name != 'workflow_dispatch' || inputs.run_github) && needs.fetch-data.outputs.has_github == 'true' }}
             json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"github"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
           - provider: aws
-            has_data: ${{ needs.fetch-data.outputs.has_aws }}
+            has_data: ${{ (github.event_name != 'workflow_dispatch' || inputs.run_aws) && needs.fetch-data.outputs.has_aws == 'true' }}
             json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"aws"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
           - provider: claudeCode
-            has_data: ${{ needs.fetch-data.outputs.has_claudeCode }}
+            has_data: ${{ (github.event_name != 'workflow_dispatch' || inputs.run_claudeCode) && needs.fetch-data.outputs.has_claudeCode == 'true' }}
             json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"claudeCode"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
           - provider: linear
-            has_data: ${{ needs.fetch-data.outputs.has_linear }}
+            has_data: ${{ (github.event_name != 'workflow_dispatch' || inputs.run_linear) && needs.fetch-data.outputs.has_linear == 'true' }}
             json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"linear"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
       fail-fast: false
 
@@ -320,7 +276,7 @@ jobs:
 
       # 各要約ファイルをダウンロード（存在する場合のみ）
       - name: Download GitHub summary
-        if: needs.fetch-data.outputs.has_github == 'true'
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_github) && needs.fetch-data.outputs.has_github == 'true'
         uses: actions/download-artifact@v4
         with:
           name: summary-github
@@ -328,7 +284,7 @@ jobs:
         continue-on-error: true
 
       - name: Download AWS summary
-        if: needs.fetch-data.outputs.has_aws == 'true'
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_aws) && needs.fetch-data.outputs.has_aws == 'true'
         uses: actions/download-artifact@v4
         with:
           name: summary-aws
@@ -336,7 +292,7 @@ jobs:
         continue-on-error: true
 
       - name: Download Claude Code summary
-        if: needs.fetch-data.outputs.has_claudeCode == 'true'
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_claudeCode) && needs.fetch-data.outputs.has_claudeCode == 'true'
         uses: actions/download-artifact@v4
         with:
           name: summary-claudeCode
@@ -344,7 +300,7 @@ jobs:
         continue-on-error: true
 
       - name: Download Linear summary
-        if: needs.fetch-data.outputs.has_linear == 'true'
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_linear) && needs.fetch-data.outputs.has_linear == 'true'
         uses: actions/download-artifact@v4
         with:
           name: summary-linear
