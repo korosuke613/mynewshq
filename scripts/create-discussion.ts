@@ -108,6 +108,15 @@ interface AddLabelsResult {
   };
 }
 
+interface CloseDiscussionResult {
+  closeDiscussion: {
+    discussion: {
+      id: string;
+      closed: boolean;
+    };
+  };
+}
+
 // ランダムな16進数の色を生成（アクセシブルな色のリストから選択）
 const ACCESSIBLE_LABEL_COLORS: string[] = [
   "0e8a16", // green
@@ -192,6 +201,35 @@ async function addLabelsToDiscussion(
       labelableId: discussionId,
       labelIds,
     },
+  );
+}
+
+// Discussionをクローズ
+export async function closeDiscussion(
+  token: string,
+  discussionId: string,
+): Promise<void> {
+  const graphqlWithAuth = graphql.defaults({
+    headers: {
+      authorization: `token ${token}`,
+    },
+  });
+
+  await graphqlWithAuth<CloseDiscussionResult>(
+    `
+    mutation($discussionId: ID!) {
+      closeDiscussion(input: {
+        discussionId: $discussionId
+        reason: RESOLVED
+      }) {
+        discussion {
+          id
+          closed
+        }
+      }
+    }
+  `,
+    { discussionId },
   );
 }
 

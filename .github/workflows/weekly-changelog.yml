@@ -10,6 +10,26 @@ on:
         description: "終了日 (YYYY-MM-DD形式、空欄で今日)"
         required: false
         type: string
+      run_github:
+        description: "GitHub Changelogを実行"
+        required: false
+        type: boolean
+        default: true
+      run_aws:
+        description: "AWS What's Newを実行"
+        required: false
+        type: boolean
+        default: true
+      run_claudeCode:
+        description: "Claude Codeを実行"
+        required: false
+        type: boolean
+        default: true
+      run_linear:
+        description: "Linear Changelogを実行"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -27,6 +47,7 @@ jobs:
       has_linear: ${{ steps.fetch.outputs.has_linear }}
       end_date: ${{ steps.target-date.outputs.end_date }}
       start_date: ${{ steps.target-date.outputs.start_date }}
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
 
     steps:
       - name: Checkout repository
@@ -95,6 +116,23 @@ jobs:
             --input=data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json \
             --output=data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}-filtered.json
 
+      - name: Build matrix for summarize job
+        if: steps.fetch.outputs.has_data == 'true'
+        id: build-matrix
+        run: |
+          MATRIX=$(deno run scripts/build-weekly-matrix.ts \
+            --event=${{ github.event_name }} \
+            --run-github=${{ inputs.run_github }} \
+            --run-aws=${{ inputs.run_aws }} \
+            --run-claudeCode=${{ inputs.run_claudeCode }} \
+            --run-linear=${{ inputs.run_linear }} \
+            --has-github=${{ steps.fetch.outputs.has_github }} \
+            --has-aws=${{ steps.fetch.outputs.has_aws }} \
+            --has-claudeCode=${{ steps.fetch.outputs.has_claudeCode }} \
+            --has-linear=${{ steps.fetch.outputs.has_linear }})
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "Generated matrix: $MATRIX"
+
       - name: Upload changelog data
         if: steps.fetch.outputs.has_data == 'true'
         uses: actions/upload-artifact@v4
@@ -107,59 +145,33 @@ jobs:
           retention-days: 1
 
   # Phase 2: 要約生成（matrix戦略で並列実行）
+  # matrixは fetch-data で動的に生成され、実行対象のプロバイダーのみが含まれる
   summarize:
     name: summarize (${{ matrix.provider }})
     needs: fetch-data
-    if: needs.fetch-data.outputs.has_data == 'true'
+    if: needs.fetch-data.outputs.has_data == 'true' && needs.fetch-data.outputs.matrix != '{"include":[]}'
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        include:
-          - provider: github
-            has_data: ${{ needs.fetch-data.outputs.has_github }}
-            json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"github"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
-          - provider: aws
-            has_data: ${{ needs.fetch-data.outputs.has_aws }}
-            json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"aws"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"comment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["category","entries","comment","historicalContext"]}}},"required":["providerId","highlights","categories"]}'
-          - provider: claudeCode
-            has_data: ${{ needs.fetch-data.outputs.has_claudeCode }}
-            json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"claudeCode"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
-          - provider: linear
-            has_data: ${{ needs.fetch-data.outputs.has_linear }}
-            json_schema: '{"type":"object","properties":{"providerId":{"type":"string","const":"linear"},"highlights":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"}},"required":["url","title"]}},"overallComment":{"type":"string"},"historicalContext":{"type":"string"}},"required":["providerId","highlights","entries","overallComment","historicalContext"]}'
+      matrix: ${{ fromJSON(needs.fetch-data.outputs.matrix) }}
       fail-fast: false
 
     steps:
-      - name: Check if provider has data
-        id: check
-        run: |
-          if [ "${{ matrix.has_data }}" == "true" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "Skipping ${{ matrix.provider }}: no data"
-          fi
-
       - name: Checkout repository
-        if: steps.check.outputs.should_run == 'true'
         uses: actions/checkout@v4
 
       - name: Download changelog data
-        if: steps.check.outputs.should_run == 'true'
         uses: actions/download-artifact@v4
         with:
           name: changelog-data
           path: data/
 
       - name: Remove unfiltered JSON to prevent AI from reading it
-        if: steps.check.outputs.should_run == 'true'
         run: |
           # Claude Code Actionが-filtered.jsonのみを読むよう、元のJSONを削除
           rm -f data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json
           echo "Removed unfiltered JSON to ensure AI reads only filtered data"
 
       - name: Login GitHub App
-        if: steps.check.outputs.should_run == 'true'
         id: login-gh-app
         uses: actions/create-github-app-token@v2
         with:
@@ -169,7 +181,6 @@ jobs:
           repositories: ${{ github.event.repository.name }}
 
       - name: Generate summaries with Claude Code
-        if: steps.check.outputs.should_run == 'true'
         id: summarize
         uses: anthropics/claude-code-action@v1
         env:
@@ -205,7 +216,6 @@ jobs:
             - Claude Code/Linear: `overallComment`（2-5文）と `historicalContext`（1-2文）
 
       - name: Save summary to file
-        if: steps.check.outputs.should_run == 'true'
         run: |
           mkdir -p /tmp/summaries
           cat <<'EOF' > /tmp/summaries/${{ matrix.provider }}.json
@@ -217,7 +227,6 @@ jobs:
           cat /tmp/summaries/${{ matrix.provider }}.json
 
       - name: Upload summary artifact
-        if: steps.check.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: summary-${{ matrix.provider }}
@@ -256,7 +265,7 @@ jobs:
 
       # 各要約ファイルをダウンロード（存在する場合のみ）
       - name: Download GitHub summary
-        if: needs.fetch-data.outputs.has_github == 'true'
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_github) && needs.fetch-data.outputs.has_github == 'true'
         uses: actions/download-artifact@v4
         with:
           name: summary-github
@@ -264,7 +273,7 @@ jobs:
         continue-on-error: true
 
       - name: Download AWS summary
-        if: needs.fetch-data.outputs.has_aws == 'true'
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_aws) && needs.fetch-data.outputs.has_aws == 'true'
         uses: actions/download-artifact@v4
         with:
           name: summary-aws
@@ -272,7 +281,7 @@ jobs:
         continue-on-error: true
 
       - name: Download Claude Code summary
-        if: needs.fetch-data.outputs.has_claudeCode == 'true'
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_claudeCode) && needs.fetch-data.outputs.has_claudeCode == 'true'
         uses: actions/download-artifact@v4
         with:
           name: summary-claudeCode
@@ -280,7 +289,7 @@ jobs:
         continue-on-error: true
 
       - name: Download Linear summary
-        if: needs.fetch-data.outputs.has_linear == 'true'
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_linear) && needs.fetch-data.outputs.has_linear == 'true'
         uses: actions/download-artifact@v4
         with:
           name: summary-linear
@@ -321,9 +330,16 @@ jobs:
           echo "Merged summaries:"
           cat /tmp/all-summaries.json
 
+          # autoCloseフラグを設定（workflow_dispatch時のみ）
+          AUTO_CLOSE_FLAG=""
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            AUTO_CLOSE_FLAG="--auto-close"
+          fi
+
           # Discussion投稿
           deno task post-weekly-all \
             --date=${{ needs.fetch-data.outputs.end_date }} \
             --changelog-file=data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json \
             --summaries-file=/tmp/all-summaries.json \
-            --category="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Weekly' }}"
+            --category="${{ github.event_name == 'workflow_dispatch' && 'manual trigger' || 'Weekly' }}" \
+            $AUTO_CLOSE_FLAG

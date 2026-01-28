@@ -67,6 +67,7 @@ export interface SummarizeRequest {
  */
 export interface PostDiscussionResult {
   providerId: string;
+  id: string;
   url: string;
   title: string;
 }

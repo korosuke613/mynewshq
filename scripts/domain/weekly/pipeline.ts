@@ -78,6 +78,8 @@ export interface SummarizeConfig {
  * Discussion投稿結果
  */
 export interface PostDiscussionData {
+  /** DiscussionのNode ID */
+  id: string;
   /** DiscussionのURL */
   url: string;
   /** Discussionのタイトル */
