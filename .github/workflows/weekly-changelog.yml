@@ -88,6 +88,13 @@ jobs:
             --date=${{ steps.target-date.outputs.end_date }} \
             --output=data/past-discussions.json
 
+      - name: Filter muted entries for summarization
+        if: steps.fetch.outputs.has_data == 'true'
+        run: |
+          deno task filter-muted \
+            --input=data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json \
+            --output=data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}-filtered.json
+
       - name: Upload changelog data
         if: steps.fetch.outputs.has_data == 'true'
         uses: actions/upload-artifact@v4
@@ -95,6 +102,7 @@ jobs:
           name: changelog-data
           path: |
             data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}.json
+            data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}-filtered.json
             data/past-discussions.json
           retention-days: 1
 
@@ -165,13 +173,12 @@ jobs:
           claude_args: >-
             --json-schema '${{ matrix.json_schema }}'
           prompt: |
-            data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json の ${{ matrix.provider }} 部分と data/past-discussions.json の過去Discussion情報を読み込み、${{ matrix.provider }}用の週次レポートを生成してください。
+            data/changelogs/weekly/${{ needs.fetch-data.outputs.end_date }}-filtered.json の ${{ matrix.provider }} 部分と data/past-discussions.json の過去Discussion情報を読み込み、${{ matrix.provider }}用の週次レポートを生成してください。
 
             ## タスク
             ${{ matrix.provider }}の週次分析を行い、プロバイダー単位の要約を生成します。
 
             ## ルール
-            - `muted: true` のエントリはスキップしてください
             - 過去のDiscussionを参照し、比較コメントを含めてください
             - すべて日本語で記述してください
 

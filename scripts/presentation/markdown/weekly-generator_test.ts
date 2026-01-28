@@ -221,5 +221,127 @@ Deno.test("generateProviderWeeklyBody - mutedエントリを含むデータの�
 
   // summary.entriesにはmutedが含まれていない（LLMが処理済み）ことを確認
   assertStringIncludes(body, "Active entry");
-  // mutedエントリはsummaryに含まれていないので表示されない
+
+  // ミュートセクションにはmutedエントリが表示される
+  assertStringIncludes(body, "<details>");
+  assertStringIncludes(body, "ミュートされたエントリ (1件)");
+  assertStringIncludes(body, "[Muted entry](https://example.com/muted)");
+  assertStringIncludes(body, "*(ミュートワード: test-word)*");
+});
+
+Deno.test("generateProviderWeeklyBody - 複数のミュートエントリを含むミュートセクション生成", () => {
+  const providerData: ChangelogEntry[] = [
+    {
+      title: "Active entry",
+      url: "https://example.com/active",
+      content: "Active content",
+      pubDate: "2026-01-18",
+    },
+    {
+      title: "Amazon RDS for SQL Server enhances differential",
+      url: "https://aws.com/rds-sql",
+      content: "RDS SQL Server update",
+      pubDate: "2026-01-17",
+      muted: true,
+      mutedBy: "Amazon RDS",
+    },
+    {
+      title: "Amazon RDS for Oracle now supports replicas",
+      url: "https://aws.com/rds-oracle",
+      content: "RDS Oracle update",
+      pubDate: "2026-01-16",
+      muted: true,
+      mutedBy: "Amazon RDS",
+    },
+  ];
+
+  const summary: ProviderWeeklySummary = {
+    providerId: "aws",
+    highlights: [
+      "AWS関連の重要な更新",
+    ],
+    categories: [
+      {
+        category: "その他",
+        entries: [
+          {
+            url: "https://example.com/active",
+            title: "Active entry",
+          },
+        ],
+        comment: "その他の更新",
+        historicalContext: "先週からの変化",
+      },
+    ],
+  };
+
+  const body = generateProviderWeeklyBody(
+    "aws",
+    providerData,
+    summary,
+    "2026-01-13",
+    "2026-01-20",
+  );
+
+  // アクティブエントリは通常セクションに表示
+  assertStringIncludes(body, "[Active entry](https://example.com/active)");
+
+  // ミュートセクションに2件のRDS記事が表示される
+  assertStringIncludes(body, "ミュートされたエントリ (2件)");
+  assertStringIncludes(
+    body,
+    "[Amazon RDS for SQL Server enhances differential](https://aws.com/rds-sql)",
+  );
+  assertStringIncludes(
+    body,
+    "[Amazon RDS for Oracle now supports replicas](https://aws.com/rds-oracle)",
+  );
+  assertStringIncludes(body, "*(ミュートワード: Amazon RDS)*");
+});
+
+Deno.test("generateProviderWeeklyBody - ミュートエントリがない場合はミュートセクションを生成しない", () => {
+  const providerData: ChangelogEntry[] = [
+    {
+      title: "Active entry 1",
+      url: "https://example.com/1",
+      content: "Content 1",
+      pubDate: "2026-01-18",
+    },
+    {
+      title: "Active entry 2",
+      url: "https://example.com/2",
+      content: "Content 2",
+      pubDate: "2026-01-17",
+    },
+  ];
+
+  const summary: ProviderWeeklySummary = {
+    providerId: "github",
+    highlights: [
+      "今週の更新",
+    ],
+    categories: [
+      {
+        category: "misc",
+        entries: [
+          { url: "https://example.com/1", title: "Active entry 1" },
+          { url: "https://example.com/2", title: "Active entry 2" },
+        ],
+        comment: "コメント",
+        historicalContext: "過去との比較",
+      },
+    ],
+  };
+
+  const body = generateProviderWeeklyBody(
+    "github",
+    providerData,
+    summary,
+    "2026-01-13",
+    "2026-01-20",
+  );
+
+  // ミュートセクションは生成されない
+  assertEquals(body.includes("<details>"), false);
+  assertEquals(body.includes("ミュートされたエントリ"), false);
 });
