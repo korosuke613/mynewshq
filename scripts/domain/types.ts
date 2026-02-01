@@ -57,6 +57,7 @@ export interface BlogEntry {
   tags?: string[];
   muted?: boolean;
   mutedBy?: string;
+  matchedCategories?: string[]; // カテゴリフィルターでマッチしたカテゴリ
 }
 
 // Changelogデータの型（JSON保存形式）

@@ -12,6 +12,10 @@ import {
   parseMuteWords,
 } from "./domain/mute-filter.ts";
 import {
+  applyCategoryFilter,
+  parseCategoryKeywords,
+} from "./domain/category-filter.ts";
+import {
   extractLabelsFromAWSCategory,
   extractLabelsFromCategories,
 } from "./domain/label-extractor.ts";
@@ -31,11 +35,13 @@ import {
 export type { ChangelogData, ChangelogEntry, ReleaseEntry, XmlCategory };
 export {
   applyMuteFilter,
+  applyCategoryFilter,
   extractLabelsFromAWSCategory,
   extractLabelsFromCategories,
   isMuted,
   isRecent,
   isWithinDays,
+  parseCategoryKeywords,
   parseMuteWords,
 };
 
@@ -155,6 +161,39 @@ export async function fetchMuteWords(
   }
 }
 
+// GitHub Issueからカテゴリフィルターのキーワードリストを取得
+export async function fetchCategoryKeywords(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+): Promise<string[]> {
+  try {
+    const { data: issue } = await octokit.issues.get({
+      owner,
+      repo,
+      issue_number: issueNumber,
+    });
+
+    if (!issue.body) {
+      console.warn(`Issue #${issueNumber} has no body`);
+      return [];
+    }
+
+    const keywords = parseCategoryKeywords(issue.body);
+    console.log(
+      `Loaded ${keywords.length} category keywords from issue #${issueNumber}: ${keywords.join(", ")}`,
+    );
+    return keywords;
+  } catch (error) {
+    console.warn(
+      `Failed to fetch category keywords from issue #${issueNumber}:`,
+      error,
+    );
+    return [];
+  }
+}
+
 // Changelogカテゴリのデータを取得・保存
 async function processChangelog(
   targetDate: Date,
@@ -230,6 +269,7 @@ async function processBlog(
   weekly: boolean,
   dateString: string,
   muteWords: string[],
+  categoryKeywords: string[],
 ): Promise<void> {
   console.log("\n--- Processing Blog ---");
 
@@ -242,6 +282,25 @@ async function processBlog(
     results = filtered;
     if (mutedCount > 0) {
       console.log(`Muted ${mutedCount} blog entries`);
+    }
+  }
+
+  // カテゴリフィルタを適用（設定されたカテゴリにマッチするエントリのみ残す）
+  if (categoryKeywords.length > 0) {
+    for (const providerId of Object.keys(results)) {
+      const entries = results[providerId];
+      if (entries && entries.length > 0) {
+        const { filtered, excludedCount } = applyCategoryFilter(
+          entries,
+          categoryKeywords,
+        );
+        results[providerId] = filtered;
+        if (excludedCount > 0) {
+          console.log(
+            `Filtered out ${excludedCount} ${providerId} entries (not matching categories: ${categoryKeywords.join(", ")})`,
+          );
+        }
+      }
     }
   }
 
@@ -293,10 +352,14 @@ async function main() {
   // ミュートワード機能の準備
   const token = Deno.env.get("GITHUB_TOKEN");
   const muteWordsIssueNumber = Deno.env.get("MUTE_WORDS_ISSUE_NUMBER") || "1";
+  const categoryFilterIssueNumber = Deno.env.get(
+    "CATEGORY_FILTER_ISSUE_NUMBER",
+  );
   const repositoryOwner = Deno.env.get("GITHUB_REPOSITORY_OWNER") ||
     "korosuke613";
   const repositoryName = Deno.env.get("GITHUB_REPOSITORY_NAME") || "mynewshq";
   let muteWords: string[] = [];
+  let categoryKeywords: string[] = [];
 
   if (token && muteWordsIssueNumber) {
     const authenticatedOctokit = new Octokit({ auth: token });
@@ -313,6 +376,23 @@ async function main() {
         `Invalid MUTE_WORDS_ISSUE_NUMBER: ${muteWordsIssueNumber}`,
       );
     }
+
+    // カテゴリフィルターの読み込み（設定されている場合のみ）
+    if (categoryFilterIssueNumber) {
+      const categoryIssueNumber = parseInt(categoryFilterIssueNumber, 10);
+      if (!isNaN(categoryIssueNumber)) {
+        categoryKeywords = await fetchCategoryKeywords(
+          authenticatedOctokit,
+          repositoryOwner,
+          repositoryName,
+          categoryIssueNumber,
+        );
+      } else {
+        console.warn(
+          `Invalid CATEGORY_FILTER_ISSUE_NUMBER: ${categoryFilterIssueNumber}`,
+        );
+      }
+    }
   }
 
   // カテゴリに応じて処理を実行
@@ -321,7 +401,14 @@ async function main() {
   }
 
   if (category === "blog" || category === "all") {
-    await processBlog(targetDate, days, weekly, dateString, muteWords);
+    await processBlog(
+      targetDate,
+      days,
+      weekly,
+      dateString,
+      muteWords,
+      categoryKeywords,
+    );
   }
 
   console.log("\nDone!");
