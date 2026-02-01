@@ -184,20 +184,21 @@ jobs:
             ## カテゴリグループ化のルール
             - `muted: true` のエントリはスキップしてください
             - 各記事の `matchedCategories` フィールドを参照してカテゴリ分けしてください
+            - `matchedCategories` が空でない記事のみを対象としてください
+            - `matchedCategories` の値をそのままカテゴリ名として使用してください（例: "aws", "git", "github", "docker", "claude code"）
             - 複数のカテゴリにマッチする記事は、全てのカテゴリに表示してください
-            - カテゴリの順序は Issue #118 のキーワード順（AWS, GitHub, Google Cloud, Azure, DevOps, CI/CD, セキュリティ, AI/ML, データベース, Kubernetes, Docker, モニタリング, テスト, パフォーマンス, フロントエンド, バックエンド）に従ってください
-            - 開発者向けの記事のみを対象としてください
+            - カテゴリの順序は `matchedCategories` に含まれるキーワードの順序に従ってください
 
             ## 出力形式
             - categories: カテゴリごとのグループのリスト
-              - category: カテゴリ名（例: "AWS", "GitHub"）
+              - category: カテゴリ名（`matchedCategories` の値をそのまま使用。例: "aws", "git", "github", "claude code"）
               - entries: カテゴリ内の記事リスト
                 - url: 記事のURL
                 - title: 記事のタイトル
                 - comment: 記事へのコメント（1文で簡潔に、技術的なポイントを強調）
               - categoryComment: カテゴリ全体のまとめコメント（1-2文で、そのカテゴリの今日のトレンドを説明）
 
-            該当する記事がない場合は categories を空配列 `[]` としてください。
+            `matchedCategories` が空でない記事がない場合は categories を空配列 `[]` としてください。
 
       - name: Post Blog to Discussion
         if: steps.fetch.outputs.has_blog == 'true'
