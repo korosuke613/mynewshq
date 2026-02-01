@@ -1,37 +1,31 @@
-// AWS Blog Provider
-// AWS Blog の RSS フィードから記事を取得
+# AWS Blog プロバイダー フィード拡張計画
 
-import Parser from "rss-parser";
-import type { BlogEntry } from "../types.ts";
-import type { ProviderConfig } from "./types.ts";
-import { isWithinDays } from "../date-filter.ts";
+## 背景
 
-// rss-parser にカスタムフィールドを定義
-type AwsBlogFeed = {
-  items: AwsBlogItem[];
-};
+現在の `aws-blog-provider.ts` は `https://aws.amazon.com/blogs/aws/feed/`（AWS News Blog）のみを取得しているため、週に数件程度しか記事が取得されない。
 
-type AwsBlogItem = {
-  title?: string;
-  link?: string;
-  contentSnippet?: string;
-  isoDate?: string;
-  pubDate?: string;
-  categories?: string[];
-};
+AWS には多数のブログカテゴリがあり、https://aws.amazon.com/blogs/ を網羅するには複数のフィードを取得する必要がある。
 
-const parser: Parser<AwsBlogFeed, AwsBlogItem> = new Parser({
-  customFields: {
-    item: [
-      ["category", "categories", { keepArray: true }],
-    ],
-  },
-});
+## 対応方針
 
-/**
- * 取得対象のAWSブログフィード一覧
- */
-export const AWS_BLOG_FEEDS = [
+**選択肢 A: 主要フィード統合** を採用
+
+9つの主要AWSブログフィードを1つのプロバイダーで並列取得する。
+
+## 変更ファイル一覧
+
+| ファイル | 変更種別 |
+|---------|---------|
+| `scripts/domain/providers/aws-blog-provider.ts` | 修正 |
+| `scripts/domain/providers/aws-blog-provider_test.ts` | 修正 |
+
+## 実装詳細
+
+### aws-blog-provider.ts
+
+```typescript
+// 取得対象のAWSブログフィード一覧
+const AWS_BLOG_FEEDS = [
   "https://aws.amazon.com/blogs/aws/feed/",
   "https://aws.amazon.com/blogs/compute/feed/",
   "https://aws.amazon.com/blogs/security/feed/",
@@ -55,7 +49,6 @@ async function fetchSingleFeed(
   const entries: BlogEntry[] = [];
 
   for (const item of feed.items) {
-    // isoDate または pubDate を使用
     const pubDate = item.isoDate || item.pubDate;
 
     if (pubDate && isWithinDays(pubDate, days, targetDate)) {
@@ -83,7 +76,7 @@ async function fetchAwsBlog(
 ): Promise<BlogEntry[]> {
   // 全フィードを並列取得
   const results = await Promise.all(
-    AWS_BLOG_FEEDS.map((url) => fetchSingleFeed(url, targetDate, days)),
+    AWS_BLOG_FEEDS.map((url) => fetchSingleFeed(url, targetDate, days))
   );
 
   // 結合
@@ -101,17 +94,32 @@ async function fetchAwsBlog(
 
   return uniqueEntries;
 }
+```
 
-/**
- * AWS Blog Provider設定
- */
-export const awsBlogProvider: ProviderConfig<BlogEntry> = {
-  id: "awsBlog",
-  displayName: "AWS Blog",
-  emoji: "📙",
-  labelName: "aws-blog",
-  category: "blog",
-  titleField: "title",
-  pubDateField: "pubDate",
-  fetch: fetchAwsBlog,
-};
+### aws-blog-provider_test.ts
+
+- `AWS_BLOG_FEEDS` の件数テストを追加
+- export して定数をテスト可能にする
+
+## 動作確認
+
+```bash
+# 型チェック
+deno check scripts/*.ts scripts/**/*.ts
+
+# リント・フォーマット
+deno lint && deno fmt
+
+# テスト実行
+deno task test
+
+# Blog データ取得テスト（実際のネットワークアクセス）
+GITHUB_TOKEN=$(gh auth token) deno task fetch-blog
+
+# プレビュー確認
+deno task preview-blog
+```
+
+## TODO
+
+- [ ] プランファイルを `./plans/2026-02-01-expand-aws-blog-feeds.md` にリネーム
