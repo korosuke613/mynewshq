@@ -22,6 +22,21 @@ export function parseCategoryKeywords(issueBody: string): string[] {
   return keywords;
 }
 
+// 正規表現オブジェクトのキャッシュ（パフォーマンス最適化）
+const regexCache = new Map<string, RegExp>();
+
+// キーワードから単語境界マッチング用の正規表現を生成（キャッシュあり）
+function getKeywordRegex(keyword: string): RegExp {
+  if (regexCache.has(keyword)) {
+    return regexCache.get(keyword)!;
+  }
+  // 特殊文字をエスケープして単語境界マッチング用の正規表現を作成
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`\\b${escapedKeyword}\\b`, "i");
+  regexCache.set(keyword, regex);
+  return regex;
+}
+
 // テキストがカテゴリキーワードにマッチするかチェック（単語境界・大文字小文字無視）
 // 最初にマッチしたキーワードを返す（マッチしない場合はnull）
 export function findFirstMatchedKeyword(
@@ -29,9 +44,7 @@ export function findFirstMatchedKeyword(
   categoryKeywords: string[],
 ): string | null {
   for (const keyword of categoryKeywords) {
-    // 単語境界でマッチング（特殊文字をエスケープ）
-    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b${escapedKeyword}\\b`, "i");
+    const regex = getKeywordRegex(keyword);
     if (regex.test(text)) {
       return keyword;
     }
@@ -49,9 +62,7 @@ export function findAllMatchedKeywords(
 ): string[] {
   const matched: string[] = [];
   for (const keyword of categoryKeywords) {
-    // 単語境界でマッチング（特殊文字をエスケープ）
-    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b${escapedKeyword}\\b`, "i");
+    const regex = getKeywordRegex(keyword);
     if (regex.test(text)) {
       matched.push(keyword);
     }
