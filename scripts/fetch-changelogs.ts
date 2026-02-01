@@ -181,8 +181,11 @@ export async function fetchCategoryKeywords(
     }
 
     const keywords = parseCategoryKeywords(issue.body);
+    const displayKeywords = keywords.length > 5
+      ? `${keywords.slice(0, 5).join(", ")}...`
+      : keywords.join(", ");
     console.log(
-      `Loaded ${keywords.length} category keywords from issue #${issueNumber}: ${keywords.join(", ")}`,
+      `Loaded ${keywords.length} category keywords from issue #${issueNumber}: ${displayKeywords}`,
     );
     return keywords;
   } catch (error) {
@@ -296,8 +299,11 @@ async function processBlog(
         );
         results[providerId] = filtered;
         if (excludedCount > 0) {
+          const displayKeywords = categoryKeywords.length > 5
+            ? `${categoryKeywords.slice(0, 5).join(", ")}...`
+            : categoryKeywords.join(", ");
           console.log(
-            `Filtered out ${excludedCount} ${providerId} entries (not matching categories: ${categoryKeywords.join(", ")})`,
+            `Filtered out ${excludedCount} ${providerId} entries (not matching categories: ${displayKeywords})`,
           );
         }
       }
