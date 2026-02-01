@@ -83,6 +83,7 @@ Deno.test("getCategoryName", async (t) => {
     changelogWeekly: "Test Weekly",
     changelogManual: "Test Manual",
     blogDaily: "Blog Daily",
+    blogWeekly: "Blog Weekly",
     blogManual: "Blog Manual",
     default: "Test General",
   };
@@ -130,13 +131,10 @@ Deno.test("getCategoryName", async (t) => {
     assertEquals(result, "Blog Manual");
   });
 
-  await t.step(
-    "blog + schedule + isWeekly=true でも blogDaily（blogには週次がない）",
-    () => {
-      const result = getCategoryName(config, "blog", "schedule", true);
-      assertEquals(result, "Blog Daily");
-    },
-  );
+  await t.step("blog + schedule + 週次 → blogWeekly", () => {
+    const result = getCategoryName(config, "blog", "schedule", true);
+    assertEquals(result, "Blog Weekly");
+  });
 });
 
 Deno.test("DEFAULT_CATEGORY_CONFIG", async (t) => {
@@ -145,6 +143,7 @@ Deno.test("DEFAULT_CATEGORY_CONFIG", async (t) => {
     assertEquals(DEFAULT_CATEGORY_CONFIG.changelogWeekly, "Weekly");
     assertEquals(DEFAULT_CATEGORY_CONFIG.changelogManual, "manual trigger");
     assertEquals(DEFAULT_CATEGORY_CONFIG.blogDaily, "Daily");
+    assertEquals(DEFAULT_CATEGORY_CONFIG.blogWeekly, "Weekly");
     assertEquals(DEFAULT_CATEGORY_CONFIG.blogManual, "manual trigger");
     assertEquals(DEFAULT_CATEGORY_CONFIG.default, "General");
   });
