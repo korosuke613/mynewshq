@@ -11,9 +11,9 @@
  *   deno task summarize --date=2026-01-15 --dry-run
  */
 
-import { parseArgs } from "jsr:@std/cli@1/parse-args";
-import { resolve } from "jsr:@std/path@1/resolve";
-import { exists } from "jsr:@std/fs@1/exists";
+import { parseArgs } from "@std/cli/parse-args";
+import { resolve } from "@std/path/resolve";
+import { exists } from "@std/fs/exists";
 import {
   DAILY_BLOG_SCHEMA,
   DAILY_CHANGELOG_SCHEMA,
