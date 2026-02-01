@@ -106,7 +106,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: blog-data
-          path: data/
+          path: .
 
       - name: Remove unfiltered JSON to prevent AI from reading it
         run: |
@@ -208,7 +208,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: blog-data
-          path: data/
+          path: .
 
       - name: Download summary
         uses: actions/download-artifact@v4
