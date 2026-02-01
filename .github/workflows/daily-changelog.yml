@@ -11,6 +11,16 @@ on:
         description: "対象日付 (YYYY-MM-DD形式、空欄で今日)"
         required: false
         type: string
+      run_changelog:
+        description: "Changelogを実行"
+        required: false
+        type: boolean
+        default: true
+      run_blog:
+        description: "Blogを実行"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -45,32 +55,54 @@ jobs:
           MUTE_WORDS_ISSUE_NUMBER: "1"
           CATEGORY_CONFIG_ISSUE_NUMBER: "104"
           CATEGORY_FILTER_ISSUE_NUMBER: "118"
+          # case関数でカテゴリを決定（schedule時はinputsが空なのでall）
+          CATEGORY: |-
+            ${{ case(
+              inputs.run_changelog != false && inputs.run_blog != false, 'all',
+              inputs.run_changelog != false, 'changelog',
+              inputs.run_blog != false, 'blog',
+              'none'
+            ) }}
         run: |
+          if [ "$CATEGORY" = "none" ]; then
+            echo "No category selected, skipping fetch"
+            echo "has_changelog=false" >> $GITHUB_OUTPUT
+            echo "has_blog=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           if [ -n "${{ inputs.date }}" ]; then
             TARGET_DATE="${{ inputs.date }}"
-            deno task fetch -- --date=${{ inputs.date }}
+            deno task fetch -- --date=${{ inputs.date }} --category=${CATEGORY}
           else
             TARGET_DATE=$(date -u +%Y-%m-%d)
-            deno task fetch
+            deno task fetch -- --category=${CATEGORY}
           fi
           echo "target_date=${TARGET_DATE}" >> $GITHUB_OUTPUT
 
-          # Changelog ファイル存在確認
-          if [ -f "data/changelogs/daily/${TARGET_DATE}.json" ]; then
-            echo "has_changelog=true" >> $GITHUB_OUTPUT
-            echo "Changelog data file created: data/changelogs/daily/${TARGET_DATE}.json"
+          # ファイル存在確認（選択されたカテゴリのみ）
+          if [ "$CATEGORY" = "all" ] || [ "$CATEGORY" = "changelog" ]; then
+            if [ -f "data/changelogs/daily/${TARGET_DATE}.json" ]; then
+              echo "has_changelog=true" >> $GITHUB_OUTPUT
+              echo "Changelog data file created: data/changelogs/daily/${TARGET_DATE}.json"
+            else
+              echo "has_changelog=false" >> $GITHUB_OUTPUT
+              echo "No changelog data file created (no updates found)"
+            fi
           else
             echo "has_changelog=false" >> $GITHUB_OUTPUT
-            echo "No changelog data file created (no updates found)"
           fi
 
-          # Blog ファイル存在確認
-          if [ -f "data/blogs/daily/${TARGET_DATE}.json" ]; then
-            echo "has_blog=true" >> $GITHUB_OUTPUT
-            echo "Blog data file created: data/blogs/daily/${TARGET_DATE}.json"
+          if [ "$CATEGORY" = "all" ] || [ "$CATEGORY" = "blog" ]; then
+            if [ -f "data/blogs/daily/${TARGET_DATE}.json" ]; then
+              echo "has_blog=true" >> $GITHUB_OUTPUT
+              echo "Blog data file created: data/blogs/daily/${TARGET_DATE}.json"
+            else
+              echo "has_blog=false" >> $GITHUB_OUTPUT
+              echo "No blog data file created (no updates found)"
+            fi
           else
             echo "has_blog=false" >> $GITHUB_OUTPUT
-            echo "No blog data file created (no updates found)"
           fi
 
       - name: Login GitHub App
