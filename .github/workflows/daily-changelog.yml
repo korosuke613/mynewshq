@@ -55,7 +55,9 @@ jobs:
           MUTE_WORDS_ISSUE_NUMBER: "1"
           CATEGORY_CONFIG_ISSUE_NUMBER: "104"
           CATEGORY_FILTER_ISSUE_NUMBER: "118"
-          # case関数でカテゴリを決定（schedule時はinputsが空なのでall）
+          # case関数でカテゴリを決定
+          # - schedule時はinputsが空なので「!= false」で全てtrueと評価され'all'になる
+          # - workflow_dispatch時はinputsの値に応じて分岐
           CATEGORY: |-
             ${{ case(
               inputs.run_changelog != false && inputs.run_blog != false, 'all',

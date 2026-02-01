@@ -319,6 +319,8 @@ async function processBlog(
         );
         continue;
       }
+      // keepUnmatched: trueを指定することで、カテゴリにマッチしないエントリも
+      // matchedCategories: [] として保持し、後続の処理（Markdown生成）で扱える
       const { filtered, excludedCount } = applyCategoryFilter(
         entries,
         categoryKeywords,

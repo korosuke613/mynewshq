@@ -226,7 +226,7 @@ Deno.test("generateBlogBodyWithSummaries - 複数カテゴリマッチ", () => {
           {
             url: "https://example.com/aws-eks",
             title: "AWS Lambda on EKS",
-            comment: "KubernetesでサーバーレスをON",
+            comment: "Kubernetesでサーバーレスを実現",
           },
         ],
         categoryComment: "AWSとKubernetesの統合が進んでいます。",
@@ -237,7 +237,7 @@ Deno.test("generateBlogBodyWithSummaries - 複数カテゴリマッチ", () => {
           {
             url: "https://example.com/aws-eks",
             title: "AWS Lambda on EKS",
-            comment: "KubernetesでサーバーレスをON",
+            comment: "Kubernetesでサーバーレスを実現",
           },
         ],
         categoryComment: "Kubernetesの活用範囲が広がっています。",

@@ -3,14 +3,16 @@
 
 // Issue本文から箇条書きのカテゴリキーワードを抽出
 export function parseCategoryKeywords(issueBody: string): string[] {
+  const BULLET_PREFIX = "- ";
+  const BULLET_PREFIX_LENGTH = BULLET_PREFIX.length;
   const lines = issueBody.split("\n");
   const keywords: string[] = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
     // "- " で始まる行を箇条書きとして抽出
-    if (trimmed.startsWith("- ")) {
-      const keyword = trimmed.slice(2).trim();
+    if (trimmed.startsWith(BULLET_PREFIX)) {
+      const keyword = trimmed.slice(BULLET_PREFIX_LENGTH).trim();
       if (keyword) {
         keywords.push(keyword);
       }
@@ -21,8 +23,8 @@ export function parseCategoryKeywords(issueBody: string): string[] {
 }
 
 // テキストがカテゴリキーワードにマッチするかチェック（部分一致・大文字小文字無視）
-// マッチしたキーワードを返す（マッチしない場合はnull）
-export function matchesCategory(
+// 最初にマッチしたキーワードを返す（マッチしない場合はnull）
+export function findFirstMatchedKeyword(
   text: string,
   categoryKeywords: string[],
 ): string | null {
@@ -34,6 +36,9 @@ export function matchesCategory(
   }
   return null;
 }
+
+// @deprecated Use findFirstMatchedKeyword instead
+export const matchesCategory = findFirstMatchedKeyword;
 
 // テキストにマッチする全てのカテゴリキーワードを返す（部分一致・大文字小文字無視）
 export function findAllMatchedKeywords(
