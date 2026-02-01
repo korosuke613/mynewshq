@@ -322,6 +322,7 @@ async function processBlog(
       const { filtered, excludedCount } = applyCategoryFilter(
         entries,
         categoryKeywords,
+        { keepUnmatched: true },
       );
       results[providerId] = filtered;
       if (excludedCount > 0) {

@@ -221,4 +221,47 @@ Deno.test("applyCategoryFilter", async (t) => {
     assertEquals(filtered.length, 0);
     assertEquals(excludedCount, 2);
   });
+
+  await t.step(
+    "should keep unmatched entries with empty matchedCategories when keepUnmatched is true",
+    () => {
+      const entries = [
+        { title: "AWS Update", tags: [], description: "Lambda" },
+        { title: "React Update", tags: [], description: "Hooks" },
+        { title: "GitHub Actions", tags: [], description: "CI/CD" },
+      ];
+      const { filtered, excludedCount } = applyCategoryFilter(
+        entries,
+        ["aws", "github"],
+        { keepUnmatched: true },
+      );
+      assertEquals(filtered.length, 3);
+      assertEquals(excludedCount, 0);
+      assertEquals(filtered[0].title, "AWS Update");
+      assertEquals(filtered[0].matchedCategories, ["aws"]);
+      assertEquals(filtered[1].title, "React Update");
+      assertEquals(filtered[1].matchedCategories, []);
+      assertEquals(filtered[2].title, "GitHub Actions");
+      assertEquals(filtered[2].matchedCategories, ["github"]);
+    },
+  );
+
+  await t.step(
+    "should exclude unmatched entries when keepUnmatched is false (default)",
+    () => {
+      const entries = [
+        { title: "AWS Update", tags: [], description: "Lambda" },
+        { title: "React Update", tags: [], description: "Hooks" },
+      ];
+      const { filtered, excludedCount } = applyCategoryFilter(
+        entries,
+        ["aws"],
+        { keepUnmatched: false },
+      );
+      assertEquals(filtered.length, 1);
+      assertEquals(excludedCount, 1);
+      assertEquals(filtered[0].title, "AWS Update");
+      assertEquals(filtered[0].matchedCategories, ["aws"]);
+    },
+  );
 });

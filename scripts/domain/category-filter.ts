@@ -91,15 +91,19 @@ export function findMatchedCategories(
 
 // エントリ配列にカテゴリフィルターを適用
 // マッチしたエントリのみを返し、matchedCategoriesフィールドを付与
+// keepUnmatched: trueの場合、マッチしないエントリもmatchedCategories: []で返す
 export function applyCategoryFilter<
   T extends { title: string; tags?: string[]; description?: string },
 >(
   entries: T[],
   categoryKeywords: string[],
+  options?: { keepUnmatched?: boolean },
 ): {
   filtered: (T & { matchedCategories: string[] })[];
   excludedCount: number;
 } {
+  const keepUnmatched = options?.keepUnmatched ?? false;
+
   // カテゴリキーワードが空の場合は全てのエントリを返す（フィルタリングなし）
   if (categoryKeywords.length === 0) {
     return {
@@ -115,6 +119,9 @@ export function applyCategoryFilter<
     const matchedCategories = findMatchedCategories(entry, categoryKeywords);
     if (matchedCategories.length > 0) {
       filtered.push({ ...entry, matchedCategories });
+    } else if (keepUnmatched) {
+      // keepUnmatchedがtrueの場合、マッチしないエントリも空配列で返す
+      filtered.push({ ...entry, matchedCategories: [] });
     } else {
       excludedCount++;
     }

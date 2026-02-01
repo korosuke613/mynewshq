@@ -77,6 +77,7 @@ export interface BlogData {
   startDate?: string; // 週次の場合の開始日
   endDate?: string; // 週次の場合の終了日
   hatenaBookmark: BlogEntry[];
+  githubBlog: BlogEntry[];
 }
 
 // 要約データの型（キーはURL、値は要約文）
@@ -143,11 +144,9 @@ export interface BlogCategoryGroup {
   categoryComment: string; // カテゴリ全体へのまとめコメント
 }
 
-// Blog要約データの型（新形式）
+// Blog要約データの型（カテゴリベース形式、プロバイダー非依存）
 export interface BlogSummaryData {
-  hatenaBookmark: {
-    categories: BlogCategoryGroup[]; // カテゴリごとにグループ化された記事
-  };
+  categories: BlogCategoryGroup[]; // カテゴリごとにグループ化された記事（全プロバイダー統合）
 }
 
 // =============================================================================
