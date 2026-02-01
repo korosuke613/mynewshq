@@ -59,10 +59,6 @@ const CATEGORIZED_PROMPT_TEMPLATE = `
 export class GitHubAdapter extends BaseAdapter {
   readonly providerId = "github";
 
-  constructor(markdownGenerator: WeeklyMarkdownGenerator) {
-    super(markdownGenerator);
-  }
-
   getSummarizeConfig(): SummarizeConfig {
     return {
       jsonSchema: CATEGORIZED_SUMMARY_SCHEMA,
@@ -91,10 +87,6 @@ export class GitHubAdapter extends BaseAdapter {
  */
 export class AWSAdapter extends BaseAdapter {
   readonly providerId = "aws";
-
-  constructor(markdownGenerator: WeeklyMarkdownGenerator) {
-    super(markdownGenerator);
-  }
 
   getSummarizeConfig(): SummarizeConfig {
     return {
