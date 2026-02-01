@@ -73,6 +73,25 @@ export function filterMutedFromBlog(data: BlogData): BlogData {
 }
 
 /**
+ * 統計情報を出力
+ */
+function printFilterStats(
+  stats: Record<string, { before: number; after: number }>,
+): void {
+  console.log("フィルタリング結果:");
+  for (const [provider, stat] of Object.entries(stats)) {
+    const removed = stat.before - stat.after;
+    if (removed > 0) {
+      console.log(
+        `  ${provider}: ${stat.before} -> ${stat.after} (${removed}件ミュート除外)`,
+      );
+    } else {
+      console.log(`  ${provider}: ${stat.after}件 (ミュートなし)`);
+    }
+  }
+}
+
+/**
  * コマンドライン引数をパース
  */
 function parseArgs(args: string[]): { input: string; output: string } {
@@ -104,7 +123,9 @@ async function main(): Promise<void> {
   const { input, output } = parseArgs(Deno.args);
 
   // 入力ファイルのパスからChangelogかBlogかを判定
-  const isBlogData = input.includes("/blogs/");
+  // パスを正規化して /blogs/ または \blogs\ を検出
+  const normalizedPath = input.replace(/\\/g, "/");
+  const isBlogData = /\/blogs\//.test(normalizedPath);
 
   // 入力ファイルを読み込み
   let rawContent: string;
@@ -146,17 +167,7 @@ async function main(): Promise<void> {
       },
     };
 
-    console.log("フィルタリング結果:");
-    for (const [provider, stat] of Object.entries(stats)) {
-      const removed = stat.before - stat.after;
-      if (removed > 0) {
-        console.log(
-          `  ${provider}: ${stat.before} -> ${stat.after} (${removed}件ミュート除外)`,
-        );
-      } else {
-        console.log(`  ${provider}: ${stat.after}件 (ミュートなし)`);
-      }
-    }
+    printFilterStats(stats);
 
     // 出力ファイルに書き込み
     try {
@@ -195,17 +206,7 @@ async function main(): Promise<void> {
       linear: { before: data.linear.length, after: filteredData.linear.length },
     };
 
-    console.log("フィルタリング結果:");
-    for (const [provider, stat] of Object.entries(stats)) {
-      const removed = stat.before - stat.after;
-      if (removed > 0) {
-        console.log(
-          `  ${provider}: ${stat.before} -> ${stat.after} (${removed}件ミュート除外)`,
-        );
-      } else {
-        console.log(`  ${provider}: ${stat.after}件 (ミュートなし)`);
-      }
-    }
+    printFilterStats(stats);
 
     // 出力ファイルに書き込み
     try {
