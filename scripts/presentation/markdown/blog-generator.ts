@@ -39,8 +39,8 @@ function groupEntriesByCategory(
 
 // 後方互換性のため再エクスポート
 export {
-  formatCoveragePeriod as formatCoveragePeriod,
-  formatWeeklyCoveragePeriod as formatWeeklyCoveragePeriod,
+  formatCoveragePeriod,
+  formatWeeklyCoveragePeriod,
 } from "../../infrastructure/date-utils.ts";
 
 // Discussionタイトルを生成
