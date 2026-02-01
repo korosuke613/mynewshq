@@ -69,6 +69,7 @@ export function filterMutedFromBlog(data: BlogData): BlogData {
     ...data,
     hatenaBookmark: filterMutedBlogEntries(data.hatenaBookmark),
     githubBlog: filterMutedBlogEntries(data.githubBlog),
+    awsBlog: filterMutedBlogEntries(data.awsBlog),
   };
 }
 
@@ -164,6 +165,10 @@ async function main(): Promise<void> {
       githubBlog: {
         before: data.githubBlog.length,
         after: filteredData.githubBlog.length,
+      },
+      awsBlog: {
+        before: data.awsBlog.length,
+        after: filteredData.awsBlog.length,
       },
     };
 
