@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import {
   applyCategoryFilter,
+  findAllMatchedKeywords,
   findMatchedCategories,
   matchesCategory,
   parseCategoryKeywords,
@@ -61,6 +62,34 @@ Deno.test("matchesCategory", async (t) => {
   });
 });
 
+Deno.test("findAllMatchedKeywords", async (t) => {
+  await t.step("should find all matching keywords in text", () => {
+    const result = findAllMatchedKeywords("GitHub Actions for AWS Lambda", [
+      "aws",
+      "github",
+    ]);
+    assertEquals(result.sort(), ["aws", "github"]);
+  });
+
+  await t.step("should match case-insensitively", () => {
+    const result = findAllMatchedKeywords("AWS S3 Update", ["aws"]);
+    assertEquals(result, ["aws"]);
+  });
+
+  await t.step("should return empty array when no match", () => {
+    const result = findAllMatchedKeywords("React Update", ["aws", "github"]);
+    assertEquals(result, []);
+  });
+
+  await t.step("should find multiple keywords", () => {
+    const result = findAllMatchedKeywords(
+      "Deploy to AWS using GitHub Actions with Terraform",
+      ["aws", "github", "terraform"],
+    );
+    assertEquals(result.sort(), ["aws", "github", "terraform"]);
+  });
+});
+
 Deno.test("findMatchedCategories", async (t) => {
   await t.step("should find category from title", () => {
     const entry = {
@@ -111,6 +140,39 @@ Deno.test("findMatchedCategories", async (t) => {
     const result = findMatchedCategories(entry, ["aws", "github"]);
     assertEquals(result, []);
   });
+
+  await t.step("should find multiple categories from single title", () => {
+    const entry = {
+      title: "GitHub Actions for AWS Lambda",
+      tags: [],
+      description: "",
+    };
+    const result = findMatchedCategories(entry, ["aws", "github"]);
+    assertEquals(result.sort(), ["aws", "github"]);
+  });
+
+  await t.step("should find multiple categories from single tag", () => {
+    const entry = {
+      title: "Cloud Update",
+      tags: ["github-actions-aws"],
+      description: "",
+    };
+    const result = findMatchedCategories(entry, ["aws", "github"]);
+    assertEquals(result.sort(), ["aws", "github"]);
+  });
+
+  await t.step(
+    "should find multiple categories from single description",
+    () => {
+      const entry = {
+        title: "Update",
+        tags: [],
+        description: "Deploy to AWS using GitHub Actions",
+      };
+      const result = findMatchedCategories(entry, ["aws", "github"]);
+      assertEquals(result.sort(), ["aws", "github"]);
+    },
+  );
 });
 
 Deno.test("applyCategoryFilter", async (t) => {

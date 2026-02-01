@@ -35,8 +35,8 @@ import {
 // 後方互換性のため型と関数を再エクスポート
 export type { ChangelogData, ChangelogEntry, ReleaseEntry, XmlCategory };
 export {
-  applyMuteFilter,
   applyCategoryFilter,
+  applyMuteFilter,
   extractLabelsFromAWSCategory,
   extractLabelsFromCategories,
   isMuted,
@@ -48,6 +48,22 @@ export {
 
 // 1日のミリ秒数
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// BlogEntry型ガード関数
+function isBlogEntry(entry: unknown): entry is BlogEntry {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "title" in entry &&
+    typeof entry.title === "string" &&
+    "url" in entry &&
+    typeof entry.url === "string" &&
+    "description" in entry &&
+    typeof entry.description === "string" &&
+    "pubDate" in entry &&
+    typeof entry.pubDate === "string"
+  );
+}
 
 // GitHub Actions用の出力を書き込む
 export function writeGitHubOutput(key: string, value: string): void {
@@ -292,21 +308,29 @@ async function processBlog(
   // カテゴリフィルタを適用（設定されたカテゴリにマッチするエントリのみ残す）
   if (categoryKeywords.length > 0) {
     for (const providerId of Object.keys(results)) {
-      const entries = results[providerId] as BlogEntry[];
-      if (entries && entries.length > 0) {
-        const { filtered, excludedCount } = applyCategoryFilter(
-          entries,
-          categoryKeywords,
+      const entries = results[providerId];
+      if (!Array.isArray(entries) || entries.length === 0) {
+        continue;
+      }
+      // 型ガードでBlogEntry型であることを確認
+      if (!entries.every(isBlogEntry)) {
+        console.warn(
+          `Warning: ${providerId} contains non-BlogEntry items, skipping category filter`,
         );
-        results[providerId] = filtered;
-        if (excludedCount > 0) {
-          const displayKeywords = categoryKeywords.length > 5
-            ? `${categoryKeywords.slice(0, 5).join(", ")}...`
-            : categoryKeywords.join(", ");
-          console.log(
-            `Filtered out ${excludedCount} ${providerId} entries (not matching categories: ${displayKeywords})`,
-          );
-        }
+        continue;
+      }
+      const { filtered, excludedCount } = applyCategoryFilter(
+        entries,
+        categoryKeywords,
+      );
+      results[providerId] = filtered;
+      if (excludedCount > 0) {
+        const displayKeywords = categoryKeywords.length > 5
+          ? `${categoryKeywords.slice(0, 5).join(", ")}...`
+          : categoryKeywords.join(", ");
+        console.log(
+          `Filtered out ${excludedCount} ${providerId} entries (not matching categories: ${displayKeywords})`,
+        );
       }
     }
   }

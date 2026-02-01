@@ -35,6 +35,21 @@ export function matchesCategory(
   return null;
 }
 
+// テキストにマッチする全てのカテゴリキーワードを返す（部分一致・大文字小文字無視）
+export function findAllMatchedKeywords(
+  text: string,
+  categoryKeywords: string[],
+): string[] {
+  const lowerText = text.toLowerCase();
+  const matched: string[] = [];
+  for (const keyword of categoryKeywords) {
+    if (lowerText.includes(keyword.toLowerCase())) {
+      matched.push(keyword);
+    }
+  }
+  return matched;
+}
+
 // エントリがいずれかのカテゴリにマッチするかチェック
 // タイトル、タグ、説明文を順にチェックし、マッチしたカテゴリを全て返す
 export function findMatchedCategories(
@@ -43,27 +58,31 @@ export function findMatchedCategories(
 ): string[] {
   const matchedCategories = new Set<string>();
 
-  // タイトルでチェック
-  const titleMatch = matchesCategory(entry.title, categoryKeywords);
-  if (titleMatch) {
-    matchedCategories.add(titleMatch);
+  // タイトルで全てのキーワードをチェック
+  for (const keyword of findAllMatchedKeywords(entry.title, categoryKeywords)) {
+    matchedCategories.add(keyword);
   }
 
-  // タグでチェック
+  // タグで全てのキーワードをチェック
   if (entry.tags) {
     for (const tag of entry.tags) {
-      const tagMatch = matchesCategory(tag, categoryKeywords);
-      if (tagMatch) {
-        matchedCategories.add(tagMatch);
+      for (
+        const keyword of findAllMatchedKeywords(tag, categoryKeywords)
+      ) {
+        matchedCategories.add(keyword);
       }
     }
   }
 
-  // 説明文でチェック
+  // 説明文で全てのキーワードをチェック
   if (entry.description) {
-    const descMatch = matchesCategory(entry.description, categoryKeywords);
-    if (descMatch) {
-      matchedCategories.add(descMatch);
+    for (
+      const keyword of findAllMatchedKeywords(
+        entry.description,
+        categoryKeywords,
+      )
+    ) {
+      matchedCategories.add(keyword);
     }
   }
 
