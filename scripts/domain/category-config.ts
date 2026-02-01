@@ -13,6 +13,7 @@ export interface CategoryConfig {
   changelogManual: string;
   // Blog用
   blogDaily: string;
+  blogWeekly: string;
   blogManual: string;
   // 共通デフォルト
   default: string;
@@ -26,6 +27,7 @@ export const DEFAULT_CATEGORY_CONFIG: CategoryConfig = {
   changelogWeekly: "Weekly",
   changelogManual: "manual trigger",
   blogDaily: "Daily",
+  blogWeekly: "Weekly",
   blogManual: "manual trigger",
   default: "General",
 };
@@ -44,6 +46,7 @@ export const DEFAULT_CATEGORY_CONFIG: CategoryConfig = {
  *
  * ## Blog カテゴリ
  * - blog_daily: Daily
+ * - blog_weekly: Weekly
  * - blog_manual: manual trigger
  *
  * ## デフォルト
@@ -73,6 +76,9 @@ export function parseCategoryConfig(issueBody: string): CategoryConfig {
             break;
           case "blog_daily":
             config.blogDaily = trimmedValue;
+            break;
+          case "blog_weekly":
+            config.blogWeekly = trimmedValue;
             break;
           case "blog_manual":
             config.blogManual = trimmedValue;
@@ -120,7 +126,7 @@ export function getCategoryName(
 
   // スケジュール実行の場合
   if (categoryType === "blog") {
-    return config.blogDaily;
+    return isWeekly ? config.blogWeekly : config.blogDaily;
   }
 
   // Changelog: 週次か日次かで分岐
