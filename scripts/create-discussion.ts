@@ -933,7 +933,11 @@ async function createBlogDiscussion(
 
   if (summariesJson) {
     try {
-      const summaries: BlogSummaryData = JSON.parse(summariesJson);
+      const parsedSummaries = JSON.parse(summariesJson);
+      // Claude Code Actionの出力形式: {"hatenaBookmark": {"categories": [...]}}
+      // BlogSummaryData形式に変換: {"categories": [...]}
+      const summaries: BlogSummaryData = parsedSummaries.hatenaBookmark ||
+        parsedSummaries;
       body = generateBlogBodyWithSummaries(blogData, summaries) +
         generateMention();
       console.log("Using blog summaries JSON");

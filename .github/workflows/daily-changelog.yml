@@ -11,6 +11,16 @@ on:
         description: "対象日付 (YYYY-MM-DD形式、空欄で今日)"
         required: false
         type: string
+      run_changelog:
+        description: "Changelogを実行"
+        required: false
+        type: boolean
+        default: true
+      run_blog:
+        description: "Blogを実行"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -44,32 +54,57 @@ jobs:
           GITHUB_TOKEN: ${{ steps.login-gh-app-fetch.outputs.token }}
           MUTE_WORDS_ISSUE_NUMBER: "1"
           CATEGORY_CONFIG_ISSUE_NUMBER: "104"
+          CATEGORY_FILTER_ISSUE_NUMBER: "118"
+          # case関数でカテゴリを決定
+          # - schedule時はinputsが空なので「!= false」で全てtrueと評価され'all'になる
+          # - workflow_dispatch時はinputsの値に応じて分岐
+          CATEGORY: |-
+            ${{ case(
+              inputs.run_changelog != false && inputs.run_blog != false, 'all',
+              inputs.run_changelog != false, 'changelog',
+              inputs.run_blog != false, 'blog',
+              'none'
+            ) }}
         run: |
+          if [ "$CATEGORY" = "none" ]; then
+            echo "No category selected, skipping fetch"
+            echo "has_changelog=false" >> $GITHUB_OUTPUT
+            echo "has_blog=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           if [ -n "${{ inputs.date }}" ]; then
             TARGET_DATE="${{ inputs.date }}"
-            deno task fetch -- --date=${{ inputs.date }}
+            deno task fetch -- --date=${{ inputs.date }} --category=${CATEGORY}
           else
             TARGET_DATE=$(date -u +%Y-%m-%d)
-            deno task fetch
+            deno task fetch -- --category=${CATEGORY}
           fi
           echo "target_date=${TARGET_DATE}" >> $GITHUB_OUTPUT
 
-          # Changelog ファイル存在確認
-          if [ -f "data/changelogs/daily/${TARGET_DATE}.json" ]; then
-            echo "has_changelog=true" >> $GITHUB_OUTPUT
-            echo "Changelog data file created: data/changelogs/daily/${TARGET_DATE}.json"
+          # ファイル存在確認（選択されたカテゴリのみ）
+          if [ "$CATEGORY" = "all" ] || [ "$CATEGORY" = "changelog" ]; then
+            if [ -f "data/changelogs/daily/${TARGET_DATE}.json" ]; then
+              echo "has_changelog=true" >> $GITHUB_OUTPUT
+              echo "Changelog data file created: data/changelogs/daily/${TARGET_DATE}.json"
+            else
+              echo "has_changelog=false" >> $GITHUB_OUTPUT
+              echo "No changelog data file created (no updates found)"
+            fi
           else
             echo "has_changelog=false" >> $GITHUB_OUTPUT
-            echo "No changelog data file created (no updates found)"
           fi
 
-          # Blog ファイル存在確認
-          if [ -f "data/blogs/daily/${TARGET_DATE}.json" ]; then
-            echo "has_blog=true" >> $GITHUB_OUTPUT
-            echo "Blog data file created: data/blogs/daily/${TARGET_DATE}.json"
+          if [ "$CATEGORY" = "all" ] || [ "$CATEGORY" = "blog" ]; then
+            if [ -f "data/blogs/daily/${TARGET_DATE}.json" ]; then
+              echo "has_blog=true" >> $GITHUB_OUTPUT
+              echo "Blog data file created: data/blogs/daily/${TARGET_DATE}.json"
+            else
+              echo "has_blog=false" >> $GITHUB_OUTPUT
+              echo "No blog data file created (no updates found)"
+            fi
           else
             echo "has_blog=false" >> $GITHUB_OUTPUT
-            echo "No blog data file created (no updates found)"
           fi
 
       - name: Login GitHub App
@@ -144,21 +179,28 @@ jobs:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"hatenaBookmark":{"type":"object","properties":{"selectedTopics":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"}},"required":["url","title","reason"]}},"overview":{"type":"string"}},"required":["selectedTopics","overview"]}},"required":["hatenaBookmark"]}'
+            --json-schema '{"type":"object","properties":{"hatenaBookmark":{"type":"object","properties":{"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"comment":{"type":"string"}},"required":["url","title","comment"]}},"categoryComment":{"type":"string"}},"required":["category","entries","categoryComment"]}}},"required":["categories"]}},"required":["hatenaBookmark"]}'
           prompt: |
-            data/blogs/daily/${{ steps.fetch.outputs.target_date }}.json を読み込み、開発者向けのトピックを選定してまとめて解説してください。
+            data/blogs/daily/${{ steps.fetch.outputs.target_date }}.json を読み込み、カテゴリごとにグループ化して記事をまとめてください。
 
-            ## トピック選定のルール
+            ## カテゴリグループ化のルール
             - `muted: true` のエントリはスキップしてください
-            - 開発者向けの記事を選定してください（上限なし、関連するものは全て含める）
-            - 選定基準: 開発生産性、GitHub、AWS、Claude、プログラミング全般、DevOps、AI/ML など
+            - 各記事の `matchedCategories` フィールドを参照してカテゴリ分けしてください
+            - `matchedCategories` が空でない記事のみを対象としてください
+            - `matchedCategories` の値をそのままカテゴリ名として使用してください（例: "aws", "git", "github", "docker", "claude code"）
+            - 複数のカテゴリにマッチする記事は、全てのカテゴリに表示してください
+            - カテゴリの順序は `matchedCategories` に含まれるキーワードの順序に従ってください
 
             ## 出力形式
-            - selectedTopics: 選定した記事のリスト（url, title, reason を含む）
-              - reason: なぜこの記事を選定したか（1文で簡潔に）
-            - overview: 選定した記事全体の解説・トレンド分析（2-3段落程度）
+            - categories: カテゴリごとのグループのリスト
+              - category: カテゴリ名（`matchedCategories` の値をそのまま使用。例: "aws", "git", "github", "claude code"）
+              - entries: カテゴリ内の記事リスト
+                - url: 記事のURL
+                - title: 記事のタイトル
+                - comment: 記事へのコメント（1文で簡潔に、技術的なポイントを強調）
+              - categoryComment: カテゴリ全体のまとめコメント（1-2文で、そのカテゴリの今日のトレンドを説明）
 
-            該当するエントリがない場合は selectedTopics を空配列 `[]`、overview を空文字列としてください。
+            `matchedCategories` が空でない記事がない場合は categories を空配列 `[]` としてください。
 
       - name: Post Blog to Discussion
         if: steps.fetch.outputs.has_blog == 'true'

@@ -1,5 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import type {
+  BlogEntry,
   ChangelogData,
   ChangelogEntry,
   ReleaseEntry,
@@ -11,6 +12,10 @@ import {
   isMuted,
   parseMuteWords,
 } from "./domain/mute-filter.ts";
+import {
+  applyCategoryFilter,
+  parseCategoryKeywords,
+} from "./domain/category-filter.ts";
 import {
   extractLabelsFromAWSCategory,
   extractLabelsFromCategories,
@@ -30,17 +35,35 @@ import {
 // 後方互換性のため型と関数を再エクスポート
 export type { ChangelogData, ChangelogEntry, ReleaseEntry, XmlCategory };
 export {
+  applyCategoryFilter,
   applyMuteFilter,
   extractLabelsFromAWSCategory,
   extractLabelsFromCategories,
   isMuted,
   isRecent,
   isWithinDays,
+  parseCategoryKeywords,
   parseMuteWords,
 };
 
 // 1日のミリ秒数
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// BlogEntry型ガード関数
+function isBlogEntry(entry: unknown): entry is BlogEntry {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "title" in entry &&
+    typeof entry.title === "string" &&
+    "url" in entry &&
+    typeof entry.url === "string" &&
+    "description" in entry &&
+    typeof entry.description === "string" &&
+    "pubDate" in entry &&
+    typeof entry.pubDate === "string"
+  );
+}
 
 // GitHub Actions用の出力を書き込む
 export function writeGitHubOutput(key: string, value: string): void {
@@ -155,6 +178,42 @@ export async function fetchMuteWords(
   }
 }
 
+// GitHub Issueからカテゴリフィルターのキーワードリストを取得
+export async function fetchCategoryKeywords(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+): Promise<string[]> {
+  try {
+    const { data: issue } = await octokit.issues.get({
+      owner,
+      repo,
+      issue_number: issueNumber,
+    });
+
+    if (!issue.body) {
+      console.warn(`Issue #${issueNumber} has no body`);
+      return [];
+    }
+
+    const keywords = parseCategoryKeywords(issue.body);
+    const displayKeywords = keywords.length > 5
+      ? `${keywords.slice(0, 5).join(", ")}...`
+      : keywords.join(", ");
+    console.log(
+      `Loaded ${keywords.length} category keywords from issue #${issueNumber}: ${displayKeywords}`,
+    );
+    return keywords;
+  } catch (error) {
+    console.warn(
+      `Failed to fetch category keywords from issue #${issueNumber}:`,
+      error,
+    );
+    return [];
+  }
+}
+
 // Changelogカテゴリのデータを取得・保存
 async function processChangelog(
   targetDate: Date,
@@ -230,6 +289,7 @@ async function processBlog(
   weekly: boolean,
   dateString: string,
   muteWords: string[],
+  categoryKeywords: string[],
 ): Promise<void> {
   console.log("\n--- Processing Blog ---");
 
@@ -242,6 +302,39 @@ async function processBlog(
     results = filtered;
     if (mutedCount > 0) {
       console.log(`Muted ${mutedCount} blog entries`);
+    }
+  }
+
+  // カテゴリフィルタを適用（設定されたカテゴリにマッチするエントリのみ残す）
+  if (categoryKeywords.length > 0) {
+    for (const providerId of Object.keys(results)) {
+      const entries = results[providerId];
+      if (!Array.isArray(entries) || entries.length === 0) {
+        continue;
+      }
+      // 型ガードでBlogEntry型であることを確認
+      if (!entries.every(isBlogEntry)) {
+        console.warn(
+          `Warning: ${providerId} contains non-BlogEntry items, skipping category filter`,
+        );
+        continue;
+      }
+      // keepUnmatched: trueを指定することで、カテゴリにマッチしないエントリも
+      // matchedCategories: [] として保持し、後続の処理（Markdown生成）で扱える
+      const { filtered, excludedCount } = applyCategoryFilter(
+        entries,
+        categoryKeywords,
+        { keepUnmatched: true },
+      );
+      results[providerId] = filtered;
+      if (excludedCount > 0) {
+        const displayKeywords = categoryKeywords.length > 5
+          ? `${categoryKeywords.slice(0, 5).join(", ")}...`
+          : categoryKeywords.join(", ");
+        console.log(
+          `Filtered out ${excludedCount} ${providerId} entries (not matching categories: ${displayKeywords})`,
+        );
+      }
     }
   }
 
@@ -293,10 +386,14 @@ async function main() {
   // ミュートワード機能の準備
   const token = Deno.env.get("GITHUB_TOKEN");
   const muteWordsIssueNumber = Deno.env.get("MUTE_WORDS_ISSUE_NUMBER") || "1";
+  const categoryFilterIssueNumber = Deno.env.get(
+    "CATEGORY_FILTER_ISSUE_NUMBER",
+  );
   const repositoryOwner = Deno.env.get("GITHUB_REPOSITORY_OWNER") ||
     "korosuke613";
   const repositoryName = Deno.env.get("GITHUB_REPOSITORY_NAME") || "mynewshq";
   let muteWords: string[] = [];
+  let categoryKeywords: string[] = [];
 
   if (token && muteWordsIssueNumber) {
     const authenticatedOctokit = new Octokit({ auth: token });
@@ -313,6 +410,23 @@ async function main() {
         `Invalid MUTE_WORDS_ISSUE_NUMBER: ${muteWordsIssueNumber}`,
       );
     }
+
+    // カテゴリフィルターの読み込み（設定されている場合のみ）
+    if (categoryFilterIssueNumber) {
+      const categoryIssueNumber = parseInt(categoryFilterIssueNumber, 10);
+      if (!isNaN(categoryIssueNumber)) {
+        categoryKeywords = await fetchCategoryKeywords(
+          authenticatedOctokit,
+          repositoryOwner,
+          repositoryName,
+          categoryIssueNumber,
+        );
+      } else {
+        console.warn(
+          `Invalid CATEGORY_FILTER_ISSUE_NUMBER: ${categoryFilterIssueNumber}`,
+        );
+      }
+    }
   }
 
   // カテゴリに応じて処理を実行
@@ -321,7 +435,14 @@ async function main() {
   }
 
   if (category === "blog" || category === "all") {
-    await processBlog(targetDate, days, weekly, dateString, muteWords);
+    await processBlog(
+      targetDate,
+      days,
+      weekly,
+      dateString,
+      muteWords,
+      categoryKeywords,
+    );
   }
 
   console.log("\nDone!");

@@ -40,12 +40,23 @@
 
 ## 3. 処理フロー
 
+### Changelog処理フロー
+
 1. **データ取得**: 全プロバイダーからデータを並列取得
 2. **ミュートフィルタ適用**: Issue #1 のミュートワードでフィルタリング
 3. **JSONファイル保存**: 収集データをファイルに保存
 4. **要約生成**: Claude Code Action でJSON形式の要約を生成
 5. **Discussion投稿**: 要約を含むDiscussionを作成
 6. **ラベル自動付与**: プロバイダー名 + サブカテゴリラベルを付与
+
+### Blog処理フロー
+
+1. **データ取得**: Blogプロバイダーからデータを並列取得
+2. **ミュートフィルタ適用**: Issue #1 のミュートワードでフィルタリング
+3. **カテゴリフィルタ適用**: 設定されている場合、カテゴリキーワードでフィルタリング
+4. **JSONファイル保存**: 収集データをファイルに保存
+5. **要約生成**: Claude Code Action でJSON形式の要約を生成
+6. **Discussion投稿**: 要約を含むDiscussionを作成
 
 ---
 
@@ -100,19 +111,32 @@
 ### Blog Discussion構造
 
 ```markdown
-# 📝 Tech Blog - YYYY-MM-DD
+# 📖 Tech Blog - YYYY-MM-DD
 
 📅 **対象期間**: YYYY-MM-DD 03:00 UTC ~ YYYY-MM-DD 03:00 UTC
 
-## 今日の開発者向けトピック
+## はてなブックマーク
 
-[全体の解説・トレンド分析（2-3段落）]
+本日のはてなブックマークから、開発者向けの注目記事をカテゴリごとにまとめました。
 
-## 選定記事
+## AWS (3件)
 
-### [記事タイトル](URL)
+- [AWS Lambda新機能](url) - サーバーレス開発が便利に
+- [S3コスト削減](url) - ストレージ最適化のベストプラクティス
+- [CloudWatch活用](url) - 効果的な監視とアラート設定
 
-**選定理由**: この記事を選定した理由...
+**今日のAWS**: インフラ・コスト最適化系の記事が多く、効率的なクラウド運用への関心が高まっています。
+
+---
+
+## GitHub (2件)
+
+- [GitHub Copilot活用](url) - AI支援による開発効率化
+- [Actions最新機能](url) - CI/CDパイプラインの改善
+
+**今日のGitHub**: AI支援開発とCI/CDの高度化がトレンドです。
+
+---
 ```
 
 ---
@@ -138,14 +162,19 @@
 ```json
 {
   "hatenaBookmark": {
-    "selectedTopics": [
+    "categories": [
       {
-        "url": "https://example.com/article1",
-        "title": "記事タイトル",
-        "reason": "選定理由..."
+        "category": "AWS",
+        "entries": [
+          {
+            "url": "https://example.com/article1",
+            "title": "記事タイトル",
+            "comment": "記事へのコメント（1文で簡潔に）"
+          }
+        ],
+        "categoryComment": "カテゴリ全体のまとめコメント（1-2文）"
       }
-    ],
-    "overview": "選定記事全体の解説・トレンド分析..."
+    ]
   }
 }
 ```
@@ -186,6 +215,9 @@ GITHUB_TOKEN=$(gh auth token) deno task fetch-changelog
 
 # Blogのみ取得
 GITHUB_TOKEN=$(gh auth token) deno task fetch-blog
+
+# Blogをカテゴリフィルタ付きで取得
+GITHUB_TOKEN=$(gh auth token) CATEGORY_FILTER_ISSUE_NUMBER=123 deno task fetch-blog
 ```
 
 ### プレビュー
@@ -260,13 +292,19 @@ GITHUB_TOKEN=$(gh auth token) deno task post --category=blog korosuke613 mynewsh
     {
       "title": "記事タイトル",
       "url": "https://example.com/article",
+      "description": "記事の説明",
+      "tags": ["tag1", "tag2"],
       "bookmarkCount": 100,
       "pubDate": "2026-01-18T06:00:00Z",
-      "muted": false
+      "muted": false,
+      "matchedCategories": ["aws", "github"]
     }
   ]
 }
 ```
+
+**フィールド説明**:
+- `matchedCategories`: カテゴリフィルタ機能でマッチしたカテゴリキーワードの配列（フィルタ未使用時は含まれない）
 
 ---
 
@@ -281,3 +319,108 @@ GITHUB_TOKEN=$(gh auth token) deno task post --category=blog korosuke613 mynewsh
 ```
 
 これにより、アメリカ西海岸（PST/PDT）の夕方〜夜の更新を翌日の日本時間正午に収集できます。
+
+---
+
+## 10. カテゴリフィルタリング機能（Blog専用）
+
+### 概要
+
+Blog記事を特定のカテゴリキーワード（例: aws, github, kubernetes）でフィルタリングし、関係のない記事を除外する機能です。
+
+**対象**: Blog（はてなブックマーク）のみ。Changelogには適用されません。
+
+### 目的
+
+- トピックが散らばりがちなBlog記事を、興味のあるカテゴリに絞り込む
+- 関係のない記事を除外し、Discussion投稿の質を向上
+- 収集データのノイズを削減
+
+### 設定方法
+
+#### 1. GitHub Issueにカテゴリキーワードを記載
+
+指定したIssue番号の本文に、箇条書きでカテゴリキーワードを列挙します：
+
+```markdown
+- aws
+- github
+- kubernetes
+- terraform
+- docker
+```
+
+#### 2. 環境変数を設定
+
+```bash
+export CATEGORY_FILTER_ISSUE_NUMBER=123  # Issue番号を指定
+```
+
+GitHub Actionsの場合は、ワークフローファイルに追加：
+
+```yaml
+env:
+  CATEGORY_FILTER_ISSUE_NUMBER: "123"
+```
+
+### フィルタリングの仕組み
+
+#### マッチング対象フィールド
+
+以下のフィールドで順にカテゴリキーワードをチェック：
+
+1. **title**（タイトル）
+2. **tags**（タグ配列）
+3. **description**（説明文）
+
+#### マッチング条件
+
+- **部分一致**: キーワードがフィールド内に含まれているかチェック
+- **大文字小文字を区別しない**: "AWS" と "aws" は同一扱い
+- **複数カテゴリマッチ**: 1つのエントリが複数のカテゴリにマッチする場合、すべて記録
+
+#### フィルタリング動作
+
+```
+カテゴリキーワードが設定されている場合:
+  → マッチしたエントリのみ保持、マッチしないエントリは除外
+
+カテゴリキーワードが空または未設定の場合:
+  → すべてのエントリを保持（フィルタリングなし）
+```
+
+### 実行例
+
+```bash
+# カテゴリフィルタを使用してBlog記事を取得
+GITHUB_TOKEN=$(gh auth token) \
+CATEGORY_FILTER_ISSUE_NUMBER=123 \
+deno task fetch-blog
+
+# ログ出力例
+Loaded 7 category keywords from issue #123: aws, github, kubernetes, terraform, docker...
+Filtered out 15 hatenaBookmark entries (not matching categories: aws, github, kubernetes, terraform, docker...)
+```
+
+### データへの影響
+
+フィルタリングされたエントリには `matchedCategories` フィールドが追加されます：
+
+```json
+{
+  "title": "GitHub Actions for AWS Lambda",
+  "url": "https://example.com/article",
+  "matchedCategories": ["github", "aws"]
+}
+```
+
+### 注意事項
+
+- カテゴリキーワードは最大5個までログに表示（それ以上は `...` で省略）
+- マッチしないエントリは完全に除外され、JSONファイルにも保存されません
+- ミュートフィルタの後に適用されるため、ミュート済みエントリは既に除外されています
+
+### 使用タイミング
+
+- **日次ワークフロー**: 毎日のBlog収集時に自動適用
+- **手動実行**: 環境変数を設定して `deno task fetch-blog` を実行

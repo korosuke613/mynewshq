@@ -57,6 +57,7 @@ export interface BlogEntry {
   tags?: string[];
   muted?: boolean;
   mutedBy?: string;
+  matchedCategories?: string[]; // カテゴリフィルターでマッチしたカテゴリ
 }
 
 // Changelogデータの型（JSON保存形式）
@@ -76,6 +77,7 @@ export interface BlogData {
   startDate?: string; // 週次の場合の開始日
   endDate?: string; // 週次の場合の終了日
   hatenaBookmark: BlogEntry[];
+  githubBlog: BlogEntry[];
 }
 
 // 要約データの型（キーはURL、値は要約文）
@@ -129,19 +131,22 @@ export interface DetermineLabelsOptions {
   serviceOnly?: boolean; // trueの場合、サービス名ラベルのみを返す（週次用）
 }
 
-// Blog要約用の型
-export interface SelectedBlogTopic {
+// Blog要約用の型（新形式：カテゴリごとグループ化）
+export interface BlogCategoryEntry {
   url: string;
   title: string;
-  reason: string; // なぜこのトピックを選定したか
+  comment: string; // 各記事へのコメント
 }
 
-// Blog要約データの型
+export interface BlogCategoryGroup {
+  category: string; // カテゴリ名（例: "AWS", "GitHub"）
+  entries: BlogCategoryEntry[]; // カテゴリに属する記事
+  categoryComment: string; // カテゴリ全体へのまとめコメント
+}
+
+// Blog要約データの型（カテゴリベース形式、プロバイダー非依存）
 export interface BlogSummaryData {
-  hatenaBookmark: {
-    selectedTopics: SelectedBlogTopic[]; // 選定されたトピック（上限なし）
-    overview: string; // 全体の解説
-  };
+  categories: BlogCategoryGroup[]; // カテゴリごとにグループ化された記事（全プロバイダー統合）
 }
 
 // =============================================================================
