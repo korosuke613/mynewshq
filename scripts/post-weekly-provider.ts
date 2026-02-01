@@ -8,7 +8,11 @@ import type {
   ReleaseEntry,
 } from "./domain/types.ts";
 import { createProviderWeeklyDiscussion } from "./create-discussion.ts";
-import { getCategoryNameFromEnv } from "./domain/category-config.ts";
+import {
+  DEFAULT_CATEGORY_CONFIG,
+  getCategoryName,
+  getCategoryNameFromEnv,
+} from "./domain/category-config.ts";
 import {
   hasFlag,
   parseArg,
@@ -64,8 +68,6 @@ function parseArgs(args: string[]): PostWeeklyProviderArgs {
 }
 
 async function main() {
-  const token = requireGitHubToken();
-
   const {
     date,
     provider,
@@ -74,6 +76,9 @@ async function main() {
     repo,
     dryRun,
   } = parseArgs(Deno.args);
+
+  // dry-run時はトークン不要
+  const token = dryRun ? "" : requireGitHubToken();
 
   // 週次データを読み込む
   const changelogData = await loadChangelogData(date, true);
@@ -86,16 +91,33 @@ async function main() {
 
   const summary = await loadJsonFile<ProviderWeeklySummary>(summariesFile);
 
-  // カテゴリ名の決定：環境変数から設定を取得
-  const octokit = new Octokit({ auth: token });
-  const categoryName = await getCategoryNameFromEnv(
-    octokit,
-    owner,
-    repo,
-    "changelog",
-    true, // 週次処理
-  );
-  console.log(`Using category from config: ${categoryName}`);
+  // カテゴリ名の決定
+  let categoryName: string;
+  if (dryRun) {
+    // dry-run時はデフォルト設定を使用
+    const triggerStr = Deno.env.get("WORKFLOW_TRIGGER");
+    const trigger = triggerStr === "workflow_dispatch"
+      ? "workflow_dispatch"
+      : "schedule";
+    categoryName = getCategoryName(
+      DEFAULT_CATEGORY_CONFIG,
+      "changelog",
+      trigger,
+      true, // 週次処理
+    );
+    console.log(`Using default category config: ${categoryName}`);
+  } else {
+    // 通常時は環境変数から設定を取得
+    const octokit = new Octokit({ auth: token });
+    categoryName = await getCategoryNameFromEnv(
+      octokit,
+      owner,
+      repo,
+      "changelog",
+      true, // 週次処理
+    );
+    console.log(`Using category from config: ${categoryName}`);
+  }
 
   // プロバイダーのデータを取得
   const providerData = changelogData[

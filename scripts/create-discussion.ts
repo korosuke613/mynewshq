@@ -34,7 +34,11 @@ import {
   getCategoryEmoji,
 } from "./presentation/markdown/helpers.ts";
 import { generateMutedSection } from "./presentation/markdown/muted-section.ts";
-import { getCategoryNameFromEnv } from "./domain/category-config.ts";
+import {
+  DEFAULT_CATEGORY_CONFIG,
+  getCategoryName,
+  getCategoryNameFromEnv,
+} from "./domain/category-config.ts";
 import {
   hasFlag,
   parseArg,
@@ -459,11 +463,13 @@ export function parseArgs(
   summariesFile: string | null;
   weekly: boolean;
   category: CategoryOption;
+  dryRun: boolean;
   otherArgs: string[];
 } {
   const summariesJson = parseArg(args, "summaries-json") ?? null;
   const summariesFile = parseArg(args, "summaries-file") ?? null;
   const weekly = hasFlag(args, "weekly");
+  const dryRun = hasFlag(args, "dry-run");
   const categoryArg = parseArg(args, "category");
   const otherArgs = args.filter(
     (arg) =>
@@ -471,7 +477,8 @@ export function parseArgs(
       !arg.startsWith("--summaries-json=") &&
       !arg.startsWith("--summaries-file=") &&
       !arg.startsWith("--category=") &&
-      arg !== "--weekly",
+      arg !== "--weekly" &&
+      arg !== "--dry-run",
   );
 
   const date = parseArg(args, "date") ?? getTodayDateString();
@@ -492,6 +499,7 @@ export function parseArgs(
     summariesFile,
     weekly,
     category,
+    dryRun,
     otherArgs,
   };
 }
@@ -506,6 +514,7 @@ async function createChangelogDiscussion(
   weekly: boolean,
   summariesJson: string | null,
   legacySummary: string,
+  dryRun: boolean = false,
 ): Promise<void> {
   const subDir = weekly ? "weekly" : "daily";
   const changelogPath = `data/changelogs/${subDir}/${date}.json`;
@@ -573,6 +582,26 @@ async function createChangelogDiscussion(
 
   console.log(`Creating changelog discussion: ${title}`);
 
+  if (dryRun) {
+    console.log("\n[DRY RUN] Would create discussion with the following:");
+    console.log(`\n📋 タイトル: ${title}`);
+    console.log(`\n📁 投稿先カテゴリ: ${categoryName}`);
+
+    // ラベルを表示
+    const labels = determineLabels(changelogData, {
+      serviceOnly: weekly,
+    });
+    console.log(`\n🏷️ 付与予定ラベル:`);
+    console.log(labels.join(", "));
+
+    // ボディを表示
+    console.log(`\n📄 本文:`);
+    console.log(`---`);
+    console.log(body);
+    console.log(`---`);
+    return;
+  }
+
   const url = await createDiscussion(
     token,
     owner,
@@ -595,6 +624,7 @@ async function createBlogDiscussion(
   date: string,
   weekly: boolean,
   summariesJson: string | null,
+  dryRun: boolean = false,
 ): Promise<void> {
   const subDir = weekly ? "weekly" : "daily";
   const blogPath = `data/blogs/${subDir}/${date}.json`;
@@ -632,6 +662,20 @@ async function createBlogDiscussion(
 
   console.log(`Creating blog discussion: ${title}`);
 
+  if (dryRun) {
+    console.log("\n[DRY RUN] Would create discussion with the following:");
+    console.log(`\n📋 タイトル: ${title}`);
+    console.log(`\n📁 投稿先カテゴリ: ${categoryName}`);
+    console.log(`\n🏷️ 付与予定ラベル: なし（Blogはラベル付与なし）`);
+
+    // ボディを表示
+    console.log(`\n📄 本文:`);
+    console.log(`---`);
+    console.log(body);
+    console.log(`---`);
+    return;
+  }
+
   // BlogDataはラベル付与しないのでundefinedを渡す
   const url = await createDiscussion(
     token,
@@ -648,8 +692,6 @@ async function createBlogDiscussion(
 
 // メイン処理
 async function main() {
-  const token = requireGitHubToken();
-
   // 引数からリポジトリ情報を取得（デフォルト: korosuke613/mynewshq）
   const {
     date,
@@ -657,21 +699,42 @@ async function main() {
     summariesFile,
     weekly,
     category,
+    dryRun,
     otherArgs,
   } = parseArgs(Deno.args);
   const owner = otherArgs[0] || "korosuke613";
   const repo = otherArgs[1] || "mynewshq";
 
-  // カテゴリ名の決定：環境変数から設定を取得
-  const octokit = new Octokit({ auth: token });
-  const categoryName = await getCategoryNameFromEnv(
-    octokit,
-    owner,
-    repo,
-    category,
-    weekly,
-  );
-  console.log(`Using category from config: ${categoryName}`);
+  // dry-run時はトークン不要
+  const token = dryRun ? "" : requireGitHubToken();
+
+  // カテゴリ名の決定
+  let categoryName: string;
+  if (dryRun) {
+    // dry-run時はデフォルト設定を使用
+    const triggerStr = Deno.env.get("WORKFLOW_TRIGGER");
+    const trigger = triggerStr === "workflow_dispatch"
+      ? "workflow_dispatch"
+      : "schedule";
+    categoryName = getCategoryName(
+      DEFAULT_CATEGORY_CONFIG,
+      category,
+      trigger,
+      weekly,
+    );
+    console.log(`Using default category config: ${categoryName}`);
+  } else {
+    // 通常時は環境変数から設定を取得
+    const octokit = new Octokit({ auth: token });
+    categoryName = await getCategoryNameFromEnv(
+      octokit,
+      owner,
+      repo,
+      category,
+      weekly,
+    );
+    console.log(`Using category from config: ${categoryName}`);
+  }
 
   // 要約JSONの取得：--summaries-file が優先、なければ --summaries-json を使用
   let summariesJson: string | null = summariesJsonArg;
@@ -699,6 +762,7 @@ async function main() {
       date,
       weekly,
       summariesJson,
+      dryRun,
     );
   } else {
     await createChangelogDiscussion(
@@ -710,6 +774,7 @@ async function main() {
       weekly,
       summariesJson,
       legacySummary,
+      dryRun,
     );
   }
 }

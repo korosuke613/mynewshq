@@ -18,6 +18,11 @@ import {
   generateBlogBodyWithSummaries,
   generateBlogTitle,
 } from "./presentation/markdown/blog-generator.ts";
+import { determineLabels } from "./domain/label-extractor.ts";
+import {
+  DEFAULT_CATEGORY_CONFIG,
+  getCategoryName,
+} from "./domain/category-config.ts";
 import { hasFlag, parseArg } from "./infrastructure/cli-parser.ts";
 import { getTodayDateString } from "./infrastructure/date-utils.ts";
 import { loadJsonFile } from "./infrastructure/data-loader.ts";
@@ -160,6 +165,28 @@ async function previewChangelog(
   console.log(`合計: ${totalActive} 件 (ミュート: ${totalMuted} 件)`);
   console.log();
 
+  // ラベルを表示
+  const labels = determineLabels(data);
+  console.log(`🏷️ 付与予定ラベル:`);
+  console.log(`---`);
+  console.log(labels.join(", "));
+  console.log();
+
+  // カテゴリを表示
+  const triggerStr = Deno.env.get("WORKFLOW_TRIGGER");
+  const trigger = triggerStr === "workflow_dispatch"
+    ? "workflow_dispatch"
+    : "schedule";
+  const categoryName = getCategoryName(
+    DEFAULT_CATEGORY_CONFIG,
+    "changelog",
+    trigger,
+    isWeekly,
+  );
+  console.log(`📁 投稿先カテゴリ: ${categoryName}`);
+  console.log(`   (トリガー: ${trigger}, 週次: ${isWeekly})`);
+  console.log();
+
   // ボディを生成
   let body: string;
   if (weekly) {
@@ -241,6 +268,21 @@ async function previewBlog(
   console.log(
     `Hatena Bookmark: ${hatenaActive} 件 (ミュート: ${hatenaMuted} 件)`,
   );
+  console.log();
+
+  // カテゴリを表示（BlogはラベルなしのためカテゴリのみDisclussion）
+  const triggerStr = Deno.env.get("WORKFLOW_TRIGGER");
+  const trigger = triggerStr === "workflow_dispatch"
+    ? "workflow_dispatch"
+    : "schedule";
+  const categoryName = getCategoryName(
+    DEFAULT_CATEGORY_CONFIG,
+    "blog",
+    trigger,
+    isWeekly,
+  );
+  console.log(`📁 投稿先カテゴリ: ${categoryName}`);
+  console.log(`   (トリガー: ${trigger}, 週次: ${isWeekly})`);
   console.log();
 
   // ボディを生成
