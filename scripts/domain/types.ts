@@ -78,6 +78,7 @@ export interface BlogData {
   endDate?: string; // 週次の場合の終了日
   hatenaBookmark: BlogEntry[];
   githubBlog: BlogEntry[];
+  awsBlog: BlogEntry[];
 }
 
 // 要約データの型（キーはURL、値は要約文）

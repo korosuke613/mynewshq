@@ -86,6 +86,9 @@ export function generateDefaultBlogBody(data: BlogData): string {
   if (data.githubBlog) {
     allActiveEntries.push(...data.githubBlog.filter((e) => !e.muted));
   }
+  if (data.awsBlog) {
+    allActiveEntries.push(...data.awsBlog.filter((e) => !e.muted));
+  }
 
   // カテゴリごとにグループ化
   const groupedByCategory = groupEntriesByCategory(allActiveEntries);
@@ -120,6 +123,9 @@ export function generateDefaultBlogBody(data: BlogData): string {
   }
   if (data.githubBlog) {
     allMutedEntries.push(...data.githubBlog.filter((e) => e.muted));
+  }
+  if (data.awsBlog) {
+    allMutedEntries.push(...data.awsBlog.filter((e) => e.muted));
   }
 
   if (allMutedEntries.length > 0) {
@@ -176,6 +182,9 @@ export function generateBlogBodyWithSummaries(
   }
   if (data.githubBlog) {
     allMutedEntries.push(...data.githubBlog.filter((e) => e.muted));
+  }
+  if (data.awsBlog) {
+    allMutedEntries.push(...data.awsBlog.filter((e) => e.muted));
   }
 
   if (allMutedEntries.length > 0) {

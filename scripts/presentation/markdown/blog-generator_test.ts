@@ -13,6 +13,7 @@ Deno.test("generateBlogTitle - 日次", () => {
     date: "2026-01-18",
     hatenaBookmark: [],
     githubBlog: [],
+    awsBlog: [],
   };
   const title = generateBlogTitle(data);
   assertEquals(title, "📖 Tech Blog - 2026-01-18");
@@ -25,6 +26,7 @@ Deno.test("generateBlogTitle - 週次", () => {
     endDate: "2026-01-20",
     hatenaBookmark: [],
     githubBlog: [],
+    awsBlog: [],
   };
   const title = generateBlogTitle(data);
   assertEquals(title, "📖 Tech Blog - Weekly (2026-01-13 ~ 2026-01-20)");
@@ -60,6 +62,7 @@ Deno.test("generateDefaultBlogBody - 日次（カテゴリベース）", () => {
       },
     ],
     githubBlog: [],
+    awsBlog: [],
   };
   const body = generateDefaultBlogBody(data);
   assertStringIncludes(body, "# 📖 Tech Blog - 2026-01-18");
@@ -92,6 +95,7 @@ Deno.test("generateDefaultBlogBody - ミュート済みエントリを除外", (
       },
     ],
     githubBlog: [],
+    awsBlog: [],
   };
   const body = generateDefaultBlogBody(data);
   assertStringIncludes(body, "[アクティブ記事]");
@@ -119,6 +123,7 @@ Deno.test("generateBlogBodyWithSummaries - カテゴリごとグループ化形�
       },
     ],
     githubBlog: [],
+    awsBlog: [],
   };
 
   const summaries: BlogSummaryData = {
@@ -190,6 +195,7 @@ Deno.test("generateBlogBodyWithSummaries - カテゴリが空の場合", () => {
     date: "2026-01-18",
     hatenaBookmark: [],
     githubBlog: [],
+    awsBlog: [],
   };
 
   const summaries: BlogSummaryData = {
@@ -216,6 +222,7 @@ Deno.test("generateBlogBodyWithSummaries - 複数カテゴリマッチ", () => {
       },
     ],
     githubBlog: [],
+    awsBlog: [],
   };
 
   const summaries: BlogSummaryData = {
@@ -277,6 +284,7 @@ Deno.test("generateDefaultBlogBody - その他カテゴリは最後に表示", (
       },
     ],
     githubBlog: [],
+    awsBlog: [],
   };
   const body = generateDefaultBlogBody(data);
   // AWSが先に表示され、その他が後に表示されることを確認
@@ -306,6 +314,7 @@ Deno.test("generateDefaultBlogBody - 両プロバイダーの記事を統合", (
         matchedCategories: ["aws"],
       },
     ],
+    awsBlog: [],
   };
   const body = generateDefaultBlogBody(data);
   // 両プロバイダーの記事が同じawsカテゴリにまとまる
