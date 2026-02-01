@@ -123,9 +123,9 @@ async function main(): Promise<void> {
   const { input, output } = parseArgs(Deno.args);
 
   // 入力ファイルのパスからChangelogかBlogかを判定
-  // パスを正規化して /blogs/ または \blogs\ を検出
+  // パスを正規化して data/blogs/ 配下かどうかを判定
   const normalizedPath = input.replace(/\\/g, "/");
-  const isBlogData = /\/blogs\//.test(normalizedPath);
+  const isBlogData = normalizedPath.includes("data/blogs/");
 
   // 入力ファイルを読み込み
   let rawContent: string;
