@@ -1,0 +1,235 @@
+name: Weekly Blog
+
+on:
+  schedule:
+    # 毎週水曜日 01:00 UTC (10:00 JST)
+    - cron: "0 1 * * 3"
+  workflow_dispatch:
+    inputs:
+      end_date:
+        description: "終了日 (YYYY-MM-DD形式、空欄で今日)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # Phase 1: データ取得
+  fetch-data:
+    runs-on: ubuntu-latest
+    outputs:
+      has_data: ${{ steps.fetch.outputs.has_data }}
+      end_date: ${{ steps.target-date.outputs.end_date }}
+      start_date: ${{ steps.target-date.outputs.start_date }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Login GitHub App
+        id: login-gh-app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
+          private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Determine target date
+        id: target-date
+        run: |
+          if [ -n "${{ inputs.end_date }}" ]; then
+            END_DATE="${{ inputs.end_date }}"
+          else
+            END_DATE=$(date -u +%Y-%m-%d)
+          fi
+          # 7日前を計算
+          START_DATE=$(date -u -d "${END_DATE} - 7 days" +%Y-%m-%d)
+          echo "end_date=${END_DATE}" >> $GITHUB_OUTPUT
+          echo "start_date=${START_DATE}" >> $GITHUB_OUTPUT
+          echo "Target period: ${START_DATE} ~ ${END_DATE}"
+
+      - name: Fetch blogs (7 days)
+        id: fetch
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+          MUTE_WORDS_ISSUE_NUMBER: "1"
+          CATEGORY_CONFIG_ISSUE_NUMBER: "104"
+          CATEGORY_FILTER_ISSUE_NUMBER: "118"
+        run: |
+          deno task fetch-weekly-blog --date=${{ steps.target-date.outputs.end_date }}
+
+          # ファイル存在確認
+          if [ -f "data/blogs/weekly/${{ steps.target-date.outputs.end_date }}.json" ]; then
+            echo "has_data=true" >> $GITHUB_OUTPUT
+            echo "Data file created"
+          else
+            echo "has_data=false" >> $GITHUB_OUTPUT
+            echo "No data file created (no updates found)"
+          fi
+
+      - name: Filter muted entries for summarization
+        if: steps.fetch.outputs.has_data == 'true'
+        run: |
+          deno task filter-muted \
+            --input=data/blogs/weekly/${{ steps.target-date.outputs.end_date }}.json \
+            --output=data/blogs/weekly/${{ steps.target-date.outputs.end_date }}-filtered.json
+
+      - name: Upload blog data
+        if: steps.fetch.outputs.has_data == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: blog-data
+          path: |
+            data/blogs/weekly/${{ steps.target-date.outputs.end_date }}.json
+            data/blogs/weekly/${{ steps.target-date.outputs.end_date }}-filtered.json
+          retention-days: 1
+
+  # Phase 2: 要約生成
+  summarize:
+    needs: fetch-data
+    if: needs.fetch-data.outputs.has_data == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download blog data
+        uses: actions/download-artifact@v4
+        with:
+          name: blog-data
+          path: data/
+
+      - name: Remove unfiltered JSON to prevent AI from reading it
+        run: |
+          # Claude Code Actionが-filtered.jsonのみを読むよう、元のJSONを削除
+          rm -f data/blogs/weekly/${{ needs.fetch-data.outputs.end_date }}.json
+          echo "Removed unfiltered JSON to ensure AI reads only filtered data"
+
+      - name: Login GitHub App
+        id: login-gh-app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
+          private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Generate summaries with Claude Code
+        id: summarize
+        uses: anthropics/claude-code-action@v1
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+        with:
+          github_token: ${{ steps.login-gh-app.outputs.token }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --json-schema '{"type":"object","properties":{"hatenaBookmark":{"type":"object","properties":{"highlights":{"type":"array","items":{"type":"string"}},"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"comment":{"type":"string"}},"required":["url","title","comment"]}},"categoryComment":{"type":"string"}},"required":["category","entries","categoryComment"]}}},"required":["highlights","categories"]}},"required":["hatenaBookmark"]}'
+          prompt: |
+            data/blogs/weekly/${{ needs.fetch-data.outputs.end_date }}-filtered.json を読み込み、週次Blog要約を生成してください。
+
+            ## タスク
+            はてなブックマークの週次分析を行い、カテゴリごとにグループ化して記事をまとめます。
+
+            ## ルール
+            - `muted: true` のエントリはスキップしてください
+            - すべて日本語で記述してください
+            - 各記事の `matchedCategories` フィールドを参照してカテゴリ分けしてください
+            - `matchedCategories` が空でない記事のみを対象としてください
+            - 複数のカテゴリにマッチする記事は、全てのカテゴリに表示してください
+
+            ## 出力構造
+
+            ### 1. highlights (3-5件の箇条書き文)
+            今週の重要なトピックを箇条書きで記述:
+            - 各項目は1~5文で簡潔にまとめる
+            - 技術者に影響のあるトレンドのポイントを含める
+
+            ### 2. categories
+            カテゴリごとのグループ:
+            - category: カテゴリ名（`matchedCategories` の値をそのまま使用）
+            - entries: カテゴリ内の記事リスト
+              - url: 記事のURL
+              - title: 記事のタイトル
+              - comment: 記事へのコメント（1文で簡潔に、技術的なポイントを強調）
+            - categoryComment: カテゴリ全体のまとめコメント（1-2文で、そのカテゴリの今週のトレンドを説明）
+
+      - name: Save summary to file
+        run: |
+          mkdir -p /tmp/summaries
+          cat <<'EOF' > /tmp/summaries/hatenaBookmark.json
+          ${{ steps.summarize.outputs.structured_output }}
+          EOF
+
+          # 内容確認
+          echo "Summary for hatenaBookmark:"
+          cat /tmp/summaries/hatenaBookmark.json
+
+      - name: Upload summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: summary-blog
+          path: /tmp/summaries/hatenaBookmark.json
+          retention-days: 1
+
+  # Phase 3: Discussion投稿
+  post-discussion:
+    needs: [fetch-data, summarize]
+    if: needs.fetch-data.outputs.has_data == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Login GitHub App
+        id: login-gh-app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.KIBA_CLAUDE_CODE_GH_APP_ID }}
+          private-key: ${{ secrets.KIBA_CLAUDE_CODE_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Download blog data
+        uses: actions/download-artifact@v4
+        with:
+          name: blog-data
+          path: data/
+
+      - name: Download summary
+        uses: actions/download-artifact@v4
+        with:
+          name: summary-blog
+          path: /tmp/summaries/
+
+      - name: Post blog discussion
+        env:
+          GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
+          CATEGORY_CONFIG_ISSUE_NUMBER: "104"
+          WORKFLOW_TRIGGER: ${{ github.event_name }}
+        run: |
+          # 要約ファイルの内容を確認
+          echo "Summary content:"
+          cat /tmp/summaries/hatenaBookmark.json
+
+          # Discussion投稿
+          deno task post \
+            --weekly \
+            --category=blog \
+            --date=${{ needs.fetch-data.outputs.end_date }} \
+            --summaries-file=/tmp/summaries/hatenaBookmark.json \
+            korosuke613 mynewshq
