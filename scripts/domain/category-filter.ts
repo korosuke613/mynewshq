@@ -22,15 +22,30 @@ export function parseCategoryKeywords(issueBody: string): string[] {
   return keywords;
 }
 
-// テキストがカテゴリキーワードにマッチするかチェック（部分一致・大文字小文字無視）
+// 正規表現オブジェクトのキャッシュ（パフォーマンス最適化）
+const regexCache = new Map<string, RegExp>();
+
+// キーワードから単語境界マッチング用の正規表現を生成（キャッシュあり）
+function getKeywordRegex(keyword: string): RegExp {
+  if (regexCache.has(keyword)) {
+    return regexCache.get(keyword)!;
+  }
+  // 特殊文字をエスケープして単語境界マッチング用の正規表現を作成
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`\\b${escapedKeyword}\\b`, "i");
+  regexCache.set(keyword, regex);
+  return regex;
+}
+
+// テキストがカテゴリキーワードにマッチするかチェック（単語境界・大文字小文字無視）
 // 最初にマッチしたキーワードを返す（マッチしない場合はnull）
 export function findFirstMatchedKeyword(
   text: string,
   categoryKeywords: string[],
 ): string | null {
-  const lowerText = text.toLowerCase();
   for (const keyword of categoryKeywords) {
-    if (lowerText.includes(keyword.toLowerCase())) {
+    const regex = getKeywordRegex(keyword);
+    if (regex.test(text)) {
       return keyword;
     }
   }
@@ -40,15 +55,15 @@ export function findFirstMatchedKeyword(
 // @deprecated Use findFirstMatchedKeyword instead
 export const matchesCategory = findFirstMatchedKeyword;
 
-// テキストにマッチする全てのカテゴリキーワードを返す（部分一致・大文字小文字無視）
+// テキストにマッチする全てのカテゴリキーワードを返す（単語境界・大文字小文字無視）
 export function findAllMatchedKeywords(
   text: string,
   categoryKeywords: string[],
 ): string[] {
-  const lowerText = text.toLowerCase();
   const matched: string[] = [];
   for (const keyword of categoryKeywords) {
-    if (lowerText.includes(keyword.toLowerCase())) {
+    const regex = getKeywordRegex(keyword);
+    if (regex.test(text)) {
       matched.push(keyword);
     }
   }
