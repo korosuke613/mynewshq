@@ -1,5 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import type {
+  BlogEntry,
   ChangelogData,
   ChangelogEntry,
   ReleaseEntry,
@@ -291,7 +292,7 @@ async function processBlog(
   // カテゴリフィルタを適用（設定されたカテゴリにマッチするエントリのみ残す）
   if (categoryKeywords.length > 0) {
     for (const providerId of Object.keys(results)) {
-      const entries = results[providerId];
+      const entries = results[providerId] as BlogEntry[];
       if (entries && entries.length > 0) {
         const { filtered, excludedCount } = applyCategoryFilter(
           entries,
