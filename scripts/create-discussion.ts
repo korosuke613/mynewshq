@@ -1,4 +1,3 @@
-import { graphql } from "@octokit/graphql";
 import { Octokit } from "@octokit/rest";
 import type {
   BlogData,
@@ -49,11 +48,8 @@ import {
   closeDiscussion as closeDiscussionGraphQL,
   createAuthenticatedGraphQLClient,
   createDiscussion as createDiscussionGraphQL,
-  type CreateDiscussionResult,
   type DiscussionCategory,
   fetchRepositoryData,
-  type Label,
-  type RepositoryData,
 } from "./infrastructure/github/graphql-client.ts";
 import {
   addLabelsToDiscussion,

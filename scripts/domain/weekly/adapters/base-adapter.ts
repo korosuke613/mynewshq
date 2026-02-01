@@ -24,7 +24,6 @@ import { graphql } from "@octokit/graphql";
 import {
   createAuthenticatedGraphQLClient,
   createDiscussion,
-  type DiscussionCategory,
   fetchRepositoryData,
   type Label,
 } from "../../../infrastructure/github/graphql-client.ts";
