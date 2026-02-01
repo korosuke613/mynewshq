@@ -7,6 +7,7 @@
     "fetch-weekly-blog": "deno run --allow-net --allow-read --allow-write --allow-env scripts/fetch-changelogs.ts --days=7 --weekly --category=blog",
     "fetch-past-discussions": "deno run --allow-net --allow-write --allow-env scripts/fetch-past-discussions.ts",
     "fetch-past-discussions-all": "deno run --allow-net --allow-read --allow-write --allow-env scripts/weekly-orchestrator.ts fetch-past-all",
+    "summarize": "deno run --allow-read --allow-write --allow-run --allow-env scripts/summarize.ts",
     "post": "deno run --allow-net --allow-read --allow-env scripts/create-discussion.ts",
     "post-weekly-provider": "deno run --allow-net --allow-read --allow-env scripts/post-weekly-provider.ts",
     "post-weekly-all": "deno run --allow-net --allow-read --allow-write --allow-env scripts/weekly-orchestrator.ts post-all",

@@ -52,6 +52,12 @@ GITHUB_TOKEN=$(gh auth token) deno task fetch-weekly
 GITHUB_TOKEN=$(gh auth token) deno task fetch-changelog  # Changelogのみ
 GITHUB_TOKEN=$(gh auth token) deno task fetch-blog       # Blogのみ
 
+# ローカル要約生成（Claude Code CLI使用）
+deno task summarize --date=2026-01-15                        # Changelog要約
+deno task summarize --date=2026-01-15 --category=blog        # Blog要約
+deno task summarize --date=2026-01-15 --output=/tmp/sum.json # ファイル出力
+deno task summarize --date=2026-01-15 --dry-run              # プロンプト確認
+
 # プレビュー（投稿せずにMarkdown確認）
 deno task preview
 deno task preview-weekly
@@ -290,6 +296,31 @@ deno task preview --date=2026-01-13 --summaries-json='{"github":{"https://exampl
 - 要約JSON使用時はその旨を表示
 - `summary.md` に自動保存
 - ターミナルにプレビュー表示
+
+## ローカル完全ワークフロー
+
+GitHub Actionsを使わずにローカルで完全なワークフローを実行できます：
+
+```bash
+# 1. データ取得
+GITHUB_TOKEN=$(gh auth token) deno task fetch --date=2026-01-15
+
+# 2. 要約生成（Claude Code CLI使用）
+deno task summarize --date=2026-01-15 --output=/tmp/summaries.json
+
+# 3. プレビュー
+deno task preview --date=2026-01-15 --summaries-file=/tmp/summaries.json
+
+# 4. 投稿（dry-run）
+deno run --allow-read --allow-env scripts/create-discussion.ts \
+  --date=2026-01-15 \
+  --summaries-file=/tmp/summaries.json \
+  --dry-run
+```
+
+**必要な準備:**
+- Claude Code CLIのインストール: `npm install -g @anthropics/claude-code`
+- GitHub Token: `gh auth token` で取得
 
 ## 依存関係
 
