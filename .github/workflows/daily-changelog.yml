@@ -145,21 +145,27 @@ jobs:
           github_token: ${{ steps.login-gh-app.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"hatenaBookmark":{"type":"object","properties":{"selectedTopics":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"reason":{"type":"string"}},"required":["url","title","reason"]}},"overview":{"type":"string"}},"required":["selectedTopics","overview"]}},"required":["hatenaBookmark"]}'
+            --json-schema '{"type":"object","properties":{"hatenaBookmark":{"type":"object","properties":{"categories":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"entries":{"type":"array","items":{"type":"object","properties":{"url":{"type":"string"},"title":{"type":"string"},"comment":{"type":"string"}},"required":["url","title","comment"]}},"categoryComment":{"type":"string"}},"required":["category","entries","categoryComment"]}}},"required":["categories"]}},"required":["hatenaBookmark"]}'
           prompt: |
-            data/blogs/daily/${{ steps.fetch.outputs.target_date }}.json を読み込み、開発者向けのトピックを選定してまとめて解説してください。
+            data/blogs/daily/${{ steps.fetch.outputs.target_date }}.json を読み込み、カテゴリごとにグループ化して記事をまとめてください。
 
-            ## トピック選定のルール
+            ## カテゴリグループ化のルール
             - `muted: true` のエントリはスキップしてください
-            - 開発者向けの記事を選定してください（上限なし、関連するものは全て含める）
-            - 選定基準: 開発生産性、GitHub、AWS、Claude、プログラミング全般、DevOps、AI/ML など
+            - 各記事の `matchedCategories` フィールドを参照してカテゴリ分けしてください
+            - 複数のカテゴリにマッチする記事は、全てのカテゴリに表示してください
+            - カテゴリの順序は Issue #118 のキーワード順（AWS, GitHub, Google Cloud, Azure, DevOps, CI/CD, セキュリティ, AI/ML, データベース, Kubernetes, Docker, モニタリング, テスト, パフォーマンス, フロントエンド, バックエンド）に従ってください
+            - 開発者向けの記事のみを対象としてください
 
             ## 出力形式
-            - selectedTopics: 選定した記事のリスト（url, title, reason を含む）
-              - reason: なぜこの記事を選定したか（1文で簡潔に）
-            - overview: 選定した記事全体の解説・トレンド分析（2-3段落程度）
+            - categories: カテゴリごとのグループのリスト
+              - category: カテゴリ名（例: "AWS", "GitHub"）
+              - entries: カテゴリ内の記事リスト
+                - url: 記事のURL
+                - title: 記事のタイトル
+                - comment: 記事へのコメント（1文で簡潔に、技術的なポイントを強調）
+              - categoryComment: カテゴリ全体のまとめコメント（1-2文で、そのカテゴリの今日のトレンドを説明）
 
-            該当するエントリがない場合は selectedTopics を空配列 `[]`、overview を空文字列としてください。
+            該当する記事がない場合は categories を空配列 `[]` としてください。
 
       - name: Post Blog to Discussion
         if: steps.fetch.outputs.has_blog == 'true'

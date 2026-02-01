@@ -88,7 +88,7 @@ export function generateDefaultBlogBody(data: BlogData): string {
   return body;
 }
 
-// 要約データ付きのボディ生成（トピック選定形式）
+// 要約データ付きのボディ生成（カテゴリごとグループ化形式）
 export function generateBlogBodyWithSummaries(
   data: BlogData,
   summaries: BlogSummaryData,
@@ -108,28 +108,32 @@ export function generateBlogBodyWithSummaries(
   if (data.hatenaBookmark && data.hatenaBookmark.length > 0) {
     const hatenaData = summaries.hatenaBookmark;
 
-    // 選定されたトピックがある場合
-    if (hatenaData?.selectedTopics && hatenaData.selectedTopics.length > 0) {
+    // カテゴリごとにグループ化された記事がある場合
+    if (hatenaData?.categories && hatenaData.categories.length > 0) {
       body += `## ${getProviderDisplayName("hatenaBookmark")}\n\n`;
       body +=
-        `本日のはてなブックマークから、開発者向けの注目記事をピックアップしました。\n\n`;
+        `本日のはてなブックマークから、開発者向けの注目記事をカテゴリごとにまとめました。\n\n`;
 
-      body += `### 注目トピック\n\n`;
-      for (const topic of hatenaData.selectedTopics) {
-        body += `- [${topic.title}](${topic.url}) - ${topic.reason}\n`;
-      }
-      body += "\n";
+      // 各カテゴリのセクションを生成
+      for (const categoryGroup of hatenaData.categories) {
+        const entryCount = categoryGroup.entries.length;
+        body += `## ${categoryGroup.category} (${entryCount}件)\n\n`;
 
-      // 全体の解説
-      if (hatenaData.overview) {
-        body += `### 解説\n\n`;
-        body += `${hatenaData.overview}\n\n`;
+        // カテゴリ内の記事一覧
+        for (const entry of categoryGroup.entries) {
+          body += `- [${entry.title}](${entry.url}) - ${entry.comment}\n`;
+        }
+        body += "\n";
+
+        // カテゴリ全体のまとめコメント
+        body += `**今日の${categoryGroup.category}**: ${categoryGroup.categoryComment}\n\n`;
+        body += "---\n\n";
       }
     }
 
     body += generateMutedSection(data.hatenaBookmark);
     if (
-      hatenaData?.selectedTopics?.length > 0 ||
+      hatenaData?.categories?.length > 0 ||
       data.hatenaBookmark.some((e) => e.muted)
     ) {
       body += "---\n\n";

@@ -25,28 +25,41 @@ type CategoryOption = "changelog" | "blog";
 // Blog プレビュー用のダミーデータ（--summaries-json がない場合に使用）
 const DUMMY_BLOG_SUMMARIES: BlogSummaryData = {
   hatenaBookmark: {
-    selectedTopics: [
+    categories: [
       {
-        url: "https://example.com/article1",
-        title: "サンプル記事 1",
-        reason:
-          "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
+        category: "AWS",
+        entries: [
+          {
+            url: "https://example.com/aws-article1",
+            title: "AWS Lambda新機能",
+            comment: "サーバーレス開発が便利に",
+          },
+          {
+            url: "https://example.com/aws-article2",
+            title: "S3コスト削減",
+            comment: "ストレージ最適化のベストプラクティス",
+          },
+        ],
+        categoryComment:
+          "インフラ・コスト最適化系の記事が多く、効率的なクラウド運用への関心が高まっています。",
       },
       {
-        url: "https://example.com/article2",
-        title: "サンプル記事 2",
-        reason:
-          "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
-      },
-      {
-        url: "https://example.com/article3",
-        title: "サンプル記事 3",
-        reason:
-          "これはプレビュー用のダミーデータです。実際の選定理由がここに表示されます。",
+        category: "GitHub",
+        entries: [
+          {
+            url: "https://example.com/github-article1",
+            title: "GitHub Copilot活用",
+            comment: "AI支援による開発効率化",
+          },
+          {
+            url: "https://example.com/github-article2",
+            title: "Actions最新機能",
+            comment: "CI/CDパイプラインの改善",
+          },
+        ],
+        categoryComment: "AI支援開発とCI/CDの高度化がトレンドです。",
       },
     ],
-    overview:
-      "【ダミー】本日のはてなブックマークでは、開発生産性やAI関連の記事が注目を集めています。これはプレビュー用のダミーデータです。実際の解説・トレンド分析がここに表示されます。",
   },
 };
 

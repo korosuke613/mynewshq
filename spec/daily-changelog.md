@@ -111,19 +111,32 @@
 ### Blog Discussion構造
 
 ```markdown
-# 📝 Tech Blog - YYYY-MM-DD
+# 📖 Tech Blog - YYYY-MM-DD
 
 📅 **対象期間**: YYYY-MM-DD 03:00 UTC ~ YYYY-MM-DD 03:00 UTC
 
-## 今日の開発者向けトピック
+## はてなブックマーク
 
-[全体の解説・トレンド分析（2-3段落）]
+本日のはてなブックマークから、開発者向けの注目記事をカテゴリごとにまとめました。
 
-## 選定記事
+## AWS (3件)
 
-### [記事タイトル](URL)
+- [AWS Lambda新機能](url) - サーバーレス開発が便利に
+- [S3コスト削減](url) - ストレージ最適化のベストプラクティス
+- [CloudWatch活用](url) - 効果的な監視とアラート設定
 
-**選定理由**: この記事を選定した理由...
+**今日のAWS**: インフラ・コスト最適化系の記事が多く、効率的なクラウド運用への関心が高まっています。
+
+---
+
+## GitHub (2件)
+
+- [GitHub Copilot活用](url) - AI支援による開発効率化
+- [Actions最新機能](url) - CI/CDパイプラインの改善
+
+**今日のGitHub**: AI支援開発とCI/CDの高度化がトレンドです。
+
+---
 ```
 
 ---
@@ -149,14 +162,19 @@
 ```json
 {
   "hatenaBookmark": {
-    "selectedTopics": [
+    "categories": [
       {
-        "url": "https://example.com/article1",
-        "title": "記事タイトル",
-        "reason": "選定理由..."
+        "category": "AWS",
+        "entries": [
+          {
+            "url": "https://example.com/article1",
+            "title": "記事タイトル",
+            "comment": "記事へのコメント（1文で簡潔に）"
+          }
+        ],
+        "categoryComment": "カテゴリ全体のまとめコメント（1-2文）"
       }
-    ],
-    "overview": "選定記事全体の解説・トレンド分析..."
+    ]
   }
 }
 ```
