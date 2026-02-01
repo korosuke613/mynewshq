@@ -63,10 +63,6 @@ const SIMPLE_PROMPT_TEMPLATE = `
 export class ClaudeCodeAdapter extends BaseAdapter {
   readonly providerId = "claudeCode";
 
-  constructor(markdownGenerator: WeeklyMarkdownGenerator) {
-    super(markdownGenerator);
-  }
-
   getSummarizeConfig(): SummarizeConfig {
     return {
       jsonSchema: SIMPLE_SUMMARY_SCHEMA,
@@ -95,10 +91,6 @@ export class ClaudeCodeAdapter extends BaseAdapter {
  */
 export class LinearAdapter extends BaseAdapter {
   readonly providerId = "linear";
-
-  constructor(markdownGenerator: WeeklyMarkdownGenerator) {
-    super(markdownGenerator);
-  }
 
   getSummarizeConfig(): SummarizeConfig {
     return {
