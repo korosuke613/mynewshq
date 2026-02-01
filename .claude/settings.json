@@ -29,7 +29,8 @@
   "plansDirectory": "./plans",
   "enabledPlugins": {
     "dev-standards@korosuke613": true,
-    "github@korosuke613": true
+    "github@korosuke613": true,
+    "git@korosuke613": true
   },
   "permissions": {
     "allow": [
