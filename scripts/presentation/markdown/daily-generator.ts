@@ -4,6 +4,10 @@ import { getProviderDisplayName } from "../../domain/providers/index.ts";
 import { formatLabelsString } from "./helpers.ts";
 import { generateMutedSection } from "./muted-section.ts";
 import { normalizeTrailingSlash } from "../../domain/url-normalizer.ts";
+import {
+  formatCoveragePeriod,
+  formatWeeklyCoveragePeriod,
+} from "../../infrastructure/date-utils.ts";
 
 // 柔軟なURLマッチングで要約を検索
 // 完全一致 → 正規化URL → 末尾スラッシュ追加の順で検索
@@ -36,27 +40,11 @@ function findSummary(
   return undefined;
 }
 
-// 対象期間の文字列を生成（UTC 3:00 基準の24時間ウィンドウ）
-export function generateCoveragePeriod(dateStr: string): string {
-  const endDate = new Date(dateStr + "T03:00:00Z");
-  const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-
-  const formatDateTime = (date: Date): string => {
-    return date.toISOString().replace("T", " ").replace(":00.000Z", " UTC");
-  };
-
-  return `📅 **対象期間**: ${formatDateTime(startDate)} ~ ${
-    formatDateTime(endDate)
-  }`;
-}
-
-// 週次用の対象期間の文字列を生成（日次生成でも使用されるためここに配置）
-export function generateWeeklyCoveragePeriod(
-  startDateStr: string,
-  endDateStr: string,
-): string {
-  return `📅 **対象期間**: ${startDateStr} ~ ${endDateStr} (1週間)`;
-}
+// 後方互換性のため再エクスポート
+export {
+  formatCoveragePeriod,
+  formatWeeklyCoveragePeriod,
+} from "../../infrastructure/date-utils.ts";
 
 // Discussionタイトルを生成
 export function generateTitle(data: ChangelogData): string {
@@ -74,11 +62,11 @@ export function generateDefaultBody(data: ChangelogData): string {
 
   if (isWeekly) {
     body = `# 📰 Tech Changelog - Weekly\n\n`;
-    body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
+    body += formatWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
       "\n\n";
   } else {
     body = `# 📰 Tech Changelog - ${data.date}\n\n`;
-    body += generateCoveragePeriod(data.date) + "\n\n";
+    body += formatCoveragePeriod(data.date) + "\n\n";
   }
 
   if (data.github && data.github.length > 0) {
@@ -162,11 +150,11 @@ export function generateBodyWithSummaries(
 
   if (isWeekly) {
     body = `# 📰 Tech Changelog - Weekly\n\n`;
-    body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
+    body += formatWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
       "\n\n";
   } else {
     body = `# 📰 Tech Changelog - ${data.date}\n\n`;
-    body += generateCoveragePeriod(data.date) + "\n\n";
+    body += formatCoveragePeriod(data.date) + "\n\n";
   }
 
   if (data.github && data.github.length > 0) {

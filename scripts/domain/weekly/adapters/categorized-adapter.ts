@@ -7,7 +7,7 @@ import type {
   ReleaseEntry,
 } from "../../types.ts";
 import type { SummarizeConfig } from "../pipeline.ts";
-import type { WeeklyContext } from "../types.ts";
+import type { WeeklyContext, WeeklyMarkdownGenerator } from "../types.ts";
 import { CATEGORIZED_SUMMARY_SCHEMA } from "../types.ts";
 import { BaseAdapter } from "./base-adapter.ts";
 
@@ -116,12 +116,13 @@ export class AWSAdapter extends BaseAdapter {
  */
 export function getCategorizedAdapter(
   providerId: string,
+  markdownGenerator: WeeklyMarkdownGenerator,
 ): BaseAdapter | undefined {
   switch (providerId) {
     case "github":
-      return new GitHubAdapter();
+      return new GitHubAdapter(markdownGenerator);
     case "aws":
-      return new AWSAdapter();
+      return new AWSAdapter(markdownGenerator);
     default:
       return undefined;
   }

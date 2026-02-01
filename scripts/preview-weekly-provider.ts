@@ -10,6 +10,9 @@ import {
   generateProviderWeeklyBody,
   generateProviderWeeklyTitle,
 } from "./presentation/markdown/weekly-generator.ts";
+import { parseArg, parseArgWithDefault } from "./infrastructure/cli-parser.ts";
+import { getTodayDateString } from "./infrastructure/date-utils.ts";
+import { loadJsonFile } from "./infrastructure/data-loader.ts";
 
 interface PreviewWeeklyProviderArgs {
   date: string;
@@ -19,18 +22,13 @@ interface PreviewWeeklyProviderArgs {
 }
 
 function parseArgs(args: string[]): PreviewWeeklyProviderArgs {
-  const dateArg = args.find((arg) => arg.startsWith("--date="));
-  const providerArg = args.find((arg) => arg.startsWith("--provider="));
-  const summariesFileArg = args.find((arg) =>
-    arg.startsWith("--summaries-file=")
+  const date = parseArgWithDefault(
+    args,
+    "date",
+    getTodayDateString(),
   );
-  const outputArg = args.find((arg) => arg.startsWith("--output="));
 
-  const date = dateArg
-    ? dateArg.split("=")[1]
-    : new Date().toISOString().split("T")[0];
-
-  const provider = providerArg ? providerArg.split("=")[1] : "";
+  const provider = parseArg(args, "provider") ?? "";
   if (!provider) {
     console.error("Error: --provider is required");
     console.error(
@@ -49,8 +47,8 @@ function parseArgs(args: string[]): PreviewWeeklyProviderArgs {
   return {
     date,
     provider,
-    summariesFile: summariesFileArg ? summariesFileArg.split("=")[1] : null,
-    outputFile: outputArg ? outputArg.split("=")[1] : null,
+    summariesFile: parseArg(args, "summaries-file") ?? null,
+    outputFile: parseArg(args, "output") ?? null,
   };
 }
 
@@ -103,14 +101,7 @@ async function main() {
 
   // 週次データを読み込む
   const changelogPath = `data/changelogs/weekly/${date}.json`;
-  let changelogData: ChangelogData;
-  try {
-    const content = await Deno.readTextFile(changelogPath);
-    changelogData = JSON.parse(content);
-  } catch (error) {
-    console.error(`Failed to read ${changelogPath}:`, error);
-    Deno.exit(1);
-  }
+  const changelogData = await loadJsonFile<ChangelogData>(changelogPath);
 
   // プロバイダーのデータを取得
   const providerData = changelogData[
@@ -124,8 +115,7 @@ async function main() {
   let summary: ProviderWeeklySummary;
   if (summariesFile) {
     try {
-      const summaryContent = await Deno.readTextFile(summariesFile);
-      summary = JSON.parse(summaryContent);
+      summary = await loadJsonFile<ProviderWeeklySummary>(summariesFile);
     } catch (error) {
       console.error(`Failed to read summaries file ${summariesFile}:`, error);
       console.log("Using dummy summary data for preview...");

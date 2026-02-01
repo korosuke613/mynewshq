@@ -18,6 +18,9 @@ import {
   generateBlogBodyWithSummaries,
   generateBlogTitle,
 } from "./presentation/markdown/blog-generator.ts";
+import { hasFlag, parseArg } from "./infrastructure/cli-parser.ts";
+import { getTodayDateString } from "./infrastructure/date-utils.ts";
+import { loadJsonFile } from "./infrastructure/data-loader.ts";
 
 // カテゴリオプション
 type CategoryOption = "changelog" | "blog";
@@ -115,19 +118,12 @@ async function previewChangelog(
   weekly?: boolean,
 ) {
   // 日付を取得
-  const targetDate = date || new Date().toISOString().split("T")[0];
+  const targetDate = date || getTodayDateString();
   const subDir = weekly ? "weekly" : "daily";
   const changelogPath = `data/changelogs/${subDir}/${targetDate}.json`;
 
   // JSONファイルを読み込み
-  let data: ChangelogData;
-  try {
-    const content = await Deno.readTextFile(changelogPath);
-    data = JSON.parse(content);
-  } catch (error) {
-    console.error(`Failed to read ${changelogPath}:`, error);
-    Deno.exit(1);
-  }
+  const data = await loadJsonFile<ChangelogData>(changelogPath);
 
   // タイトルを生成
   const title = generateTitle(data);
@@ -221,19 +217,12 @@ async function previewBlog(
   weekly?: boolean,
 ) {
   // 日付を取得
-  const targetDate = date || new Date().toISOString().split("T")[0];
+  const targetDate = date || getTodayDateString();
   const subDir = weekly ? "weekly" : "daily";
   const blogPath = `data/blogs/${subDir}/${targetDate}.json`;
 
   // JSONファイルを読み込み
-  let data: BlogData;
-  try {
-    const content = await Deno.readTextFile(blogPath);
-    data = JSON.parse(content);
-  } catch (error) {
-    console.error(`Failed to read ${blogPath}:`, error);
-    Deno.exit(1);
-  }
+  const data = await loadJsonFile<BlogData>(blogPath);
 
   // タイトルを生成
   const title = generateBlogTitle(data);
@@ -286,23 +275,12 @@ async function previewBlog(
 
 // メイン処理
 if (import.meta.main) {
-  const dateArg = Deno.args.find((arg) => arg.startsWith("--date="));
-  const date = dateArg ? dateArg.split("=")[1] : undefined;
-
-  const summariesJsonArg = Deno.args.find((arg) =>
-    arg.startsWith("--summaries-json=")
-  );
-  const summariesFileArg = Deno.args.find((arg) =>
-    arg.startsWith("--summaries-file=")
-  );
-  const categoryArg = Deno.args.find((arg) => arg.startsWith("--category="));
+  const date = parseArg(Deno.args, "date");
 
   // --summaries-file が優先、なければ --summaries-json を使用
   let summariesJson: string | undefined;
-  if (summariesFileArg) {
-    const summariesFile = summariesFileArg.substring(
-      "--summaries-file=".length,
-    );
+  const summariesFile = parseArg(Deno.args, "summaries-file");
+  if (summariesFile) {
     // ログインジェクション対策：改行文字を除去
     const safeFilename = summariesFile.replace(/[\r\n]/g, "");
     try {
@@ -312,20 +290,20 @@ if (import.meta.main) {
       console.error(`Failed to read summaries file ${safeFilename}:`, error);
       Deno.exit(1);
     }
-  } else if (summariesJsonArg) {
-    summariesJson = summariesJsonArg.substring("--summaries-json=".length);
+  } else {
+    summariesJson = parseArg(Deno.args, "summaries-json");
   }
 
-  const weekly = Deno.args.includes("--weekly");
+  const weekly = hasFlag(Deno.args, "weekly");
 
   // カテゴリの解析（デフォルト: changelog）
   let category: CategoryOption = "changelog";
+  const categoryArg = parseArg(Deno.args, "category");
   if (categoryArg) {
-    const categoryValue = categoryArg.split("=")[1];
-    if (categoryValue === "changelog" || categoryValue === "blog") {
-      category = categoryValue;
+    if (categoryArg === "changelog" || categoryArg === "blog") {
+      category = categoryArg;
     } else {
-      console.warn(`Invalid category: ${categoryValue}. Using "changelog".`);
+      console.warn(`Invalid category: ${categoryArg}. Using "changelog".`);
     }
   }
 

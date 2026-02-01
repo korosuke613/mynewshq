@@ -22,6 +22,7 @@ import type {
   ChangelogEntry,
   ReleaseEntry,
 } from "./domain/types.ts";
+import { parseArg } from "./infrastructure/cli-parser.ts";
 
 /**
  * ChangelogEntryからmuted: trueのエントリを除外
@@ -96,16 +97,8 @@ function printFilterStats(
  * コマンドライン引数をパース
  */
 function parseArgs(args: string[]): { input: string; output: string } {
-  let input = "";
-  let output = "";
-
-  for (const arg of args) {
-    if (arg.startsWith("--input=")) {
-      input = arg.slice("--input=".length);
-    } else if (arg.startsWith("--output=")) {
-      output = arg.slice("--output=".length);
-    }
-  }
+  const input = parseArg(args, "input");
+  const output = parseArg(args, "output");
 
   if (!input || !output) {
     console.error(

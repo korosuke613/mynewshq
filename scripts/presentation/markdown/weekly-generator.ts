@@ -9,7 +9,7 @@ import type {
 } from "../../domain/types.ts";
 import { getProviderDisplayName } from "../../domain/providers/index.ts";
 import { getCategoryEmoji, getEntryTitle } from "./helpers.ts";
-import { generateWeeklyCoveragePeriod } from "./daily-generator.ts";
+import { formatWeeklyCoveragePeriod } from "../../infrastructure/date-utils.ts";
 import { generateMutedSection } from "./muted-section.ts";
 
 // 週次用の要約データ付きボディ生成
@@ -24,7 +24,7 @@ export function generateWeeklyBodyWithSummaries(
 
   // 1. ヘッダー + 対象期間
   let body = `# 📰 Tech Changelog - Weekly\n\n`;
-  body += generateWeeklyCoveragePeriod(data.startDate, data.endDate) + "\n\n";
+  body += formatWeeklyCoveragePeriod(data.startDate, data.endDate) + "\n\n";
 
   // 2. 🌟 今週のハイライト（3-5件）
   body += "## 🌟 今週のハイライト\n\n";
@@ -99,7 +99,7 @@ export function generateProviderWeeklyBody(
 
   // ヘッダー + 対象期間
   let body = `# ${emoji} Tech Changelog - Weekly [${displayName}]\n\n`;
-  body += generateWeeklyCoveragePeriod(startDate, endDate) + "\n\n";
+  body += formatWeeklyCoveragePeriod(startDate, endDate) + "\n\n";
 
   // ハイライトセクション
   if (summary.highlights.length > 0) {

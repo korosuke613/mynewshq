@@ -9,10 +9,19 @@ import {
   filterMutedEntries,
   getAdapter,
   getProviderDataFromChangelog,
+  WeeklyOrchestrator,
 } from "./domain/weekly/orchestrator.ts";
 import { renderPromptTemplate } from "./domain/weekly/pipeline.ts";
 import { closeDiscussion } from "./create-discussion.ts";
 import { getCategoryNameFromEnv } from "./domain/category-config.ts";
+import {
+  hasFlag,
+  parseArg,
+  parseArgWithDefault,
+  requireGitHubToken,
+} from "./infrastructure/cli-parser.ts";
+import { getTodayDateString } from "./infrastructure/date-utils.ts";
+import { DefaultWeeklyMarkdownGenerator } from "./presentation/markdown/weekly-markdown-generator.ts";
 
 /**
  * コマンドライン引数をパース
@@ -30,31 +39,28 @@ function parseArgs(args: string[]): {
   limit: number;
 } {
   const command = args[0] ?? "help";
-  const dateArg = args.find((arg) => arg.startsWith("--date="));
-  const ownerArg = args.find((arg) => arg.startsWith("--owner="));
-  const repoArg = args.find((arg) => arg.startsWith("--repo="));
-  const summariesFileArg = args.find((arg) =>
-    arg.startsWith("--summaries-file=")
-  );
-  const changelogFileArg = args.find((arg) =>
-    arg.startsWith("--changelog-file=")
-  );
-  const outputFileArg = args.find((arg) => arg.startsWith("--output="));
-  const limitArg = args.find((arg) => arg.startsWith("--limit="));
-  const dryRun = args.includes("--dry-run");
-  const autoClose = args.includes("--auto-close");
+  const summariesFile = parseArg(args, "summaries-file") ?? null;
+  const changelogFile = parseArg(args, "changelog-file") ?? null;
+  const outputFile = parseArg(args, "output") ?? null;
+  const limitArg = parseArg(args, "limit");
+  const dryRun = hasFlag(args, "dry-run");
+  const autoClose = hasFlag(args, "auto-close");
 
   return {
     command,
-    date: dateArg?.split("=")[1] ?? new Date().toISOString().split("T")[0],
-    owner: ownerArg?.split("=")[1] ?? "korosuke613",
-    repo: repoArg?.split("=")[1] ?? "mynewshq",
+    date: parseArgWithDefault(
+      args,
+      "date",
+      getTodayDateString(),
+    ),
+    owner: parseArgWithDefault(args, "owner", "korosuke613"),
+    repo: parseArgWithDefault(args, "repo", "mynewshq"),
     dryRun,
     autoClose,
-    summariesFile: summariesFileArg?.split("=")[1] ?? null,
-    changelogFile: changelogFileArg?.split("=")[1] ?? null,
-    outputFile: outputFileArg?.split("=")[1] ?? null,
-    limit: limitArg ? parseInt(limitArg.split("=")[1], 10) : 2,
+    summariesFile,
+    changelogFile,
+    outputFile,
+    limit: limitArg ? parseInt(limitArg, 10) : 2,
   };
 }
 
@@ -96,18 +102,17 @@ async function loadChangelogData(
 /**
  * fetch-past-all: 全プロバイダーの過去Discussion取得
  */
-async function fetchPastAll(options: {
-  date: string;
-  owner: string;
-  repo: string;
-  limit: number;
-  outputFile: string | null;
-}): Promise<void> {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) {
-    console.error("GITHUB_TOKEN environment variable is required");
-    Deno.exit(1);
-  }
+async function fetchPastAll(
+  options: {
+    date: string;
+    owner: string;
+    repo: string;
+    limit: number;
+    outputFile: string | null;
+  },
+  orchestrator: WeeklyOrchestrator,
+): Promise<void> {
+  const token = requireGitHubToken();
 
   const { startDate, endDate } = calculateDateRange(options.date);
 
@@ -120,7 +125,6 @@ async function fetchPastAll(options: {
     categoryName: "General", // 過去Discussion取得では使用されない
   };
 
-  const orchestrator = createOrchestrator();
   console.log("Fetching past discussions for all providers...");
   console.log(`  Date range: ${startDate} ~ ${endDate}`);
   console.log(`  Limit: ${options.limit}`);
@@ -156,19 +160,18 @@ async function fetchPastAll(options: {
 /**
  * prepare-summarize: 要約生成リクエストを準備
  */
-async function prepareSummarize(options: {
-  date: string;
-  owner: string;
-  repo: string;
-  changelogFile: string | null;
-  outputFile: string | null;
-  limit: number;
-}): Promise<void> {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) {
-    console.error("GITHUB_TOKEN environment variable is required");
-    Deno.exit(1);
-  }
+async function prepareSummarize(
+  options: {
+    date: string;
+    owner: string;
+    repo: string;
+    changelogFile: string | null;
+    outputFile: string | null;
+    limit: number;
+  },
+  orchestrator: WeeklyOrchestrator,
+): Promise<void> {
+  const token = requireGitHubToken();
 
   // Changelogデータを読み込み
   const changelogFile = options.changelogFile ?? options.date;
@@ -182,8 +185,6 @@ async function prepareSummarize(options: {
     repo: options.repo,
     categoryName: "General", // 要約準備では使用されない
   };
-
-  const orchestrator = createOrchestrator();
 
   // 過去Discussionを取得
   console.log("Fetching past discussions...");
@@ -219,22 +220,21 @@ async function prepareSummarize(options: {
 /**
  * render-prompt: 特定プロバイダーのプロンプトを生成
  */
-async function renderPrompt(options: {
-  providerId: string;
-  date: string;
-  owner: string;
-  repo: string;
-  changelogFile: string | null;
-  outputFile: string | null;
-  limit: number;
-}): Promise<void> {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) {
-    console.error("GITHUB_TOKEN environment variable is required");
-    Deno.exit(1);
-  }
+async function renderPrompt(
+  options: {
+    providerId: string;
+    date: string;
+    owner: string;
+    repo: string;
+    changelogFile: string | null;
+    outputFile: string | null;
+    limit: number;
+  },
+  markdownGenerator: DefaultWeeklyMarkdownGenerator,
+): Promise<void> {
+  const token = requireGitHubToken();
 
-  const adapter = getAdapter(options.providerId);
+  const adapter = getAdapter(options.providerId, markdownGenerator);
   if (!adapter) {
     console.error(`Unknown provider: ${options.providerId}`);
     Deno.exit(1);
@@ -300,20 +300,19 @@ async function renderPrompt(options: {
 /**
  * post-all: 全プロバイダーのDiscussion投稿
  */
-async function postAll(options: {
-  date: string;
-  owner: string;
-  repo: string;
-  dryRun: boolean;
-  autoClose: boolean;
-  summariesFile: string | null;
-  changelogFile: string | null;
-}): Promise<void> {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) {
-    console.error("GITHUB_TOKEN environment variable is required");
-    Deno.exit(1);
-  }
+async function postAll(
+  options: {
+    date: string;
+    owner: string;
+    repo: string;
+    dryRun: boolean;
+    autoClose: boolean;
+    summariesFile: string | null;
+    changelogFile: string | null;
+  },
+  orchestrator: WeeklyOrchestrator,
+): Promise<void> {
+  const token = requireGitHubToken();
 
   if (!options.summariesFile) {
     console.error("--summaries-file is required for post-all command");
@@ -350,8 +349,6 @@ async function postAll(options: {
     categoryName,
     dryRun: options.dryRun,
   };
-
-  const orchestrator = createOrchestrator();
 
   console.log("Posting discussions for all providers...");
   console.log(`  Date range: ${ctx.startDate} ~ ${ctx.endDate}`);
@@ -452,12 +449,18 @@ Examples:
 async function main(): Promise<void> {
   const options = parseArgs(Deno.args);
 
+  // MarkdownGeneratorのインスタンスを作成
+  const markdownGenerator = new DefaultWeeklyMarkdownGenerator();
+
+  // Orchestratorのインスタンスを作成
+  const orchestrator = createOrchestrator(markdownGenerator);
+
   switch (options.command) {
     case "fetch-past-all":
-      await fetchPastAll(options);
+      await fetchPastAll(options, orchestrator);
       break;
     case "prepare-summarize":
-      await prepareSummarize(options);
+      await prepareSummarize(options, orchestrator);
       break;
     case "render-prompt": {
       const providerId = Deno.args[1];
@@ -466,11 +469,11 @@ async function main(): Promise<void> {
         console.error("Usage: render-prompt <providerId> [options]");
         Deno.exit(1);
       }
-      await renderPrompt({ ...options, providerId });
+      await renderPrompt({ ...options, providerId }, markdownGenerator);
       break;
     }
     case "post-all":
-      await postAll(options);
+      await postAll(options, orchestrator);
       break;
     case "help":
     default:

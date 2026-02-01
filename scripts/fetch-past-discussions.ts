@@ -6,6 +6,11 @@ import {
   fetchPastWeeklyDiscussionsByProvider,
 } from "./create-discussion.ts";
 import type { PastWeeklyDiscussion } from "./domain/types.ts";
+import {
+  parseArg,
+  parseArgWithDefault,
+  requireGitHubToken,
+} from "./infrastructure/cli-parser.ts";
 
 interface FetchPastDiscussionsArgs {
   owner: string;
@@ -16,28 +21,19 @@ interface FetchPastDiscussionsArgs {
 }
 
 function parseArgs(args: string[]): FetchPastDiscussionsArgs {
-  const ownerArg = args.find((arg) => arg.startsWith("--owner="));
-  const repoArg = args.find((arg) => arg.startsWith("--repo="));
-  const limitArg = args.find((arg) => arg.startsWith("--limit="));
-  const outputArg = args.find((arg) => arg.startsWith("--output="));
-  const providerArg = args.find((arg) => arg.startsWith("--provider="));
+  const limitArg = parseArg(args, "limit");
 
   return {
-    owner: ownerArg ? ownerArg.split("=")[1] : "korosuke613",
-    repo: repoArg ? repoArg.split("=")[1] : "mynewshq",
-    limit: limitArg ? parseInt(limitArg.split("=")[1], 10) : 2,
-    outputFile: outputArg ? outputArg.split("=")[1] : null,
-    provider: providerArg ? providerArg.split("=")[1] : null,
+    owner: parseArgWithDefault(args, "owner", "korosuke613"),
+    repo: parseArgWithDefault(args, "repo", "mynewshq"),
+    limit: limitArg ? parseInt(limitArg, 10) : 2,
+    outputFile: parseArg(args, "output") ?? null,
+    provider: parseArg(args, "provider") ?? null,
   };
 }
 
 async function main() {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) {
-    console.error("GITHUB_TOKEN environment variable is required");
-    Deno.exit(1);
-  }
-
+  const token = requireGitHubToken();
   const { owner, repo, limit, outputFile, provider } = parseArgs(Deno.args);
 
   console.log(`Fetching past weekly discussions from ${owner}/${repo}...`);
