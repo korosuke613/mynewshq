@@ -19,6 +19,9 @@ import {
   DAILY_CHANGELOG_SCHEMA,
   getDailyBlogPrompt,
   getDailyChangelogPrompt,
+  getWeeklyChangelogPrompt,
+  WEEKLY_CATEGORIZED_SCHEMA,
+  WEEKLY_SIMPLE_SCHEMA,
 } from "./domain/summarize/prompts.ts";
 import {
   executeClaudeCli,
@@ -30,6 +33,9 @@ interface CliArgs {
   category?: "changelog" | "blog";
   output?: string;
   "dry-run"?: boolean;
+  weekly?: boolean;
+  provider?: "github" | "aws" | "claudeCode" | "linear";
+  "past-discussions"?: string;
   help?: boolean;
 }
 
@@ -38,27 +44,46 @@ function showHelp() {
 Usage: deno task summarize [OPTIONS]
 
 Options:
-  --date=YYYY-MM-DD     対象日付（必須）
-  --category=TYPE       カテゴリ（changelog | blog）デフォルト: changelog
-  --output=PATH         出力ファイルパス（指定しない場合は標準出力）
-  --dry-run             プロンプトを表示するだけで実行しない
-  --help                このヘルプを表示
+  --date=YYYY-MM-DD           対象日付（必須）
+  --category=TYPE             カテゴリ（changelog | blog）デフォルト: changelog
+  --weekly                    週次モード（プロバイダー指定必須）
+  --provider=PROVIDER         週次モード用プロバイダー（github | aws | claudeCode | linear）
+  --past-discussions=PATH     過去Discussionファイルパス（週次モード用、オプション）
+  --output=PATH               出力ファイルパス（指定しない場合は標準出力）
+  --dry-run                   プロンプトを表示するだけで実行しない
+  --help                      このヘルプを表示
 
 Examples:
+  # 日次Changelog要約
   deno task summarize --date=2026-01-15
+
+  # 日次Blog要約
   deno task summarize --date=2026-01-15 --category=blog
+
+  # 週次Changelog要約（プロバイダー指定）
+  deno task summarize --date=2026-02-01 --weekly --provider=github
+  deno task summarize --date=2026-02-01 --weekly --provider=aws
+
+  # 週次要約（過去Discussion参照あり）
+  deno task summarize --date=2026-02-01 --weekly --provider=github \\
+    --past-discussions=data/past-discussions.json
+
+  # ファイル出力
   deno task summarize --date=2026-01-15 --output=/tmp/summaries.json
+
+  # dry-run
   deno task summarize --date=2026-01-15 --dry-run
 `);
 }
 
 async function main() {
   const args = parseArgs(Deno.args, {
-    string: ["date", "category", "output"],
-    boolean: ["dry-run", "help"],
+    string: ["date", "category", "output", "provider", "past-discussions"],
+    boolean: ["dry-run", "help", "weekly"],
     default: {
       category: "changelog",
       "dry-run": false,
+      weekly: false,
     },
   }) as CliArgs;
 
@@ -75,35 +100,99 @@ async function main() {
   }
 
   const category = args.category || "changelog";
+  const isWeekly = args.weekly || false;
+
+  // 週次モードのバリデーション
+  if (isWeekly) {
+    if (category === "blog") {
+      console.error("Error: Weekly mode does not support blog category");
+      Deno.exit(1);
+    }
+    if (!args.provider) {
+      console.error("Error: --provider is required for weekly mode");
+      console.error(
+        "Available providers: github, aws, claudeCode, linear",
+      );
+      Deno.exit(1);
+    }
+  }
 
   // データファイルパス
-  const dataDir = category === "changelog"
-    ? "data/changelogs/daily"
-    : "data/blogs/daily";
-  const dataFile = resolve(Deno.cwd(), dataDir, `${args.date}.json`);
+  let dataFile: string;
+  if (isWeekly) {
+    // 週次モード: フィルタリング済みJSONを使用
+    dataFile = resolve(
+      Deno.cwd(),
+      "data/changelogs/weekly",
+      `${args.date}-filtered.json`,
+    );
+  } else {
+    // 日次モード
+    const dataDir = category === "changelog"
+      ? "data/changelogs/daily"
+      : "data/blogs/daily";
+    dataFile = resolve(Deno.cwd(), dataDir, `${args.date}.json`);
+  }
 
   // データファイル存在確認
   if (!await exists(dataFile)) {
     console.error(`Error: Data file not found: ${dataFile}`);
-    console.error(
-      `Hint: Run 'deno task fetch --date=${args.date} --category=${category}' first`,
-    );
+    if (isWeekly) {
+      console.error(
+        `Hint: Run 'GITHUB_TOKEN=$(gh auth token) deno task fetch-weekly --date=${args.date}' first`,
+      );
+      console.error(
+        `      Then run 'deno task filter-muted --input=data/changelogs/weekly/${args.date}.json --output=data/changelogs/weekly/${args.date}-filtered.json'`,
+      );
+    } else {
+      console.error(
+        `Hint: Run 'deno task fetch --date=${args.date} --category=${category}' first`,
+      );
+    }
     Deno.exit(1);
   }
 
   // プロンプトとスキーマ取得
-  const prompt = category === "changelog"
-    ? getDailyChangelogPrompt(dataFile)
-    : getDailyBlogPrompt(dataFile);
+  let prompt: string;
+  let schema: object;
 
-  const schema = category === "changelog"
-    ? DAILY_CHANGELOG_SCHEMA
-    : DAILY_BLOG_SCHEMA;
+  if (isWeekly) {
+    // 週次モード
+    const provider = args.provider!;
+    prompt = getWeeklyChangelogPrompt(
+      dataFile,
+      provider,
+      args["past-discussions"],
+    );
+
+    // プロバイダーに応じてスキーマを選択
+    // github, aws: CATEGORIZED_SCHEMA
+    // claudeCode, linear: SIMPLE_SCHEMA
+    schema = (provider === "github" || provider === "aws")
+      ? WEEKLY_CATEGORIZED_SCHEMA
+      : WEEKLY_SIMPLE_SCHEMA;
+  } else {
+    // 日次モード
+    prompt = category === "changelog"
+      ? getDailyChangelogPrompt(dataFile)
+      : getDailyBlogPrompt(dataFile);
+
+    schema = category === "changelog"
+      ? DAILY_CHANGELOG_SCHEMA
+      : DAILY_BLOG_SCHEMA;
+  }
 
   // dry-runモード
   if (args["dry-run"]) {
     console.log("=== Dry Run Mode ===");
-    console.log("\nCategory:", category);
+    console.log("\nMode:", isWeekly ? "weekly" : "daily");
+    console.log("Category:", category);
+    if (isWeekly) {
+      console.log("Provider:", args.provider);
+      if (args["past-discussions"]) {
+        console.log("Past Discussions:", args["past-discussions"]);
+      }
+    }
     console.log("Data File:", dataFile);
     console.log("\nPrompt:");
     console.log("---");
@@ -129,7 +218,13 @@ async function main() {
   }
 
   // Claude CLI実行
-  console.error(`Generating ${category} summaries for ${args.date}...`);
+  if (isWeekly) {
+    console.error(
+      `Generating weekly ${args.provider} summaries for ${args.date}...`,
+    );
+  } else {
+    console.error(`Generating ${category} summaries for ${args.date}...`);
+  }
   console.error("This may take a few minutes...\n");
 
   const result = await executeClaudeCli({

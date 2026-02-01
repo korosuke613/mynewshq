@@ -44,63 +44,68 @@ export async function executeClaudeCli(
 ): Promise<ClaudeCliResult> {
   const { prompt, jsonSchema, timeout = 300000 } = options; // デフォルト5分
 
-  // JSON Schemaを一時ファイルに保存
-  const schemaFile = await Deno.makeTempFile({ suffix: ".json" });
+  // Claude Code CLI実行
+  const command = new Deno.Command("claude", {
+    args: [
+      "--print",
+      "--output-format",
+      "json",
+      "--json-schema",
+      JSON.stringify(jsonSchema),
+      prompt,
+    ],
+    stdout: "piped",
+    stderr: "piped",
+  });
+
+  const process = command.spawn();
+
+  // タイムアウト処理
+  const timeoutId = setTimeout(() => {
+    process.kill("SIGTERM");
+  }, timeout);
+
   try {
-    await Deno.writeTextFile(schemaFile, JSON.stringify(jsonSchema));
+    const { stdout, stderr, success } = await process.output();
 
-    // Claude Code CLI実行
-    const command = new Deno.Command("claude", {
-      args: [
-        "--json-schema-file",
-        schemaFile,
-        prompt,
-      ],
-      stdout: "piped",
-      stderr: "piped",
-    });
+    clearTimeout(timeoutId);
 
-    const process = command.spawn();
-
-    // タイムアウト処理
-    const timeoutId = setTimeout(() => {
-      process.kill("SIGTERM");
-    }, timeout);
-
-    try {
-      const { stdout, stderr, success } = await process.output();
-
-      clearTimeout(timeoutId);
-
-      if (!success) {
-        const errorMessage = new TextDecoder().decode(stderr);
-        return {
-          success: false,
-          error: errorMessage || "Claude Code CLI execution failed",
-        };
-      }
-
-      const output = new TextDecoder().decode(stdout);
-
-      return {
-        success: true,
-        output: output.trim(),
-      };
-    } catch (error) {
-      clearTimeout(timeoutId);
+    if (!success) {
+      const errorMessage = new TextDecoder().decode(stderr);
       return {
         success: false,
-        error: `Claude Code CLI error: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        error: errorMessage || "Claude Code CLI execution failed",
       };
     }
-  } finally {
-    // 一時ファイル削除
+
+    const output = new TextDecoder().decode(stdout);
+    const trimmedOutput = output.trim();
+
+    // --output-format json を使用すると、メタデータを含むJSONが返される
+    // structured_output フィールドを抽出する
     try {
-      await Deno.remove(schemaFile);
+      const parsed = JSON.parse(trimmedOutput);
+      if (parsed.structured_output) {
+        return {
+          success: true,
+          output: JSON.stringify(parsed.structured_output),
+        };
+      }
     } catch {
-      // 削除失敗は無視
+      // JSONパースに失敗した場合はそのまま返す
     }
+
+    return {
+      success: true,
+      output: trimmedOutput,
+    };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    return {
+      success: false,
+      error: `Claude Code CLI error: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
   }
 }
