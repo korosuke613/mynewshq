@@ -15,6 +15,7 @@ import { claudeCodeProvider } from "./claude-code-provider.ts";
 import { linearProvider } from "./linear-provider.ts";
 import { hatenaBookmarkProvider } from "./hatena-bookmark-provider.ts";
 import { githubBlogProvider } from "./github-blog-provider.ts";
+import { awsBlogProvider } from "./aws-blog-provider.ts";
 import { applyMuteFilter } from "../mute-filter.ts";
 
 // 型を再エクスポート
@@ -37,6 +38,7 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
   // Blog プロバイダー
   hatenaBookmarkProvider,
   githubBlogProvider,
+  awsBlogProvider,
 ];
 
 /**
@@ -231,6 +233,7 @@ export function toBlogData(
     date: dateString,
     hatenaBookmark: (results.hatenaBookmark ?? []) as BlogEntry[],
     githubBlog: (results.githubBlog ?? []) as BlogEntry[],
+    awsBlog: (results.awsBlog ?? []) as BlogEntry[],
   };
 
   // startDateとendDateは両方指定されるか、両方とも指定されないかのどちらか

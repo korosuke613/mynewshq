@@ -20,9 +20,11 @@ import { awsProvider } from "./aws-provider.ts";
 import { claudeCodeProvider } from "./claude-code-provider.ts";
 import { linearProvider } from "./linear-provider.ts";
 import { hatenaBookmarkProvider } from "./hatena-bookmark-provider.ts";
+import { githubBlogProvider } from "./github-blog-provider.ts";
+import { awsBlogProvider } from "./aws-blog-provider.ts";
 
-Deno.test("PROVIDER_CONFIGS - 全6プロバイダーが定義されている", () => {
-  assertEquals(PROVIDER_CONFIGS.length, 6);
+Deno.test("PROVIDER_CONFIGS - 全7プロバイダーが定義されている", () => {
+  assertEquals(PROVIDER_CONFIGS.length, 7);
   const ids = PROVIDER_CONFIGS.map((c) => c.id);
   assertEquals(ids, [
     "github",
@@ -31,6 +33,7 @@ Deno.test("PROVIDER_CONFIGS - 全6プロバイダーが定義されている", (
     "linear",
     "hatenaBookmark",
     "githubBlog",
+    "awsBlog",
   ]);
 });
 
@@ -48,12 +51,14 @@ Deno.test("PROVIDER_CONFIGS - 各プロバイダーの必須フィールドが�
 });
 
 Deno.test("PROVIDER_REGISTRY - Mapで高速にアクセスできる", () => {
-  assertEquals(PROVIDER_REGISTRY.size, 6);
+  assertEquals(PROVIDER_REGISTRY.size, 7);
   assertExists(PROVIDER_REGISTRY.get("github"));
   assertExists(PROVIDER_REGISTRY.get("aws"));
   assertExists(PROVIDER_REGISTRY.get("claudeCode"));
   assertExists(PROVIDER_REGISTRY.get("linear"));
   assertExists(PROVIDER_REGISTRY.get("hatenaBookmark"));
+  assertExists(PROVIDER_REGISTRY.get("githubBlog"));
+  assertExists(PROVIDER_REGISTRY.get("awsBlog"));
   assertEquals(PROVIDER_REGISTRY.get("unknown"), undefined);
 });
 
@@ -132,6 +137,7 @@ Deno.test("getProviderIds - 全プロバイダーIDを取得できる", () => {
     "linear",
     "hatenaBookmark",
     "githubBlog",
+    "awsBlog",
   ]);
 });
 
@@ -202,6 +208,30 @@ Deno.test("hatenaBookmarkProvider - 設定が正しい", () => {
   assertExists(hatenaBookmarkProvider.fetch);
 });
 
+Deno.test("githubBlogProvider - 設定が正しい", () => {
+  assertEquals(githubBlogProvider.id, "githubBlog");
+  assertEquals(githubBlogProvider.displayName, "GitHub Blog");
+  assertEquals(githubBlogProvider.emoji, "📝");
+  assertEquals(githubBlogProvider.labelName, "github-blog");
+  assertEquals(githubBlogProvider.category, "blog");
+  assertEquals(githubBlogProvider.labelPrefix, undefined);
+  assertEquals(githubBlogProvider.titleField, "title");
+  assertEquals(githubBlogProvider.pubDateField, "pubDate");
+  assertExists(githubBlogProvider.fetch);
+});
+
+Deno.test("awsBlogProvider - 設定が正しい", () => {
+  assertEquals(awsBlogProvider.id, "awsBlog");
+  assertEquals(awsBlogProvider.displayName, "AWS Blog");
+  assertEquals(awsBlogProvider.emoji, "📙");
+  assertEquals(awsBlogProvider.labelName, "aws-blog");
+  assertEquals(awsBlogProvider.category, "blog");
+  assertEquals(awsBlogProvider.labelPrefix, undefined);
+  assertEquals(awsBlogProvider.titleField, "title");
+  assertEquals(awsBlogProvider.pubDateField, "pubDate");
+  assertExists(awsBlogProvider.fetch);
+});
+
 // =============================================================================
 // カテゴリ機能のテスト
 // =============================================================================
@@ -215,9 +245,9 @@ Deno.test("getProvidersByCategory - changelogカテゴリのプロバイダー�
 
 Deno.test("getProvidersByCategory - blogカテゴリのプロバイダーを取得", () => {
   const providers = getProvidersByCategory("blog");
-  assertEquals(providers.length, 2);
+  assertEquals(providers.length, 3);
   const ids = providers.map((p) => p.id);
-  assertEquals(ids, ["hatenaBookmark", "githubBlog"]);
+  assertEquals(ids, ["hatenaBookmark", "githubBlog", "awsBlog"]);
 });
 
 Deno.test("getProviderIdsByCategory - changelogカテゴリのIDを取得", () => {
@@ -227,7 +257,7 @@ Deno.test("getProviderIdsByCategory - changelogカテゴリのIDを取得", () =
 
 Deno.test("getProviderIdsByCategory - blogカテゴリのIDを取得", () => {
   const ids = getProviderIdsByCategory("blog");
-  assertEquals(ids, ["hatenaBookmark", "githubBlog"]);
+  assertEquals(ids, ["hatenaBookmark", "githubBlog", "awsBlog"]);
 });
 
 Deno.test("各プロバイダーのcategoryフィールドが正しく設定されている", () => {

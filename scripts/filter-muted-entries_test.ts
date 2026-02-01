@@ -1,10 +1,14 @@
 import { assertEquals } from "@std/assert";
 import {
+  filterMutedBlogEntries,
   filterMutedChangelogEntries,
+  filterMutedFromBlog,
   filterMutedFromChangelog,
   filterMutedReleaseEntries,
 } from "./filter-muted-entries.ts";
 import type {
+  BlogData,
+  BlogEntry,
   ChangelogData,
   ChangelogEntry,
   ReleaseEntry,
@@ -205,5 +209,114 @@ Deno.test("filterMutedFromChangelog", async (t) => {
     assertEquals(result.aws, []);
     assertEquals(result.claudeCode, []);
     assertEquals(result.linear, []);
+  });
+});
+
+Deno.test("filterMutedBlogEntries", async (t) => {
+  await t.step("muted: trueのブログエントリを除外する", () => {
+    const entries: BlogEntry[] = [
+      {
+        title: "Active blog",
+        url: "https://example.com/1",
+        description: "",
+        pubDate: "2026-01-18T10:00:00Z",
+      },
+      {
+        title: "Muted blog",
+        url: "https://example.com/2",
+        description: "",
+        pubDate: "2026-01-18T11:00:00Z",
+        muted: true,
+        mutedBy: "SageMaker",
+      },
+    ];
+
+    const result = filterMutedBlogEntries(entries);
+    assertEquals(result.length, 1);
+    assertEquals(result[0].title, "Active blog");
+  });
+});
+
+Deno.test("filterMutedFromBlog", async (t) => {
+  await t.step("全プロバイダーからミュート済みエントリを除外する", () => {
+    const data: BlogData = {
+      date: "2026-02-01",
+      startDate: "2026-01-25",
+      endDate: "2026-02-01",
+      hatenaBookmark: [
+        {
+          title: "Hatena Active",
+          url: "https://hatena.com/1",
+          description: "",
+          pubDate: "2026-01-30T10:00:00Z",
+          bookmarkCount: 100,
+        },
+        {
+          title: "Hatena Muted",
+          url: "https://hatena.com/2",
+          description: "",
+          pubDate: "2026-01-30T11:00:00Z",
+          bookmarkCount: 50,
+          muted: true,
+          mutedBy: "keyword",
+        },
+      ],
+      githubBlog: [
+        {
+          title: "GitHub Blog Active",
+          url: "https://github.blog/1",
+          description: "",
+          pubDate: "2026-01-28T10:00:00Z",
+        },
+      ],
+      awsBlog: [
+        {
+          title: "AWS Blog Active",
+          url: "https://aws.amazon.com/blogs/1",
+          description: "",
+          pubDate: "2026-01-30T10:00:00Z",
+        },
+        {
+          title: "AWS Blog Muted",
+          url: "https://aws.amazon.com/blogs/2",
+          description: "",
+          pubDate: "2026-01-30T11:00:00Z",
+          muted: true,
+          mutedBy: "SageMaker",
+        },
+      ],
+    };
+
+    const result = filterMutedFromBlog(data);
+
+    // メタデータは保持される
+    assertEquals(result.date, "2026-02-01");
+    assertEquals(result.startDate, "2026-01-25");
+    assertEquals(result.endDate, "2026-02-01");
+
+    // hatenaBookmark: 1件残る
+    assertEquals(result.hatenaBookmark.length, 1);
+    assertEquals(result.hatenaBookmark[0].title, "Hatena Active");
+
+    // githubBlog: 1件残る（ミュートなし）
+    assertEquals(result.githubBlog.length, 1);
+
+    // awsBlog: 1件残る（SageMaker記事は除外）
+    assertEquals(result.awsBlog.length, 1);
+    assertEquals(result.awsBlog[0].title, "AWS Blog Active");
+  });
+
+  await t.step("空のデータを処理できる", () => {
+    const data: BlogData = {
+      date: "2026-02-01",
+      hatenaBookmark: [],
+      githubBlog: [],
+      awsBlog: [],
+    };
+
+    const result = filterMutedFromBlog(data);
+    assertEquals(result.hatenaBookmark, []);
+    assertEquals(result.githubBlog, []);
+    assertEquals(result.awsBlog, []);
   });
 });
