@@ -233,3 +233,81 @@ export const WEEKLY_SIMPLE_SCHEMA = {
     "historicalContext",
   ],
 };
+
+/**
+ * 週次Blog要約用プロンプト
+ */
+export function getWeeklyBlogPrompt(
+  filePath: string,
+  provider: string,
+): string {
+  return `${filePath} の ${provider} 部分を読み込み、カテゴリごとにグループ化して記事をまとめてください。
+
+## タスク
+${provider}の週次分析を行い、カテゴリ別に記事を要約します。
+
+## ルール
+- \`muted: true\` のエントリはスキップしてください
+- 各記事の \`matchedCategories\` フィールドを参照してカテゴリ分けしてください
+- \`matchedCategories\` が空でない記事のみを対象としてください
+- 複数のカテゴリにマッチする記事は、全てのカテゴリに表示してください
+- すべて日本語で記述してください
+
+## 出力構造
+
+### 1. highlights (1-5件の箇条書き文)
+今週の重要な記事を箇条書きで記述:
+- 各項目は1~5文で簡潔にまとめる
+- 技術者に影響のあるトピックを含める
+
+### 2. categories
+カテゴリごとにグループ化:
+- category: カテゴリ名（\`matchedCategories\` の値をそのまま使用）
+- entries: カテゴリ内の記事リスト
+  - url: 記事のURL
+  - title: 記事のタイトル
+  - comment: 記事へのコメント（1-2文で簡潔に、技術的なポイントを強調）
+- categoryComment: カテゴリ全体のまとめコメント（2-3文で、そのカテゴリの今週のトレンドを説明）
+
+\`matchedCategories\` が空でない記事がない場合は categories を空配列 \`[]\` としてください。`;
+}
+
+/**
+ * 週次Blog要約用JSONスキーマ
+ */
+export const WEEKLY_BLOG_SCHEMA = {
+  "type": "object",
+  "properties": {
+    "providerId": { "type": "string" },
+    "highlights": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "maxItems": 5,
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "category": { "type": "string" },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string" },
+                "title": { "type": "string" },
+                "comment": { "type": "string" },
+              },
+              "required": ["url", "title", "comment"],
+            },
+          },
+          "categoryComment": { "type": "string" },
+        },
+        "required": ["category", "entries", "categoryComment"],
+      },
+    },
+  },
+  "required": ["providerId", "highlights", "categories"],
+};

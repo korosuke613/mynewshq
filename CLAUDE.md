@@ -342,17 +342,26 @@ deno run --allow-read --allow-env scripts/create-discussion.ts \
 ### 週次モード
 
 ```bash
-# 週次: GitHub Changelogデータでテスト（要約生成あり）
+# 週次Changelog: GitHub Changelogデータでテスト（要約生成あり）
 ./test-workflow.sh --weekly --provider=github
 
-# 週次: AWS What's Newデータでテスト
+# 週次Changelog: AWS What's Newデータでテスト
 ./test-workflow.sh --weekly --provider=aws
 
-# 週次: Claude Codeデータでテスト
+# 週次Changelog: Claude Codeデータでテスト
 ./test-workflow.sh --weekly --provider=claudeCode
 
-# 週次: Linearデータでテスト
+# 週次Changelog: Linearデータでテスト
 ./test-workflow.sh --weekly --provider=linear
+
+# 週次Blog: はてなブックマークデータでテスト
+./test-workflow.sh --weekly --category=blog --provider=hatenaBookmark
+
+# 週次Blog: GitHub Blogデータでテスト
+./test-workflow.sh --weekly --category=blog --provider=githubBlog
+
+# 週次Blog: AWS Blogデータでテスト
+./test-workflow.sh --weekly --category=blog --provider=awsBlog
 ```
 
 ### オプション
@@ -362,7 +371,7 @@ deno run --allow-read --allow-env scripts/create-discussion.ts \
 | `--date=YYYY-MM-DD` | 対象日付（指定しない場合は今日） |
 | `--category=TYPE` | カテゴリ（`changelog` \| `blog`）デフォルト: `changelog` |
 | `--weekly` | 週次モード（デフォルト: 日次） |
-| `--provider=PROVIDER` | 週次モード用プロバイダー（`github` \| `aws` \| `claudeCode` \| `linear`） |
+| `--provider=PROVIDER` | 週次モード用プロバイダー<br>Changelog: `github` \| `aws` \| `claudeCode` \| `linear`<br>Blog: `hatenaBookmark` \| `githubBlog` \| `awsBlog` |
 | `--skip-fetch` | データ取得をスキップ（既存データを使用） |
 | `--skip-summarize` | 要約生成をスキップ |
 | `--post` | dry-runなしで実際に投稿する（⚠️注意！） |

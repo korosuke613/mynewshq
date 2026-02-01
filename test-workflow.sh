@@ -27,7 +27,9 @@ Options:
   --date=YYYY-MM-DD      対象日付（指定しない場合は今日）
   --category=TYPE        カテゴリ（changelog | blog）デフォルト: changelog
   --weekly               週次モード（デフォルト: 日次）
-  --provider=PROVIDER    週次モード用プロバイダー（github | aws | claudeCode | linear）
+  --provider=PROVIDER    週次モード用プロバイダー
+                         Changelog: github | aws | claudeCode | linear
+                         Blog: hatenaBookmark | githubBlog | awsBlog
   --skip-fetch           データ取得をスキップ（既存データを使用）
   --skip-summarize       要約生成をスキップ
   --post                 dry-runなしで実際に投稿する（注意！）
@@ -51,6 +53,15 @@ Examples:
 
   # 週次: Claude Codeデータでテスト
   ./test-workflow.sh --weekly --provider=claudeCode
+
+  # 週次: はてなブックマークBlogデータでテスト
+  ./test-workflow.sh --weekly --category=blog --provider=hatenaBookmark
+
+  # 週次: GitHub Blogデータでテスト
+  ./test-workflow.sh --weekly --category=blog --provider=githubBlog
+
+  # 週次: AWS Blogデータでテスト
+  ./test-workflow.sh --weekly --category=blog --provider=awsBlog
 
   # データ取得をスキップ（既存データを使用）
   ./test-workflow.sh --date=2026-02-01 --skip-fetch
@@ -106,12 +117,27 @@ fi
 if [ "$MODE" = "weekly" ]; then
   if [ -z "$PROVIDER" ]; then
     echo -e "${RED}Error: --provider is required for weekly mode${NC}"
-    echo -e "${RED}Available providers: github, aws, claudeCode, linear${NC}"
+    if [ "$CATEGORY" = "changelog" ]; then
+      echo -e "${RED}Available providers: github, aws, claudeCode, linear${NC}"
+    else
+      echo -e "${RED}Available providers: hatenaBookmark, githubBlog, awsBlog${NC}"
+    fi
     exit 1
   fi
-  if [ "$CATEGORY" = "blog" ]; then
-    echo -e "${RED}Error: Weekly mode does not support blog category${NC}"
-    exit 1
+
+  # プロバイダーとカテゴリの整合性チェック
+  if [ "$CATEGORY" = "changelog" ]; then
+    if [[ ! " github aws claudeCode linear " =~ " $PROVIDER " ]]; then
+      echo -e "${RED}Error: Provider '$PROVIDER' is not valid for changelog category${NC}"
+      echo -e "${RED}Available providers: github, aws, claudeCode, linear${NC}"
+      exit 1
+    fi
+  else
+    if [[ ! " hatenaBookmark githubBlog awsBlog " =~ " $PROVIDER " ]]; then
+      echo -e "${RED}Error: Provider '$PROVIDER' is not valid for blog category${NC}"
+      echo -e "${RED}Available providers: hatenaBookmark, githubBlog, awsBlog${NC}"
+      exit 1
+    fi
   fi
 fi
 
@@ -187,8 +213,8 @@ if [ "$SKIP_SUMMARIZE" = true ]; then
 else
   echo -e "${GREEN}━━━ ステップ2: 要約生成（Claude Code CLI） ━━━${NC}"
   if [ "$MODE" = "weekly" ]; then
-    # 週次モード: プロバイダー指定
-    deno task summarize --date=$DATE --weekly --provider=$PROVIDER --output=$SUMMARIES_FILE
+    # 週次モード: プロバイダーとカテゴリ指定
+    deno task summarize --date=$DATE --category=$CATEGORY --weekly --provider=$PROVIDER --output=$SUMMARIES_FILE
   else
     # 日次モード
     deno task summarize --date=$DATE --category=$CATEGORY --output=$SUMMARIES_FILE
@@ -221,11 +247,23 @@ if [ "$MODE" = "daily" ]; then
     fi
   fi
 else
-  # 週次モード（要約生成未実装のため要約なし）
+  # 週次モード
   if [ "$CATEGORY" = "changelog" ]; then
-    deno task preview-weekly
+    if [ "$SKIP_SUMMARIZE" = false ]; then
+      # 要約ありの週次Changelog（プロバイダー別）は未対応
+      echo -e "${YELLOW}週次Changelogの要約ありプレビューは未対応${NC}"
+      deno task preview-weekly
+    else
+      deno task preview-weekly
+    fi
   elif [ "$CATEGORY" = "blog" ]; then
-    deno task preview-weekly-blog
+    if [ "$SKIP_SUMMARIZE" = false ]; then
+      # 要約ありの週次Blog（プロバイダー別）は未対応
+      echo -e "${YELLOW}週次Blogの要約ありプレビューは未対応${NC}"
+      deno task preview-weekly-blog
+    else
+      deno task preview-weekly-blog
+    fi
   fi
 fi
 echo ""

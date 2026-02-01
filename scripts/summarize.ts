@@ -19,7 +19,9 @@ import {
   DAILY_CHANGELOG_SCHEMA,
   getDailyBlogPrompt,
   getDailyChangelogPrompt,
+  getWeeklyBlogPrompt,
   getWeeklyChangelogPrompt,
+  WEEKLY_BLOG_SCHEMA,
   WEEKLY_CATEGORIZED_SCHEMA,
   WEEKLY_SIMPLE_SCHEMA,
 } from "./domain/summarize/prompts.ts";
@@ -34,7 +36,14 @@ interface CliArgs {
   output?: string;
   "dry-run"?: boolean;
   weekly?: boolean;
-  provider?: "github" | "aws" | "claudeCode" | "linear";
+  provider?:
+    | "github"
+    | "aws"
+    | "claudeCode"
+    | "linear"
+    | "hatenaBookmark"
+    | "githubBlog"
+    | "awsBlog";
   "past-discussions"?: string;
   help?: boolean;
 }
@@ -47,8 +56,10 @@ Options:
   --date=YYYY-MM-DD           対象日付（必須）
   --category=TYPE             カテゴリ（changelog | blog）デフォルト: changelog
   --weekly                    週次モード（プロバイダー指定必須）
-  --provider=PROVIDER         週次モード用プロバイダー（github | aws | claudeCode | linear）
-  --past-discussions=PATH     過去Discussionファイルパス（週次モード用、オプション）
+  --provider=PROVIDER         週次モード用プロバイダー
+                              Changelog: github | aws | claudeCode | linear
+                              Blog: hatenaBookmark | githubBlog | awsBlog
+  --past-discussions=PATH     過去Discussionファイルパス（週次Changelog用、オプション）
   --output=PATH               出力ファイルパス（指定しない場合は標準出力）
   --dry-run                   プロンプトを表示するだけで実行しない
   --help                      このヘルプを表示
@@ -64,7 +75,12 @@ Examples:
   deno task summarize --date=2026-02-01 --weekly --provider=github
   deno task summarize --date=2026-02-01 --weekly --provider=aws
 
-  # 週次要約（過去Discussion参照あり）
+  # 週次Blog要約（プロバイダー指定）
+  deno task summarize --date=2026-02-01 --weekly --provider=hatenaBookmark
+  deno task summarize --date=2026-02-01 --weekly --provider=githubBlog
+  deno task summarize --date=2026-02-01 --weekly --provider=awsBlog
+
+  # 週次Changelog要約（過去Discussion参照あり）
   deno task summarize --date=2026-02-01 --weekly --provider=github \\
     --past-discussions=data/past-discussions.json
 
@@ -104,14 +120,42 @@ async function main() {
 
   // 週次モードのバリデーション
   if (isWeekly) {
-    if (category === "blog") {
-      console.error("Error: Weekly mode does not support blog category");
-      Deno.exit(1);
-    }
     if (!args.provider) {
       console.error("Error: --provider is required for weekly mode");
+      if (category === "changelog") {
+        console.error(
+          "Available providers: github, aws, claudeCode, linear",
+        );
+      } else {
+        console.error(
+          "Available providers: hatenaBookmark, githubBlog, awsBlog",
+        );
+      }
+      Deno.exit(1);
+    }
+
+    // プロバイダーとカテゴリの整合性チェック
+    const changelogProviders = ["github", "aws", "claudeCode", "linear"];
+    const blogProviders = ["hatenaBookmark", "githubBlog", "awsBlog"];
+
+    if (
+      category === "changelog" && !changelogProviders.includes(args.provider)
+    ) {
+      console.error(
+        `Error: Provider '${args.provider}' is not valid for changelog category`,
+      );
       console.error(
         "Available providers: github, aws, claudeCode, linear",
+      );
+      Deno.exit(1);
+    }
+
+    if (category === "blog" && !blogProviders.includes(args.provider)) {
+      console.error(
+        `Error: Provider '${args.provider}' is not valid for blog category`,
+      );
+      console.error(
+        "Available providers: hatenaBookmark, githubBlog, awsBlog",
       );
       Deno.exit(1);
     }
@@ -121,9 +165,12 @@ async function main() {
   let dataFile: string;
   if (isWeekly) {
     // 週次モード: フィルタリング済みJSONを使用
+    const dataDir = category === "changelog"
+      ? "data/changelogs/weekly"
+      : "data/blogs/weekly";
     dataFile = resolve(
       Deno.cwd(),
-      "data/changelogs/weekly",
+      dataDir,
       `${args.date}-filtered.json`,
     );
   } else {
@@ -138,12 +185,21 @@ async function main() {
   if (!await exists(dataFile)) {
     console.error(`Error: Data file not found: ${dataFile}`);
     if (isWeekly) {
-      console.error(
-        `Hint: Run 'GITHUB_TOKEN=$(gh auth token) deno task fetch-weekly --date=${args.date}' first`,
-      );
-      console.error(
-        `      Then run 'deno task filter-muted --input=data/changelogs/weekly/${args.date}.json --output=data/changelogs/weekly/${args.date}-filtered.json'`,
-      );
+      if (category === "changelog") {
+        console.error(
+          `Hint: Run 'GITHUB_TOKEN=$(gh auth token) deno task fetch-weekly --date=${args.date}' first`,
+        );
+        console.error(
+          `      Then run 'deno task filter-muted --input=data/changelogs/weekly/${args.date}.json --output=data/changelogs/weekly/${args.date}-filtered.json'`,
+        );
+      } else {
+        console.error(
+          `Hint: Run 'GITHUB_TOKEN=$(gh auth token) deno task fetch-weekly-blog --date=${args.date}' first`,
+        );
+        console.error(
+          `      Then run 'deno task filter-muted --input=data/blogs/weekly/${args.date}.json --output=data/blogs/weekly/${args.date}-filtered.json'`,
+        );
+      }
     } else {
       console.error(
         `Hint: Run 'deno task fetch --date=${args.date} --category=${category}' first`,
@@ -159,18 +215,26 @@ async function main() {
   if (isWeekly) {
     // 週次モード
     const provider = args.provider!;
-    prompt = getWeeklyChangelogPrompt(
-      dataFile,
-      provider,
-      args["past-discussions"],
-    );
 
-    // プロバイダーに応じてスキーマを選択
-    // github, aws: CATEGORIZED_SCHEMA
-    // claudeCode, linear: SIMPLE_SCHEMA
-    schema = (provider === "github" || provider === "aws")
-      ? WEEKLY_CATEGORIZED_SCHEMA
-      : WEEKLY_SIMPLE_SCHEMA;
+    if (category === "changelog") {
+      // 週次Changelog
+      prompt = getWeeklyChangelogPrompt(
+        dataFile,
+        provider,
+        args["past-discussions"],
+      );
+
+      // プロバイダーに応じてスキーマを選択
+      // github, aws: CATEGORIZED_SCHEMA
+      // claudeCode, linear: SIMPLE_SCHEMA
+      schema = (provider === "github" || provider === "aws")
+        ? WEEKLY_CATEGORIZED_SCHEMA
+        : WEEKLY_SIMPLE_SCHEMA;
+    } else {
+      // 週次Blog
+      prompt = getWeeklyBlogPrompt(dataFile, provider);
+      schema = WEEKLY_BLOG_SCHEMA;
+    }
   } else {
     // 日次モード
     prompt = category === "changelog"
