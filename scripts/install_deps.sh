@@ -22,7 +22,7 @@ fi
 
 # deno.jsonが存在する場合のみ依存関係をキャッシュ
 if [ -f "$CLAUDE_PROJECT_DIR/deno.json" ]; then
-  deno cache "$CLAUDE_PROJECT_DIR/deno.json"
+  "$DENO_INSTALL/bin/deno" cache "$CLAUDE_PROJECT_DIR/deno.json"
 fi
 
 exit 0
