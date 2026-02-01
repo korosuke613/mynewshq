@@ -60,6 +60,16 @@ Deno.test("matchesCategory", async (t) => {
     const result = matchesCategory("GitHub Actions Update", ["github"]);
     assertEquals(result, "github");
   });
+
+  await t.step("should NOT match partial word (git in digital)", () => {
+    const result = matchesCategory("digital sovereignty", ["git"]);
+    assertEquals(result, null);
+  });
+
+  await t.step("should match git as standalone word", () => {
+    const result = matchesCategory("git repository", ["git"]);
+    assertEquals(result, "git");
+  });
 });
 
 Deno.test("findAllMatchedKeywords", async (t) => {
@@ -87,6 +97,49 @@ Deno.test("findAllMatchedKeywords", async (t) => {
       ["aws", "github", "terraform"],
     );
     assertEquals(result.sort(), ["aws", "github", "terraform"]);
+  });
+
+  await t.step("should NOT match partial word (git in digital)", () => {
+    const result = findAllMatchedKeywords("digital sovereignty", ["git"]);
+    assertEquals(result, []);
+  });
+
+  await t.step("should NOT match partial word (go in goals)", () => {
+    const result = findAllMatchedKeywords("our goals and objectives", ["go"]);
+    assertEquals(result, []);
+  });
+
+  await t.step("should NOT match partial word (git in digitalization)", () => {
+    const result = findAllMatchedKeywords(
+      "AWS CloudFormation digitalization strategy",
+      ["git"],
+    );
+    assertEquals(result, []);
+  });
+
+  await t.step("should match git as standalone word", () => {
+    const result = findAllMatchedKeywords("git repository management", [
+      "git",
+    ]);
+    assertEquals(result, ["git"]);
+  });
+
+  await t.step("should match Go language (capitalized)", () => {
+    const result = findAllMatchedKeywords("Go programming language", ["go"]);
+    assertEquals(result, ["go"]);
+  });
+
+  await t.step("should match go in 'go to production'", () => {
+    const result = findAllMatchedKeywords("ready to go to production", ["go"]);
+    assertEquals(result, ["go"]);
+  });
+
+  await t.step("should match multi-word keyword 'github actions'", () => {
+    const result = findAllMatchedKeywords(
+      "Deploy using GitHub Actions workflow",
+      ["github actions"],
+    );
+    assertEquals(result, ["github actions"]);
   });
 });
 
