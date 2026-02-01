@@ -50,9 +50,7 @@ async function fetchAwsBlog(
         url: item.link || "",
         description: item.contentSnippet || "",
         pubDate: pubDate,
-        tags: item.categories && item.categories.length > 0
-          ? item.categories
-          : undefined,
+        tags: item.categories?.length > 0 ? item.categories : undefined,
       });
     }
   }

@@ -111,4 +111,4 @@ deno task preview-blog
 
 ## TODO
 
-- [ ] プランファイルを `./plans/2026-02-01-add-aws-blog-provider.md` にリネーム
+- [x] プランファイルを `./plans/2026-02-01-add-aws-blog-provider.md` にリネーム
