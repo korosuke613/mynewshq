@@ -322,6 +322,83 @@ deno run --allow-read --allow-env scripts/create-discussion.ts \
 - Claude Code CLIのインストール: `npm install -g @anthropics/claude-code`
 - GitHub Token: `gh auth token` で取得
 
+## 動作確認用スクリプト（test-workflow.sh）
+
+完全なワークフロー（データ取得→要約生成→プレビュー→投稿）を一気通貫で実行できるシェルスクリプトです。
+
+### 基本的な使い方
+
+```bash
+# 日次: 今日のChangelogデータで一気通貫テスト
+./test-workflow.sh
+
+# 日次: 特定日付のデータでテスト
+./test-workflow.sh --date=2026-02-01
+
+# 日次: Blogデータでテスト
+./test-workflow.sh --date=2026-02-01 --category=blog
+```
+
+### 週次モード
+
+```bash
+# 週次: GitHub Changelogデータでテスト（要約生成あり）
+./test-workflow.sh --weekly --provider=github
+
+# 週次: AWS What's Newデータでテスト
+./test-workflow.sh --weekly --provider=aws
+
+# 週次: Claude Codeデータでテスト
+./test-workflow.sh --weekly --provider=claudeCode
+
+# 週次: Linearデータでテスト
+./test-workflow.sh --weekly --provider=linear
+```
+
+### オプション
+
+| オプション | 説明 |
+|-----------|------|
+| `--date=YYYY-MM-DD` | 対象日付（指定しない場合は今日） |
+| `--category=TYPE` | カテゴリ（`changelog` \| `blog`）デフォルト: `changelog` |
+| `--weekly` | 週次モード（デフォルト: 日次） |
+| `--provider=PROVIDER` | 週次モード用プロバイダー（`github` \| `aws` \| `claudeCode` \| `linear`） |
+| `--skip-fetch` | データ取得をスキップ（既存データを使用） |
+| `--skip-summarize` | 要約生成をスキップ |
+| `--post` | dry-runなしで実際に投稿する（⚠️注意！） |
+| `--help` | ヘルプを表示 |
+
+### 実行される処理
+
+1. **データ取得**: `deno task fetch` または `deno task fetch-weekly`
+2. **要約生成**: `deno task summarize`（Claude Code CLI使用）
+3. **プレビュー**: `deno task preview` または `deno task preview-weekly`
+4. **投稿**: `deno run scripts/create-discussion.ts`（デフォルトはdry-run）
+
+### 使用例
+
+```bash
+# 既存データで要約生成のみテスト
+./test-workflow.sh --date=2026-02-01 --skip-fetch
+
+# 要約なしでプレビューのみ確認
+./test-workflow.sh --date=2026-02-01 --skip-fetch --skip-summarize
+
+# 実際に投稿（⚠️注意！）
+./test-workflow.sh --date=2026-02-01 --post
+```
+
+### 出力ファイル
+
+- **要約JSON**: `/tmp/summaries-{日付}-{モード}-{カテゴリ}.json`
+- **プレビュー**: `summary.md`
+
+### 必要な準備
+
+- Claude Code CLIのインストール: `npm install -g @anthropics/claude-code`
+- GitHub Token: `gh auth token` で取得
+- `jq` コマンド（JSON整形表示用）
+
 ## 依存関係
 
 プロジェクトは以下のパッケージを使用：
