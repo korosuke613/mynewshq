@@ -250,3 +250,40 @@ export function isValidProviderWeeklySummary(
 
   return true;
 }
+
+/**
+ * Markdown生成インターフェース
+ * presentation層の実装をdomain層から切り離すためのインターフェース
+ */
+export interface WeeklyMarkdownGenerator {
+  /**
+   * プロバイダー用のMarkdown本文を生成
+   * @param providerId - プロバイダーID
+   * @param data - Changelogデータ
+   * @param summary - 週次要約データ
+   * @param startDate - 対象期間開始日
+   * @param endDate - 対象期間終了日
+   * @returns Markdown文字列
+   */
+  generateBody(
+    providerId: string,
+    data: ChangelogEntry[] | ReleaseEntry[],
+    summary: ProviderWeeklySummary,
+    startDate: string,
+    endDate: string,
+  ): string;
+
+  /**
+   * プロバイダー用のDiscussionタイトルを生成
+   * @param providerId - プロバイダーID
+   * @param endDate - 対象期間終了日
+   * @returns タイトル文字列
+   */
+  generateTitle(providerId: string, endDate: string): string;
+
+  /**
+   * メンション文字列を生成
+   * @returns メンション文字列
+   */
+  generateMention(): string;
+}

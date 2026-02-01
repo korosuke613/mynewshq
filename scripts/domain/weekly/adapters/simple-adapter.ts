@@ -7,7 +7,7 @@ import type {
   ReleaseEntry,
 } from "../../types.ts";
 import type { SummarizeConfig } from "../pipeline.ts";
-import type { WeeklyContext } from "../types.ts";
+import type { WeeklyContext, WeeklyMarkdownGenerator } from "../types.ts";
 import { SIMPLE_SUMMARY_SCHEMA } from "../types.ts";
 import { BaseAdapter } from "./base-adapter.ts";
 
@@ -63,6 +63,10 @@ const SIMPLE_PROMPT_TEMPLATE = `
 export class ClaudeCodeAdapter extends BaseAdapter {
   readonly providerId = "claudeCode";
 
+  constructor(markdownGenerator: WeeklyMarkdownGenerator) {
+    super(markdownGenerator);
+  }
+
   getSummarizeConfig(): SummarizeConfig {
     return {
       jsonSchema: SIMPLE_SUMMARY_SCHEMA,
@@ -92,6 +96,10 @@ export class ClaudeCodeAdapter extends BaseAdapter {
 export class LinearAdapter extends BaseAdapter {
   readonly providerId = "linear";
 
+  constructor(markdownGenerator: WeeklyMarkdownGenerator) {
+    super(markdownGenerator);
+  }
+
   getSummarizeConfig(): SummarizeConfig {
     return {
       jsonSchema: SIMPLE_SUMMARY_SCHEMA,
@@ -118,12 +126,15 @@ export class LinearAdapter extends BaseAdapter {
 /**
  * シンプルプロバイダーのアダプタを取得
  */
-export function getSimpleAdapter(providerId: string): BaseAdapter | undefined {
+export function getSimpleAdapter(
+  providerId: string,
+  markdownGenerator: WeeklyMarkdownGenerator,
+): BaseAdapter | undefined {
   switch (providerId) {
     case "claudeCode":
-      return new ClaudeCodeAdapter();
+      return new ClaudeCodeAdapter(markdownGenerator);
     case "linear":
-      return new LinearAdapter();
+      return new LinearAdapter(markdownGenerator);
     default:
       return undefined;
   }

@@ -3,10 +3,10 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import {
   generateBlogBodyWithSummaries,
   generateBlogTitle,
-  generateCoveragePeriod,
   generateDefaultBlogBody,
 } from "./blog-generator.ts";
 import type { BlogData, BlogSummaryData } from "../../domain/types.ts";
+import { formatCoveragePeriod } from "../../infrastructure/date-utils.ts";
 
 Deno.test("generateBlogTitle - 日次", () => {
   const data: BlogData = {
@@ -32,8 +32,8 @@ Deno.test("generateBlogTitle - 週次", () => {
   assertEquals(title, "📖 Tech Blog - Weekly (2026-01-13 ~ 2026-01-20)");
 });
 
-Deno.test("generateCoveragePeriod", () => {
-  const period = generateCoveragePeriod("2026-01-18");
+Deno.test("formatCoveragePeriod", () => {
+  const period = formatCoveragePeriod("2026-01-18");
   assertEquals(
     period,
     "📅 **対象期間**: 2026-01-17 03:00 UTC ~ 2026-01-18 03:00 UTC",

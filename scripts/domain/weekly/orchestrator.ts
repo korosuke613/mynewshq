@@ -14,6 +14,7 @@ import type {
   PipelineResult,
   SummarizeRequest,
   WeeklyContext,
+  WeeklyMarkdownGenerator,
 } from "./types.ts";
 import { WEEKLY_PROVIDER_IDS } from "./types.ts";
 import { getCategorizedAdapter } from "./adapters/categorized-adapter.ts";
@@ -22,17 +23,23 @@ import { getSimpleAdapter } from "./adapters/simple-adapter.ts";
 /**
  * プロバイダーIDからアダプタを取得
  */
-export function getAdapter(providerId: string): WeeklyPipeline | undefined {
-  return getCategorizedAdapter(providerId) ?? getSimpleAdapter(providerId);
+export function getAdapter(
+  providerId: string,
+  markdownGenerator: WeeklyMarkdownGenerator,
+): WeeklyPipeline | undefined {
+  return getCategorizedAdapter(providerId, markdownGenerator) ??
+    getSimpleAdapter(providerId, markdownGenerator);
 }
 
 /**
  * 全プロバイダーのアダプタを取得
  */
-export function getAllAdapters(): Map<string, WeeklyPipeline> {
+export function getAllAdapters(
+  markdownGenerator: WeeklyMarkdownGenerator,
+): Map<string, WeeklyPipeline> {
   const adapters = new Map<string, WeeklyPipeline>();
   for (const providerId of WEEKLY_PROVIDER_IDS) {
-    const adapter = getAdapter(providerId);
+    const adapter = getAdapter(providerId, markdownGenerator);
     if (adapter) {
       adapters.set(providerId, adapter);
     }
@@ -77,8 +84,16 @@ export function filterMutedEntries<T extends Array<{ muted?: boolean }>>(
 export class WeeklyOrchestrator {
   private adapters: Map<string, WeeklyPipeline>;
 
-  constructor(adapters?: Map<string, WeeklyPipeline>) {
-    this.adapters = adapters ?? getAllAdapters();
+  constructor(
+    adaptersOrMarkdownGenerator:
+      | Map<string, WeeklyPipeline>
+      | WeeklyMarkdownGenerator,
+  ) {
+    if (adaptersOrMarkdownGenerator instanceof Map) {
+      this.adapters = adaptersOrMarkdownGenerator;
+    } else {
+      this.adapters = getAllAdapters(adaptersOrMarkdownGenerator);
+    }
   }
 
   /**
@@ -232,6 +247,9 @@ export class WeeklyOrchestrator {
 /**
  * デフォルトのOrchestratorインスタンスを作成
  */
-export function createOrchestrator(): WeeklyOrchestrator {
-  return new WeeklyOrchestrator();
+export function createOrchestrator(
+  markdownGenerator: WeeklyMarkdownGenerator,
+): WeeklyOrchestrator {
+  const adapters = getAllAdapters(markdownGenerator);
+  return new WeeklyOrchestrator(adapters);
 }

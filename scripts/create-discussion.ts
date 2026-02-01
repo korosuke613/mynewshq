@@ -16,10 +16,8 @@ import { determineLabels, stripAwsPrefix } from "./domain/label-extractor.ts";
 import { getProviderDisplayName } from "./domain/providers/index.ts";
 import {
   generateBodyWithSummaries,
-  generateCoveragePeriod,
   generateDefaultBody,
   generateTitle,
-  generateWeeklyCoveragePeriod,
 } from "./presentation/markdown/daily-generator.ts";
 import {
   generateProviderWeeklyBody,
@@ -37,6 +35,30 @@ import {
 } from "./presentation/markdown/helpers.ts";
 import { generateMutedSection } from "./presentation/markdown/muted-section.ts";
 import { getCategoryNameFromEnv } from "./domain/category-config.ts";
+import {
+  hasFlag,
+  parseArg,
+  requireGitHubToken,
+} from "./infrastructure/cli-parser.ts";
+import {
+  formatCoveragePeriod,
+  formatWeeklyCoveragePeriod,
+  getTodayDateString,
+} from "./infrastructure/date-utils.ts";
+import {
+  closeDiscussion as closeDiscussionGraphQL,
+  createAuthenticatedGraphQLClient,
+  createDiscussion as createDiscussionGraphQL,
+  type CreateDiscussionResult,
+  type DiscussionCategory,
+  fetchRepositoryData,
+  type Label,
+  type RepositoryData,
+} from "./infrastructure/github/graphql-client.ts";
+import {
+  addLabelsToDiscussion,
+  ensureLabelsExist,
+} from "./infrastructure/github/label-manager.ts";
 
 // カテゴリオプション
 type CategoryOption = "changelog" | "blog";
@@ -54,8 +76,9 @@ export type {
 };
 export {
   determineLabels,
+  formatCoveragePeriod,
+  formatWeeklyCoveragePeriod,
   generateBodyWithSummaries,
-  generateCoveragePeriod,
   generateDefaultBody,
   generateMention,
   generateMutedSection,
@@ -63,176 +86,17 @@ export {
   generateProviderWeeklyTitle,
   generateTitle,
   generateWeeklyBodyWithSummaries,
-  generateWeeklyCoveragePeriod,
   getCategoryEmoji,
   stripAwsPrefix,
 };
 
-// GraphQL API用の内部型定義
-interface DiscussionCategory {
-  id: string;
-  name: string;
-}
-
-interface Label {
-  id: string;
-  name: string;
-}
-
-interface RepositoryData {
-  repository: {
-    id: string;
-    discussionCategories: {
-      nodes: DiscussionCategory[];
-    };
-    labels: {
-      nodes: Label[];
-    };
-  };
-}
-
-interface CreateDiscussionResult {
-  createDiscussion: {
-    discussion: {
-      id: string;
-      url: string;
-    };
-  };
-}
-
-interface AddLabelsResult {
-  addLabelsToLabelable: {
-    labelable: {
-      labels: {
-        nodes: Label[];
-      };
-    };
-  };
-}
-
-interface CloseDiscussionResult {
-  closeDiscussion: {
-    discussion: {
-      id: string;
-      closed: boolean;
-    };
-  };
-}
-
-// ランダムな16進数の色を生成（アクセシブルな色のリストから選択）
-const ACCESSIBLE_LABEL_COLORS: string[] = [
-  "0e8a16", // green
-  "1d76db", // blue
-  "d93f0b", // orange
-  "6f42c1", // purple
-  "0052cc", // dark blue
-  "b60205", // dark red
-  "5319e7", // indigo
-  "0366d6", // bright blue
-  "22863a", // dark green
-  "b31d28", // dark crimson
-];
-
-function getRandomHexColor(): string {
-  const index = Math.floor(Math.random() * ACCESSIBLE_LABEL_COLORS.length);
-  return ACCESSIBLE_LABEL_COLORS[index];
-}
-
-// 新しいラベルを作成し、そのIDを返す
-async function createNewLabel(
-  graphqlWithAuth: typeof graphql,
-  repositoryId: string,
-  name: string,
-): Promise<string> {
-  const { createLabel } = await graphqlWithAuth<{
-    createLabel: { label: { id: string } };
-  }>(
-    `
-    mutation($repositoryId: ID!, $name: String!, $color: String!) {
-      createLabel(input: {
-        repositoryId: $repositoryId
-        name: $name
-        color: $color
-      }) {
-        label {
-          id
-        }
-      }
-    }
-  `,
-    {
-      repositoryId,
-      name,
-      color: getRandomHexColor(),
-    },
-  );
-  return createLabel.label.id;
-}
-
-// DiscussionにラベルIDsを追加
-async function addLabelsToDiscussion(
-  graphqlWithAuth: typeof graphql,
-  discussionId: string,
-  labelIds: string[],
-): Promise<void> {
-  if (labelIds.length === 0) {
-    return;
-  }
-
-  await graphqlWithAuth<AddLabelsResult>(
-    `
-    mutation($labelableId: ID!, $labelIds: [ID!]!) {
-      addLabelsToLabelable(input: {
-        labelableId: $labelableId
-        labelIds: $labelIds
-      }) {
-        labelable {
-          ... on Discussion {
-            id
-            labels(first: 10) {
-              nodes {
-                name
-              }
-            }
-          }
-        }
-      }
-    }
-  `,
-    {
-      labelableId: discussionId,
-      labelIds,
-    },
-  );
-}
-
-// Discussionをクローズ
+// Discussionをクローズ（外部からの呼び出し用）
 export async function closeDiscussion(
   token: string,
   discussionId: string,
 ): Promise<void> {
-  const graphqlWithAuth = graphql.defaults({
-    headers: {
-      authorization: `token ${token}`,
-    },
-  });
-
-  await graphqlWithAuth<CloseDiscussionResult>(
-    `
-    mutation($discussionId: ID!) {
-      closeDiscussion(input: {
-        discussionId: $discussionId
-        reason: RESOLVED
-      }) {
-        discussion {
-          id
-          closed
-        }
-      }
-    }
-  `,
-    { discussionId },
-  );
+  const graphqlWithAuth = createAuthenticatedGraphQLClient(token);
+  await closeDiscussionGraphQL(graphqlWithAuth, discussionId);
 }
 
 // Daily Discussion のリンクを期間内で取得
@@ -243,11 +107,7 @@ export async function fetchDailyDiscussionLinks(
   startDate: string,
   endDate: string,
 ): Promise<DailyLink[]> {
-  const graphqlWithAuth = graphql.defaults({
-    headers: {
-      authorization: `token ${token}`,
-    },
-  });
+  const graphqlWithAuth = createAuthenticatedGraphQLClient(token);
 
   // Generalカテゴリの最新Discussionを取得
   interface DiscussionNode {
@@ -313,11 +173,7 @@ export async function fetchPastWeeklyDiscussionsByProvider(
   providerId: string,
   limit: number = 2,
 ): Promise<PastWeeklyDiscussion[]> {
-  const graphqlWithAuth = graphql.defaults({
-    headers: {
-      authorization: `token ${token}`,
-    },
-  });
+  const graphqlWithAuth = createAuthenticatedGraphQLClient(token);
 
   // プロバイダー名を取得
   const displayName = getProviderDisplayName(providerId);
@@ -425,35 +281,10 @@ export async function createProviderWeeklyDiscussion(
   startDate: string,
   endDate: string,
 ): Promise<{ id: string; url: string }> {
-  const graphqlWithAuth = graphql.defaults({
-    headers: {
-      authorization: `token ${token}`,
-    },
-  });
+  const graphqlWithAuth = createAuthenticatedGraphQLClient(token);
 
   // リポジトリIDとカテゴリID、ラベル一覧を取得
-  const repoData = await graphqlWithAuth<RepositoryData>(
-    `
-    query($owner: String!, $repo: String!) {
-      repository(owner: $owner, name: $repo) {
-        id
-        discussionCategories(first: 10) {
-          nodes {
-            id
-            name
-          }
-        }
-        labels(first: 100) {
-          nodes {
-            id
-            name
-          }
-        }
-      }
-    }
-  `,
-    { owner, repo },
-  );
+  const repoData = await fetchRepositoryData(graphqlWithAuth, owner, repo);
 
   const repositoryId = repoData.repository.id;
   const category = repoData.repository.discussionCategories.nodes.find(
@@ -481,28 +312,12 @@ export async function createProviderWeeklyDiscussion(
   ) + generateMention();
 
   // Discussion作成
-  const result = await graphqlWithAuth<CreateDiscussionResult>(
-    `
-    mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
-      createDiscussion(input: {
-        repositoryId: $repositoryId
-        categoryId: $categoryId
-        title: $title
-        body: $body
-      }) {
-        discussion {
-          id
-          url
-        }
-      }
-    }
-  `,
-    {
-      repositoryId,
-      categoryId: category.id,
-      title,
-      body,
-    },
+  const result = await createDiscussionGraphQL(
+    graphqlWithAuth,
+    repositoryId,
+    category.id,
+    title,
+    body,
   );
 
   const discussionId = result.createDiscussion.discussion.id;
@@ -534,38 +349,12 @@ export async function createProviderWeeklyDiscussion(
       repoData.repository.labels.nodes.map((l) => [l.name, l.id]),
     );
 
-    const labelIdPromises = labelNames.map(async (name) => {
-      if (existingLabels.has(name)) {
-        return existingLabels.get(name)!;
-      } else {
-        try {
-          console.log(`Label "${name}" not found. Creating it...`);
-          const newLabelId = await createNewLabel(
-            graphqlWithAuth,
-            repositoryId,
-            name,
-          );
-          existingLabels.set(name, newLabelId);
-          return newLabelId;
-        } catch (error) {
-          if (error instanceof Error) {
-            console.warn(
-              `Warning: Failed to create label "${name}":`,
-              error.message,
-            );
-          } else {
-            console.warn(
-              `Warning: Failed to create label "${name}" with unknown error:`,
-              error,
-            );
-          }
-          return null;
-        }
-      }
-    });
-
-    const labelIdResults = await Promise.all(labelIdPromises);
-    const labelIds = labelIdResults.filter((id): id is string => id !== null);
+    const labelIds = await ensureLabelsExist(
+      graphqlWithAuth,
+      repositoryId,
+      existingLabels,
+      labelNames,
+    );
 
     if (labelIds.length > 0) {
       try {
@@ -593,35 +382,10 @@ async function createDiscussion(
   body: string,
   changelogData?: ChangelogData,
 ): Promise<string> {
-  const graphqlWithAuth = graphql.defaults({
-    headers: {
-      authorization: `token ${token}`,
-    },
-  });
+  const graphqlWithAuth = createAuthenticatedGraphQLClient(token);
 
   // リポジトリIDとカテゴリID、ラベル一覧を取得
-  const repoData = await graphqlWithAuth<RepositoryData>(
-    `
-    query($owner: String!, $repo: String!) {
-      repository(owner: $owner, name: $repo) {
-        id
-        discussionCategories(first: 10) {
-          nodes {
-            id
-            name
-          }
-        }
-        labels(first: 100) {
-          nodes {
-            id
-            name
-          }
-        }
-      }
-    }
-  `,
-    { owner, repo },
-  );
+  const repoData = await fetchRepositoryData(graphqlWithAuth, owner, repo);
 
   const repositoryId = repoData.repository.id;
   const category = repoData.repository.discussionCategories.nodes.find(
@@ -639,28 +403,12 @@ async function createDiscussion(
   }
 
   // Discussion作成
-  const result = await graphqlWithAuth<CreateDiscussionResult>(
-    `
-    mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
-      createDiscussion(input: {
-        repositoryId: $repositoryId
-        categoryId: $categoryId
-        title: $title
-        body: $body
-      }) {
-        discussion {
-          id
-          url
-        }
-      }
-    }
-  `,
-    {
-      repositoryId,
-      categoryId: category.id,
-      title,
-      body,
-    },
+  const result = await createDiscussionGraphQL(
+    graphqlWithAuth,
+    repositoryId,
+    category.id,
+    title,
+    body,
   );
 
   const discussionId = result.createDiscussion.discussion.id;
@@ -678,59 +426,12 @@ async function createDiscussion(
         repoData.repository.labels.nodes.map((l) => [l.name, l.id]),
       );
 
-      const labelIdPromises = labelNames.map(async (name) => {
-        if (existingLabels.has(name)) {
-          return existingLabels.get(name)!;
-        } else {
-          try {
-            console.log(`Label "${name}" not found. Creating it...`);
-            const newLabelId = await createNewLabel(
-              graphqlWithAuth,
-              repositoryId,
-              name,
-            );
-            existingLabels.set(name, newLabelId); // 後続の重複作成を防ぐためマップに追加
-            return newLabelId;
-          } catch (error) {
-            if (error instanceof Error) {
-              console.warn(
-                `Warning: Failed to create label "${name}":`,
-                error.message,
-              );
-              if (error.stack) {
-                console.error(
-                  `Stack trace for failure while creating label "${name}":`,
-                  error.stack,
-                );
-              }
-            } else {
-              console.warn(
-                `Warning: Failed to create label "${name}" with unknown error:`,
-                error,
-              );
-            }
-            return null;
-          }
-        }
-      });
-
-      const labelIdResults = await Promise.all(labelIdPromises);
-      const labelIds = labelIdResults.filter((
-        id,
-      ): id is string => id !== null);
-
-      const failedLabelNames = labelNames.filter(
-        (_labelName, index) => labelIdResults[index] === null,
+      const labelIds = await ensureLabelsExist(
+        graphqlWithAuth,
+        repositoryId,
+        existingLabels,
+        labelNames,
       );
-      if (failedLabelNames.length > 0) {
-        console.error(
-          `The following labels could not be created and will not be added to the discussion: ${
-            failedLabelNames.join(
-              ", ",
-            )
-          }`,
-        );
-      }
 
       if (labelIds.length > 0) {
         try {
@@ -760,15 +461,10 @@ export function parseArgs(
   category: CategoryOption;
   otherArgs: string[];
 } {
-  const dateArg = args.find((arg) => arg.startsWith("--date="));
-  const summariesJsonArg = args.find((arg) =>
-    arg.startsWith("--summaries-json=")
-  );
-  const summariesFileArg = args.find((arg) =>
-    arg.startsWith("--summaries-file=")
-  );
-  const weeklyArg = args.includes("--weekly");
-  const categoryArg = args.find((arg) => arg.startsWith("--category="));
+  const summariesJson = parseArg(args, "summaries-json") ?? null;
+  const summariesFile = parseArg(args, "summaries-file") ?? null;
+  const weekly = hasFlag(args, "weekly");
+  const categoryArg = parseArg(args, "category");
   const otherArgs = args.filter(
     (arg) =>
       !arg.startsWith("--date=") &&
@@ -778,31 +474,15 @@ export function parseArgs(
       arg !== "--weekly",
   );
 
-  let date: string;
-  if (dateArg) {
-    date = dateArg.split("=")[1];
-  } else {
-    date = new Date().toISOString().split("T")[0];
-  }
-
-  let summariesJson: string | null = null;
-  if (summariesJsonArg) {
-    summariesJson = summariesJsonArg.substring("--summaries-json=".length);
-  }
-
-  let summariesFile: string | null = null;
-  if (summariesFileArg) {
-    summariesFile = summariesFileArg.substring("--summaries-file=".length);
-  }
+  const date = parseArg(args, "date") ?? getTodayDateString();
 
   // カテゴリの解析（デフォルト: changelog）
   let category: CategoryOption = "changelog";
   if (categoryArg) {
-    const categoryValue = categoryArg.split("=")[1];
-    if (categoryValue === "changelog" || categoryValue === "blog") {
-      category = categoryValue;
+    if (categoryArg === "changelog" || categoryArg === "blog") {
+      category = categoryArg;
     } else {
-      console.warn(`Invalid category: ${categoryValue}. Using "changelog".`);
+      console.warn(`Invalid category: ${categoryArg}. Using "changelog".`);
     }
   }
 
@@ -810,7 +490,7 @@ export function parseArgs(
     date,
     summariesJson,
     summariesFile,
-    weekly: weeklyArg,
+    weekly,
     category,
     otherArgs,
   };
@@ -881,11 +561,11 @@ async function createChangelogDiscussion(
   } else if (legacySummary) {
     const isWeekly = !!(changelogData.startDate && changelogData.endDate);
     const coveragePeriod = isWeekly
-      ? generateWeeklyCoveragePeriod(
+      ? formatWeeklyCoveragePeriod(
         changelogData.startDate!,
         changelogData.endDate!,
       )
-      : generateCoveragePeriod(changelogData.date);
+      : formatCoveragePeriod(changelogData.date);
     body = coveragePeriod + "\n\n" + legacySummary + generateMention();
   } else {
     body = generateDefaultBody(changelogData) + generateMention();
@@ -968,11 +648,7 @@ async function createBlogDiscussion(
 
 // メイン処理
 async function main() {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) {
-    console.error("GITHUB_TOKEN environment variable is required");
-    Deno.exit(1);
-  }
+  const token = requireGitHubToken();
 
   // 引数からリポジトリ情報を取得（デフォルト: korosuke613/mynewshq）
   const {

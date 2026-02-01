@@ -1,7 +1,6 @@
 // 基底アダプタ
 // 各プロバイダーアダプタで共通の処理を実装
 
-import { graphql } from "@octokit/graphql";
 import type {
   ChangelogData,
   ChangelogEntry,
@@ -11,41 +10,30 @@ import type {
 } from "../../types.ts";
 import { determineLabels } from "../../label-extractor.ts";
 import { getProviderDisplayName } from "../../providers/index.ts";
-import {
-  generateProviderWeeklyBody,
-  generateProviderWeeklyTitle,
-} from "../../../presentation/markdown/weekly-generator.ts";
-import { generateMention } from "../../../presentation/markdown/helpers.ts";
 import type {
   PostDiscussionData,
   SummarizeConfig,
   WeeklyPipeline,
 } from "../pipeline.ts";
-import type { PipelineResult, WeeklyContext } from "../types.ts";
+import type {
+  PipelineResult,
+  WeeklyContext,
+  WeeklyMarkdownGenerator,
+} from "../types.ts";
+import { graphql } from "@octokit/graphql";
+import {
+  createAuthenticatedGraphQLClient,
+  createDiscussion,
+  type DiscussionCategory,
+  fetchRepositoryData,
+  type Label,
+} from "../../../infrastructure/github/graphql-client.ts";
+import {
+  addLabelsToDiscussion,
+  ensureLabelsExist,
+} from "../../../infrastructure/github/label-manager.ts";
 
-// GraphQL API用の内部型定義
-interface DiscussionCategory {
-  id: string;
-  name: string;
-}
-
-interface Label {
-  id: string;
-  name: string;
-}
-
-interface RepositoryData {
-  repository: {
-    id: string;
-    discussionCategories: {
-      nodes: DiscussionCategory[];
-    };
-    labels: {
-      nodes: Label[];
-    };
-  };
-}
-
+// GraphQL API用の内部型定義（ローカルで使用するもののみ）
 interface DiscussionNode {
   title: string;
   url: string;
@@ -61,103 +49,22 @@ interface DiscussionSearchResult {
   };
 }
 
-interface CreateDiscussionResult {
-  createDiscussion: {
-    discussion: {
-      id: string;
-      url: string;
-    };
-  };
-}
-
-// ランダムな16進数の色を生成（アクセシブルな色のリストから選択）
-const ACCESSIBLE_LABEL_COLORS: string[] = [
-  "0e8a16", // green
-  "1d76db", // blue
-  "d93f0b", // orange
-  "6f42c1", // purple
-  "0052cc", // dark blue
-  "b60205", // dark red
-  "5319e7", // indigo
-  "0366d6", // bright blue
-  "22863a", // dark green
-  "b31d28", // dark crimson
-];
-
-function getRandomHexColor(): string {
-  const index = Math.floor(Math.random() * ACCESSIBLE_LABEL_COLORS.length);
-  return ACCESSIBLE_LABEL_COLORS[index];
-}
-
-// 新しいラベルを作成し、そのIDを返す
-async function createNewLabel(
-  graphqlWithAuth: typeof graphql,
-  repositoryId: string,
-  name: string,
-): Promise<string> {
-  const { createLabel } = await graphqlWithAuth<{
-    createLabel: { label: { id: string } };
-  }>(
-    `
-    mutation($repositoryId: ID!, $name: String!, $color: String!) {
-      createLabel(input: {
-        repositoryId: $repositoryId
-        name: $name
-        color: $color
-      }) {
-        label {
-          id
-        }
-      }
-    }
-  `,
-    {
-      repositoryId,
-      name,
-      color: getRandomHexColor(),
-    },
-  );
-  return createLabel.label.id;
-}
-
-// DiscussionにラベルIDsを追加
-async function addLabelsToDiscussion(
-  graphqlWithAuth: typeof graphql,
-  discussionId: string,
-  labelIds: string[],
-): Promise<void> {
-  if (labelIds.length === 0) {
-    return;
-  }
-
-  await graphqlWithAuth(
-    `
-    mutation($labelableId: ID!, $labelIds: [ID!]!) {
-      addLabelsToLabelable(input: {
-        labelableId: $labelableId
-        labelIds: $labelIds
-      }) {
-        labelable {
-          ... on Discussion {
-            id
-          }
-        }
-      }
-    }
-  `,
-    {
-      labelableId: discussionId,
-      labelIds,
-    },
-  );
-}
-
 /**
  * 基底アダプタ抽象クラス
  * 共通処理を実装し、プロバイダー固有の部分は派生クラスでオーバーライド
  */
 export abstract class BaseAdapter implements WeeklyPipeline {
   abstract readonly providerId: string;
+
+  /**
+   * Markdown生成器（Dependency Injection）
+   * コンストラクタで注入される
+   */
+  protected markdownGenerator: WeeklyMarkdownGenerator;
+
+  constructor(markdownGenerator: WeeklyMarkdownGenerator) {
+    this.markdownGenerator = markdownGenerator;
+  }
 
   /**
    * 過去のDiscussionを取得
@@ -168,11 +75,7 @@ export abstract class BaseAdapter implements WeeklyPipeline {
     limit: number = 2,
   ): Promise<PipelineResult<PastWeeklyDiscussion[]>> {
     try {
-      const graphqlWithAuth = graphql.defaults({
-        headers: {
-          authorization: `token ${ctx.token}`,
-        },
-      });
+      const graphqlWithAuth = createAuthenticatedGraphQLClient(ctx.token);
 
       const displayName = getProviderDisplayName(this.providerId);
       if (displayName === this.providerId) {
@@ -243,21 +146,21 @@ export abstract class BaseAdapter implements WeeklyPipeline {
 
   /**
    * Markdownを生成
-   * 共通実装：weekly-generator.tsの関数を使用
+   * 共通実装：注入されたMarkdown生成器を使用
    */
   generateMarkdown(
     data: ChangelogEntry[] | ReleaseEntry[],
     summary: ProviderWeeklySummary,
     ctx: WeeklyContext,
   ): string {
-    const body = generateProviderWeeklyBody(
+    const body = this.markdownGenerator.generateBody(
       this.providerId,
       data,
       summary,
       ctx.startDate,
       ctx.endDate,
     );
-    return body + generateMention();
+    return body + this.markdownGenerator.generateMention();
   }
 
   /**
@@ -270,7 +173,10 @@ export abstract class BaseAdapter implements WeeklyPipeline {
     providerData: ChangelogEntry[] | ReleaseEntry[],
   ): Promise<PipelineResult<PostDiscussionData>> {
     if (ctx.dryRun) {
-      const title = generateProviderWeeklyTitle(this.providerId, ctx.endDate);
+      const title = this.markdownGenerator.generateTitle(
+        this.providerId,
+        ctx.endDate,
+      );
       return {
         success: true,
         data: {
@@ -282,34 +188,13 @@ export abstract class BaseAdapter implements WeeklyPipeline {
     }
 
     try {
-      const graphqlWithAuth = graphql.defaults({
-        headers: {
-          authorization: `token ${ctx.token}`,
-        },
-      });
+      const graphqlWithAuth = createAuthenticatedGraphQLClient(ctx.token);
 
       // リポジトリIDとカテゴリID、ラベル一覧を取得
-      const repoData = await graphqlWithAuth<RepositoryData>(
-        `
-        query($owner: String!, $repo: String!) {
-          repository(owner: $owner, name: $repo) {
-            id
-            discussionCategories(first: 10) {
-              nodes {
-                id
-                name
-              }
-            }
-            labels(first: 100) {
-              nodes {
-                id
-                name
-              }
-            }
-          }
-        }
-      `,
-        { owner: ctx.owner, repo: ctx.repo },
+      const repoData = await fetchRepositoryData(
+        graphqlWithAuth,
+        ctx.owner,
+        ctx.repo,
       );
 
       const repositoryId = repoData.repository.id;
@@ -328,31 +213,18 @@ export abstract class BaseAdapter implements WeeklyPipeline {
         };
       }
 
-      const title = generateProviderWeeklyTitle(this.providerId, ctx.endDate);
+      const title = this.markdownGenerator.generateTitle(
+        this.providerId,
+        ctx.endDate,
+      );
 
       // Discussion作成
-      const result = await graphqlWithAuth<CreateDiscussionResult>(
-        `
-        mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
-          createDiscussion(input: {
-            repositoryId: $repositoryId
-            categoryId: $categoryId
-            title: $title
-            body: $body
-          }) {
-            discussion {
-              id
-              url
-            }
-          }
-        }
-      `,
-        {
-          repositoryId,
-          categoryId: category.id,
-          title,
-          body: markdown,
-        },
+      const result = await createDiscussion(
+        graphqlWithAuth,
+        repositoryId,
+        category.id,
+        title,
+        markdown,
       );
 
       const discussionId = result.createDiscussion.discussion.id;
@@ -414,31 +286,12 @@ export abstract class BaseAdapter implements WeeklyPipeline {
       existingLabelsNodes.map((l) => [l.name, l.id]),
     );
 
-    const labelIdPromises = labelNames.map(async (name) => {
-      if (existingLabels.has(name)) {
-        return existingLabels.get(name)!;
-      } else {
-        try {
-          console.log(`Label "${name}" not found. Creating it...`);
-          const newLabelId = await createNewLabel(
-            graphqlWithAuth,
-            repositoryId,
-            name,
-          );
-          existingLabels.set(name, newLabelId);
-          return newLabelId;
-        } catch (error) {
-          const message = error instanceof Error
-            ? error.message
-            : String(error);
-          console.warn(`Warning: Failed to create label "${name}": ${message}`);
-          return null;
-        }
-      }
-    });
-
-    const labelIdResults = await Promise.all(labelIdPromises);
-    const labelIds = labelIdResults.filter((id): id is string => id !== null);
+    const labelIds = await ensureLabelsExist(
+      graphqlWithAuth,
+      repositoryId,
+      existingLabels,
+      labelNames,
+    );
 
     if (labelIds.length > 0) {
       try {

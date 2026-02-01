@@ -8,24 +8,28 @@ import {
   getAllAdapters,
   WeeklyOrchestrator,
 } from "./orchestrator.ts";
+import { DefaultWeeklyMarkdownGenerator } from "../../presentation/markdown/weekly-markdown-generator.ts";
+
+// テスト用のMarkdownGenerator
+const testMarkdownGenerator = new DefaultWeeklyMarkdownGenerator();
 
 Deno.test("getAdapter should return correct adapter for github", () => {
-  const adapter = getAdapter("github");
+  const adapter = getAdapter("github", testMarkdownGenerator);
   assertEquals(adapter?.providerId, "github");
 });
 
 Deno.test("getAdapter should return correct adapter for claudeCode", () => {
-  const adapter = getAdapter("claudeCode");
+  const adapter = getAdapter("claudeCode", testMarkdownGenerator);
   assertEquals(adapter?.providerId, "claudeCode");
 });
 
 Deno.test("getAdapter should return undefined for unknown provider", () => {
-  const adapter = getAdapter("unknown");
+  const adapter = getAdapter("unknown", testMarkdownGenerator);
   assertEquals(adapter, undefined);
 });
 
 Deno.test("getAllAdapters should return 4 adapters", () => {
-  const adapters = getAllAdapters();
+  const adapters = getAllAdapters(testMarkdownGenerator);
   assertEquals(adapters.size, 4);
   assertEquals(adapters.has("github"), true);
   assertEquals(adapters.has("aws"), true);
@@ -34,13 +38,13 @@ Deno.test("getAllAdapters should return 4 adapters", () => {
 });
 
 Deno.test("createOrchestrator should create orchestrator with all adapters", () => {
-  const orchestrator = createOrchestrator();
+  const orchestrator = createOrchestrator(testMarkdownGenerator);
   // オーケストレーターが作成されることを確認
   assertEquals(orchestrator instanceof WeeklyOrchestrator, true);
 });
 
 Deno.test("prepareSummarizeRequests should skip providers with no entries", () => {
-  const orchestrator = createOrchestrator();
+  const orchestrator = createOrchestrator(testMarkdownGenerator);
 
   const emptyChangelogData: ChangelogData = {
     date: "2026-01-27",
@@ -61,7 +65,7 @@ Deno.test("prepareSummarizeRequests should skip providers with no entries", () =
 });
 
 Deno.test("prepareSummarizeRequests should create requests for providers with entries", () => {
-  const orchestrator = createOrchestrator();
+  const orchestrator = createOrchestrator(testMarkdownGenerator);
 
   const changelogData: ChangelogData = {
     date: "2026-01-27",
@@ -100,7 +104,7 @@ Deno.test("prepareSummarizeRequests should create requests for providers with en
 });
 
 Deno.test("prepareSummarizeRequests should filter muted entries", () => {
-  const orchestrator = createOrchestrator();
+  const orchestrator = createOrchestrator(testMarkdownGenerator);
 
   const changelogData: ChangelogData = {
     date: "2026-01-27",
@@ -138,8 +142,8 @@ Deno.test("prepareSummarizeRequests should filter muted entries", () => {
 });
 
 Deno.test("adapter getSummarizeConfig should return valid config", () => {
-  const githubAdapter = getAdapter("github");
-  const claudeCodeAdapter = getAdapter("claudeCode");
+  const githubAdapter = getAdapter("github", testMarkdownGenerator);
+  const claudeCodeAdapter = getAdapter("claudeCode", testMarkdownGenerator);
 
   const githubConfig = githubAdapter?.getSummarizeConfig();
   const claudeCodeConfig = claudeCodeAdapter?.getSummarizeConfig();
@@ -160,7 +164,7 @@ Deno.test("adapter getSummarizeConfig should return valid config", () => {
 });
 
 Deno.test("adapter generateMarkdown should return markdown string", () => {
-  const adapter = getAdapter("github");
+  const adapter = getAdapter("github", testMarkdownGenerator);
 
   const data = [
     {

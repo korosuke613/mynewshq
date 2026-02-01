@@ -2,12 +2,12 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   type DailyLink,
   determineLabels,
+  formatWeeklyCoveragePeriod,
   generateBodyWithSummaries,
   generateDefaultBody,
   generateMutedSection,
   generateTitle,
   generateWeeklyBodyWithSummaries,
-  generateWeeklyCoveragePeriod,
   getCategoryEmoji,
   parseArgs,
   stripAwsPrefix,
@@ -865,9 +865,9 @@ Deno.test("stripAwsPrefix", async (t) => {
 });
 
 // 週次対応のテスト
-Deno.test("generateWeeklyCoveragePeriod", async (t) => {
+Deno.test("formatWeeklyCoveragePeriod", async (t) => {
   await t.step("週次用の対象期間文字列を生成する", () => {
-    const result = generateWeeklyCoveragePeriod("2026-01-13", "2026-01-20");
+    const result = formatWeeklyCoveragePeriod("2026-01-13", "2026-01-20");
     assertEquals(result, "📅 **対象期間**: 2026-01-13 ~ 2026-01-20 (1週間)");
   });
 });

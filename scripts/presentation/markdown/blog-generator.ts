@@ -5,6 +5,10 @@ import type {
   BlogSummaryData,
 } from "../../domain/types.ts";
 import { generateMutedSection } from "./muted-section.ts";
+import {
+  formatCoveragePeriod,
+  formatWeeklyCoveragePeriod,
+} from "../../infrastructure/date-utils.ts";
 
 // エントリをカテゴリごとにグループ化
 function groupEntriesByCategory(
@@ -33,27 +37,11 @@ function groupEntriesByCategory(
   return grouped;
 }
 
-// 対象期間の文字列を生成（UTC 3:00 基準の24時間ウィンドウ）
-export function generateCoveragePeriod(dateStr: string): string {
-  const endDate = new Date(dateStr + "T03:00:00Z");
-  const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-
-  const formatDateTime = (date: Date): string => {
-    return date.toISOString().replace("T", " ").replace(":00.000Z", " UTC");
-  };
-
-  return `📅 **対象期間**: ${formatDateTime(startDate)} ~ ${
-    formatDateTime(endDate)
-  }`;
-}
-
-// 週次用の対象期間の文字列を生成
-export function generateWeeklyCoveragePeriod(
-  startDateStr: string,
-  endDateStr: string,
-): string {
-  return `📅 **対象期間**: ${startDateStr} ~ ${endDateStr} (1週間)`;
-}
+// 後方互換性のため再エクスポート
+export {
+  formatCoveragePeriod as formatCoveragePeriod,
+  formatWeeklyCoveragePeriod as formatWeeklyCoveragePeriod,
+} from "../../infrastructure/date-utils.ts";
 
 // Discussionタイトルを生成
 export function generateBlogTitle(data: BlogData): string {
@@ -71,11 +59,11 @@ export function generateDefaultBlogBody(data: BlogData): string {
 
   if (isWeekly) {
     body = `# 📖 Tech Blog - Weekly\n\n`;
-    body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
+    body += formatWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
       "\n\n";
   } else {
     body = `# 📖 Tech Blog - ${data.date}\n\n`;
-    body += generateCoveragePeriod(data.date) + "\n\n";
+    body += formatCoveragePeriod(data.date) + "\n\n";
   }
 
   // 両プロバイダーのアクティブエントリを統合
@@ -145,11 +133,11 @@ export function generateBlogBodyWithSummaries(
 
   if (isWeekly) {
     body = `# 📖 Tech Blog - Weekly\n\n`;
-    body += generateWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
+    body += formatWeeklyCoveragePeriod(data.startDate!, data.endDate!) +
       "\n\n";
   } else {
     body = `# 📖 Tech Blog - ${data.date}\n\n`;
-    body += generateCoveragePeriod(data.date) + "\n\n";
+    body += formatCoveragePeriod(data.date) + "\n\n";
   }
 
   // カテゴリごとにグループ化された記事がある場合
