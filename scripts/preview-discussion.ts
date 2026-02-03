@@ -270,7 +270,7 @@ async function previewBlog(
   );
   console.log();
 
-  // カテゴリを表示（BlogはラベルなしのためカテゴリのみDisclussion）
+  // カテゴリを表示（BlogはラベルなしのためカテゴリのみDiscussion）
   const triggerStr = Deno.env.get("WORKFLOW_TRIGGER");
   const trigger = triggerStr === "workflow_dispatch"
     ? "workflow_dispatch"
