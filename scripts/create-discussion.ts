@@ -1,7 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import type {
   BlogData,
-  BlogSummaryData,
   ChangelogData,
   ChangelogEntry,
   DailyLink,
