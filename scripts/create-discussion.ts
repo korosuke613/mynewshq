@@ -1,5 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import type {
+  BlogCategoryGroup,
   BlogData,
   BlogSummaryData,
   ChangelogData,
@@ -640,10 +641,22 @@ async function createBlogDiscussion(
   if (summariesJson) {
     try {
       const parsedSummaries = JSON.parse(summariesJson);
-      // Claude Code Actionの出力形式: {"hatenaBookmark": {"categories": [...]}}
-      // BlogSummaryData形式に変換: {"categories": [...]}
-      const summaries: BlogSummaryData = parsedSummaries.hatenaBookmark ||
-        parsedSummaries;
+      // Claude Code Actionの出力形式: {"hatenaBookmark": {"categories": [...]}, "hackerNews": {"categories": [...]}, ...}
+      // BlogSummaryData形式に変換: {"categories": [...]} - 全プロバイダーのcategoriesを統合
+      const allCategories: BlogCategoryGroup[] = [];
+      if (parsedSummaries.hatenaBookmark?.categories) {
+        allCategories.push(...parsedSummaries.hatenaBookmark.categories);
+      }
+      if (parsedSummaries.githubBlog?.categories) {
+        allCategories.push(...parsedSummaries.githubBlog.categories);
+      }
+      if (parsedSummaries.awsBlog?.categories) {
+        allCategories.push(...parsedSummaries.awsBlog.categories);
+      }
+      if (parsedSummaries.hackerNews?.categories) {
+        allCategories.push(...parsedSummaries.hackerNews.categories);
+      }
+      const summaries: BlogSummaryData = { categories: allCategories };
       body = generateBlogBodyWithSummaries(blogData, summaries) +
         generateMention();
       console.log("Using blog summaries JSON");

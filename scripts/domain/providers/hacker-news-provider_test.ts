@@ -12,6 +12,7 @@ Deno.test("hackerNewsProvider - 設定値の確認", () => {
   assertEquals(hackerNewsProvider.emoji, "🔶");
   assertEquals(hackerNewsProvider.labelName, "hacker-news");
   assertEquals(hackerNewsProvider.category, "blog");
+  assertEquals(hackerNewsProvider.fixedCategory, "HackerNews");
   assertEquals(hackerNewsProvider.titleField, "title");
   assertEquals(hackerNewsProvider.pubDateField, "pubDate");
   assertExists(hackerNewsProvider.fetch);

@@ -82,6 +82,7 @@ export const hackerNewsProvider: ProviderConfig<BlogEntry> = {
   emoji: "🔶",
   labelName: "hacker-news",
   category: "blog",
+  fixedCategory: "HackerNews",
   titleField: "title",
   pubDateField: "pubDate",
   fetch: fetchHackerNews,

@@ -1,5 +1,6 @@
 // Discussion投稿内容をプレビューするスクリプト
 import type {
+  BlogCategoryGroup,
   BlogData,
   BlogSummaryData,
   ChangelogData,
@@ -290,7 +291,23 @@ async function previewBlog(
   let summaries: BlogSummaryData = DUMMY_BLOG_SUMMARIES;
   if (summariesJson) {
     try {
-      summaries = JSON.parse(summariesJson);
+      const parsedSummaries = JSON.parse(summariesJson);
+      // Claude Code Actionの出力形式: {"hatenaBookmark": {"categories": [...]}, "hackerNews": {"categories": [...]}, ...}
+      // BlogSummaryData形式に変換: {"categories": [...]} - 全プロバイダーのcategoriesを統合
+      const allCategories: BlogCategoryGroup[] = [];
+      if (parsedSummaries.hatenaBookmark?.categories) {
+        allCategories.push(...parsedSummaries.hatenaBookmark.categories);
+      }
+      if (parsedSummaries.githubBlog?.categories) {
+        allCategories.push(...parsedSummaries.githubBlog.categories);
+      }
+      if (parsedSummaries.awsBlog?.categories) {
+        allCategories.push(...parsedSummaries.awsBlog.categories);
+      }
+      if (parsedSummaries.hackerNews?.categories) {
+        allCategories.push(...parsedSummaries.hackerNews.categories);
+      }
+      summaries = { categories: allCategories };
       console.log(`📝 要約JSON を使用してボディを生成`);
     } catch (error) {
       console.error(`Failed to parse summaries JSON:`, error);
