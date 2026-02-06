@@ -22,9 +22,10 @@ import { linearProvider } from "./linear-provider.ts";
 import { hatenaBookmarkProvider } from "./hatena-bookmark-provider.ts";
 import { githubBlogProvider } from "./github-blog-provider.ts";
 import { awsBlogProvider } from "./aws-blog-provider.ts";
+import { hackerNewsProvider } from "./hacker-news-provider.ts";
 
-Deno.test("PROVIDER_CONFIGS - 全7プロバイダーが定義されている", () => {
-  assertEquals(PROVIDER_CONFIGS.length, 7);
+Deno.test("PROVIDER_CONFIGS - 全8プロバイダーが定義されている", () => {
+  assertEquals(PROVIDER_CONFIGS.length, 8);
   const ids = PROVIDER_CONFIGS.map((c) => c.id);
   assertEquals(ids, [
     "github",
@@ -34,6 +35,7 @@ Deno.test("PROVIDER_CONFIGS - 全7プロバイダーが定義されている", (
     "hatenaBookmark",
     "githubBlog",
     "awsBlog",
+    "hackerNews",
   ]);
 });
 
@@ -51,7 +53,7 @@ Deno.test("PROVIDER_CONFIGS - 各プロバイダーの必須フィールドが�
 });
 
 Deno.test("PROVIDER_REGISTRY - Mapで高速にアクセスできる", () => {
-  assertEquals(PROVIDER_REGISTRY.size, 7);
+  assertEquals(PROVIDER_REGISTRY.size, 8);
   assertExists(PROVIDER_REGISTRY.get("github"));
   assertExists(PROVIDER_REGISTRY.get("aws"));
   assertExists(PROVIDER_REGISTRY.get("claudeCode"));
@@ -59,6 +61,7 @@ Deno.test("PROVIDER_REGISTRY - Mapで高速にアクセスできる", () => {
   assertExists(PROVIDER_REGISTRY.get("hatenaBookmark"));
   assertExists(PROVIDER_REGISTRY.get("githubBlog"));
   assertExists(PROVIDER_REGISTRY.get("awsBlog"));
+  assertExists(PROVIDER_REGISTRY.get("hackerNews"));
   assertEquals(PROVIDER_REGISTRY.get("unknown"), undefined);
 });
 
@@ -138,6 +141,7 @@ Deno.test("getProviderIds - 全プロバイダーIDを取得できる", () => {
     "hatenaBookmark",
     "githubBlog",
     "awsBlog",
+    "hackerNews",
   ]);
 });
 
@@ -232,6 +236,18 @@ Deno.test("awsBlogProvider - 設定が正しい", () => {
   assertExists(awsBlogProvider.fetch);
 });
 
+Deno.test("hackerNewsProvider - 設定が正しい", () => {
+  assertEquals(hackerNewsProvider.id, "hackerNews");
+  assertEquals(hackerNewsProvider.displayName, "Hacker News");
+  assertEquals(hackerNewsProvider.emoji, "🔶");
+  assertEquals(hackerNewsProvider.labelName, "hacker-news");
+  assertEquals(hackerNewsProvider.category, "blog");
+  assertEquals(hackerNewsProvider.labelPrefix, undefined);
+  assertEquals(hackerNewsProvider.titleField, "title");
+  assertEquals(hackerNewsProvider.pubDateField, "pubDate");
+  assertExists(hackerNewsProvider.fetch);
+});
+
 // =============================================================================
 // カテゴリ機能のテスト
 // =============================================================================
@@ -245,9 +261,9 @@ Deno.test("getProvidersByCategory - changelogカテゴリのプロバイダー�
 
 Deno.test("getProvidersByCategory - blogカテゴリのプロバイダーを取得", () => {
   const providers = getProvidersByCategory("blog");
-  assertEquals(providers.length, 3);
+  assertEquals(providers.length, 4);
   const ids = providers.map((p) => p.id);
-  assertEquals(ids, ["hatenaBookmark", "githubBlog", "awsBlog"]);
+  assertEquals(ids, ["hatenaBookmark", "githubBlog", "awsBlog", "hackerNews"]);
 });
 
 Deno.test("getProviderIdsByCategory - changelogカテゴリのIDを取得", () => {
@@ -257,7 +273,7 @@ Deno.test("getProviderIdsByCategory - changelogカテゴリのIDを取得", () =
 
 Deno.test("getProviderIdsByCategory - blogカテゴリのIDを取得", () => {
   const ids = getProviderIdsByCategory("blog");
-  assertEquals(ids, ["hatenaBookmark", "githubBlog", "awsBlog"]);
+  assertEquals(ids, ["hatenaBookmark", "githubBlog", "awsBlog", "hackerNews"]);
 });
 
 Deno.test("各プロバイダーのcategoryフィールドが正しく設定されている", () => {
