@@ -29,7 +29,7 @@ Options:
   --weekly               週次モード（デフォルト: 日次）
   --provider=PROVIDER    週次モード用プロバイダー
                          Changelog: github | aws | claudeCode | linear
-                         Blog: hatenaBookmark | githubBlog | awsBlog
+                         Blog: hatenaBookmark | githubBlog | awsBlog | hackerNews
   --skip-fetch           データ取得をスキップ（既存データを使用）
   --skip-summarize       要約生成をスキップ
   --post                 dry-runなしで実際に投稿する（注意！）
@@ -62,6 +62,9 @@ Examples:
 
   # 週次: AWS Blogデータでテスト
   ./test-workflow.sh --weekly --category=blog --provider=awsBlog
+
+  # 週次: Hacker News Blogデータでテスト
+  ./test-workflow.sh --weekly --category=blog --provider=hackerNews
 
   # データ取得をスキップ（既存データを使用）
   ./test-workflow.sh --date=2026-02-01 --skip-fetch
@@ -120,7 +123,7 @@ if [ "$MODE" = "weekly" ]; then
     if [ "$CATEGORY" = "changelog" ]; then
       echo -e "${RED}Available providers: github, aws, claudeCode, linear${NC}"
     else
-      echo -e "${RED}Available providers: hatenaBookmark, githubBlog, awsBlog${NC}"
+      echo -e "${RED}Available providers: hatenaBookmark, githubBlog, awsBlog, hackerNews${NC}"
     fi
     exit 1
   fi
@@ -133,9 +136,9 @@ if [ "$MODE" = "weekly" ]; then
       exit 1
     fi
   else
-    if [[ ! " hatenaBookmark githubBlog awsBlog " =~ " $PROVIDER " ]]; then
+    if [[ ! " hatenaBookmark githubBlog awsBlog hackerNews " =~ " $PROVIDER " ]]; then
       echo -e "${RED}Error: Provider '$PROVIDER' is not valid for blog category${NC}"
-      echo -e "${RED}Available providers: hatenaBookmark, githubBlog, awsBlog${NC}"
+      echo -e "${RED}Available providers: hatenaBookmark, githubBlog, awsBlog, hackerNews${NC}"
       exit 1
     fi
   fi

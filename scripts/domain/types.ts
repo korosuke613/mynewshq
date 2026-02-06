@@ -79,6 +79,7 @@ export interface BlogData {
   hatenaBookmark: BlogEntry[];
   githubBlog: BlogEntry[];
   awsBlog: BlogEntry[];
+  hackerNews: BlogEntry[];
 }
 
 // 要約データの型（キーはURL、値は要約文）

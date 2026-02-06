@@ -16,6 +16,7 @@ import { linearProvider } from "./linear-provider.ts";
 import { hatenaBookmarkProvider } from "./hatena-bookmark-provider.ts";
 import { githubBlogProvider } from "./github-blog-provider.ts";
 import { awsBlogProvider } from "./aws-blog-provider.ts";
+import { hackerNewsProvider } from "./hacker-news-provider.ts";
 import { applyMuteFilter } from "../mute-filter.ts";
 
 // 型を再エクスポート
@@ -39,6 +40,7 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
   hatenaBookmarkProvider,
   githubBlogProvider,
   awsBlogProvider,
+  hackerNewsProvider,
 ];
 
 /**
@@ -234,6 +236,7 @@ export function toBlogData(
     hatenaBookmark: (results.hatenaBookmark ?? []) as BlogEntry[],
     githubBlog: (results.githubBlog ?? []) as BlogEntry[],
     awsBlog: (results.awsBlog ?? []) as BlogEntry[],
+    hackerNews: (results.hackerNews ?? []) as BlogEntry[],
   };
 
   // startDateとendDateは両方指定されるか、両方とも指定されないかのどちらか

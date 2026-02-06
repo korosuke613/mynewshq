@@ -39,6 +39,8 @@ export interface ProviderConfig<T extends AnyEntry = AnyEntry> {
   labelName: string;
   /** コンテンツカテゴリ（changelog または blog） */
   category: ContentCategory;
+  /** 固定カテゴリ名（設定すると全エントリにこのカテゴリが付与される） */
+  fixedCategory?: string;
   /** サブカテゴリラベルのプレフィックス（例: "gh:", "aws:"） */
   labelPrefix?: string;
   /** ラベル変換関数（例: AWS用のプレフィックス除去） */

@@ -77,6 +77,9 @@ export function generateDefaultBlogBody(data: BlogData): string {
   if (data.awsBlog) {
     allActiveEntries.push(...data.awsBlog.filter((e) => !e.muted));
   }
+  if (data.hackerNews) {
+    allActiveEntries.push(...data.hackerNews.filter((e) => !e.muted));
+  }
 
   // カテゴリごとにグループ化
   const groupedByCategory = groupEntriesByCategory(allActiveEntries);
@@ -114,6 +117,9 @@ export function generateDefaultBlogBody(data: BlogData): string {
   }
   if (data.awsBlog) {
     allMutedEntries.push(...data.awsBlog.filter((e) => e.muted));
+  }
+  if (data.hackerNews) {
+    allMutedEntries.push(...data.hackerNews.filter((e) => e.muted));
   }
 
   if (allMutedEntries.length > 0) {
@@ -173,6 +179,9 @@ export function generateBlogBodyWithSummaries(
   }
   if (data.awsBlog) {
     allMutedEntries.push(...data.awsBlog.filter((e) => e.muted));
+  }
+  if (data.hackerNews) {
+    allMutedEntries.push(...data.hackerNews.filter((e) => e.muted));
   }
 
   if (allMutedEntries.length > 0) {

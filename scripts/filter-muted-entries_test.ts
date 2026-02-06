@@ -285,6 +285,7 @@ Deno.test("filterMutedFromBlog", async (t) => {
           mutedBy: "SageMaker",
         },
       ],
+      hackerNews: [],
     };
 
     const result = filterMutedFromBlog(data);
@@ -312,6 +313,7 @@ Deno.test("filterMutedFromBlog", async (t) => {
       hatenaBookmark: [],
       githubBlog: [],
       awsBlog: [],
+      hackerNews: [],
     };
 
     const result = filterMutedFromBlog(data);
