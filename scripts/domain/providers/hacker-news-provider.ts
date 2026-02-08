@@ -93,7 +93,14 @@ async function fetchHackerNews(
   }
 
   // Points降順でソート（undefinedは最後に配置）
-  entries.sort((a, b) => (b.bookmarkCount ?? 0) - (a.bookmarkCount ?? 0));
+  entries.sort((a, b) => {
+    if (a.bookmarkCount === undefined && b.bookmarkCount === undefined) {
+      return 0;
+    }
+    if (a.bookmarkCount === undefined) return 1;
+    if (b.bookmarkCount === undefined) return -1;
+    return b.bookmarkCount - a.bookmarkCount;
+  });
 
   // 上位N件のみ返す
   return entries.slice(0, MAX_ENTRIES_PER_FETCH);

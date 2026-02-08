@@ -122,6 +122,27 @@ Deno.test("parseBlogSummariesJson", async (t) => {
   });
 
   await t.step(
+    "トップレベルがオブジェクトでない場合はTypeErrorをスローする",
+    () => {
+      assertThrows(
+        () => parseBlogSummariesJson("null"),
+        TypeError,
+        "トップレベルはオブジェクト",
+      );
+      assertThrows(
+        () => parseBlogSummariesJson('"string"'),
+        TypeError,
+        "トップレベルはオブジェクト",
+      );
+      assertThrows(
+        () => parseBlogSummariesJson("123"),
+        TypeError,
+        "トップレベルはオブジェクト",
+      );
+    },
+  );
+
+  await t.step(
     "動的走査により未知のプロバイダーのcategoriesも集約される",
     () => {
       const input = JSON.stringify({

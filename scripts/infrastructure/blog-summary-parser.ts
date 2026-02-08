@@ -13,12 +13,18 @@ import type { BlogCategoryGroup, BlogSummaryData } from "../domain/types.ts";
  *
  * @param summariesJson - JSON文字列
  * @returns BlogSummaryData形式のオブジェクト
- * @throws JSON.parse エラー
+ * @throws JSON.parse エラー、またはトップレベルがオブジェクトでない場合
  */
 export function parseBlogSummariesJson(
   summariesJson: string,
 ): BlogSummaryData {
   const parsedSummaries = JSON.parse(summariesJson);
+
+  if (!parsedSummaries || typeof parsedSummaries !== "object") {
+    throw new TypeError(
+      "Blog要約JSONのトップレベルはオブジェクトである必要があります",
+    );
+  }
 
   // BlogSummaryData形式（トップレベルにcategoriesがある）で渡された場合はそのまま使用
   if (Array.isArray(parsedSummaries.categories)) {
