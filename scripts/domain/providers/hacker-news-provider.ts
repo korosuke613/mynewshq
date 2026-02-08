@@ -59,10 +59,15 @@ async function fetchHackerNews(
     // isoDate または pubDate を使用
     const pubDate = item.isoDate || item.pubDate;
 
+    // title/urlが欠けているアイテムはスキップ（Markdownで壊れたリンクを防止）
+    if (!item.title || !item.link) {
+      continue;
+    }
+
     if (pubDate && isWithinDays(pubDate, days, targetDate)) {
       entries.push({
-        title: item.title || "",
-        url: item.link || "",
+        title: item.title,
+        url: item.link,
         description: item.contentSnippet || "",
         pubDate: pubDate,
         bookmarkCount: extractPoints(item.contentSnippet),

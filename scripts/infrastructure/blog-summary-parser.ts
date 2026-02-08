@@ -27,20 +27,18 @@ export function parseBlogSummariesJson(
     };
   }
 
-  // Claude Code Action形式の場合は、全プロバイダーのcategoriesを統合してBlogSummaryData形式に変換
+  // Claude Code Action形式の場合は、トップレベルの全キーを走査してcategories配列を集約
   const allCategories: BlogCategoryGroup[] = [];
 
-  if (parsedSummaries.hatenaBookmark?.categories) {
-    allCategories.push(...parsedSummaries.hatenaBookmark.categories);
-  }
-  if (parsedSummaries.githubBlog?.categories) {
-    allCategories.push(...parsedSummaries.githubBlog.categories);
-  }
-  if (parsedSummaries.awsBlog?.categories) {
-    allCategories.push(...parsedSummaries.awsBlog.categories);
-  }
-  if (parsedSummaries.hackerNews?.categories) {
-    allCategories.push(...parsedSummaries.hackerNews.categories);
+  for (
+    const value of Object.values(
+      parsedSummaries as Record<string, unknown>,
+    )
+  ) {
+    const provider = value as Record<string, unknown> | null | undefined;
+    if (provider && Array.isArray(provider.categories)) {
+      allCategories.push(...(provider.categories as BlogCategoryGroup[]));
+    }
   }
 
   return { categories: allCategories };

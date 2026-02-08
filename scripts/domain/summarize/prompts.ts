@@ -137,7 +137,7 @@ export const DAILY_BLOG_SCHEMA = {
       "required": ["categories"],
     },
   },
-  "required": ["hatenaBookmark", "hackerNews"],
+  "required": [],
 };
 
 /**
