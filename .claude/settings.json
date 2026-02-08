@@ -10,7 +10,11 @@
           },
           {
             "type": "command",
-            "command": "if jq -r '.tool_input.command' | grep -q '^git commit'; then :; else deno lint; fi"
+            "command": "jq -r '.tool_input.command' | grep -q '^git commit' && [ \"$(git branch --show-current)\" = \"main\" ] && echo 'ERROR: mainブランチへの直接コミットは禁止。ブランチを切り替えること。' >&2 && exit 1 || true"
+          },
+          {
+            "type": "command",
+            "command": "! jq -r '.tool_input.command' | grep -q '^git commit' || deno lint && deno check"
           }
         ]
       }
@@ -41,7 +45,12 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:aws.amazon.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(*/pr-respond/scripts/parse-pr-url.sh *)",
+      "Bash(*/pr-respond/scripts/get-review-comments.sh *)",
+      "Bash(*/pr-respond/scripts/reply-to-comment.sh *)",
+      "Bash(*/pr-respond/scripts/get-review-threads.sh *)",
+      "Bash(*/pr-respond/scripts/resolve-threads.sh *)"
     ]
   }
 }
