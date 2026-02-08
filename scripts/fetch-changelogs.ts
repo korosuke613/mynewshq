@@ -24,6 +24,7 @@ import type { ContentCategory } from "./domain/providers/types.ts";
 import {
   applyMuteFilterToAll,
   fetchByCategory,
+  getProviderConfig,
   getProviderDisplayName,
   getProvidersByCategory,
   getTotalEntryCount,
@@ -305,9 +306,32 @@ async function processBlog(
     }
   }
 
+  // 固定カテゴリの適用（fixedCategoryが設定されたプロバイダー）
+  for (const providerId of Object.keys(results)) {
+    const config = getProviderConfig(providerId);
+    if (config?.fixedCategory) {
+      const entries = results[providerId];
+      if (Array.isArray(entries) && entries.every(isBlogEntry)) {
+        // 全エントリに固定カテゴリを付与
+        for (const entry of entries) {
+          entry.matchedCategories = [config.fixedCategory];
+        }
+        console.log(
+          `Applied fixed category "${config.fixedCategory}" to ${entries.length} ${providerId} entries`,
+        );
+      }
+    }
+  }
+
   // カテゴリフィルタを適用（設定されたカテゴリにマッチするエントリのみ残す）
   if (categoryKeywords.length > 0) {
     for (const providerId of Object.keys(results)) {
+      const config = getProviderConfig(providerId);
+      // fixedCategoryが設定されたプロバイダーはキーワードフィルタをスキップ
+      if (config?.fixedCategory) {
+        continue;
+      }
+
       const entries = results[providerId];
       if (!Array.isArray(entries) || entries.length === 0) {
         continue;

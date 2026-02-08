@@ -1,7 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import type {
   BlogData,
-  BlogSummaryData,
   ChangelogData,
   ChangelogEntry,
   DailyLink,
@@ -11,6 +10,7 @@ import type {
   SummaryData,
   WeeklySummaryData,
 } from "./domain/types.ts";
+import { parseBlogSummariesJson } from "./infrastructure/blog-summary-parser.ts";
 import { determineLabels, stripAwsPrefix } from "./domain/label-extractor.ts";
 import { getProviderDisplayName } from "./domain/providers/index.ts";
 import {
@@ -639,11 +639,7 @@ async function createBlogDiscussion(
 
   if (summariesJson) {
     try {
-      const parsedSummaries = JSON.parse(summariesJson);
-      // Claude Code Actionの出力形式: {"hatenaBookmark": {"categories": [...]}}
-      // BlogSummaryData形式に変換: {"categories": [...]}
-      const summaries: BlogSummaryData = parsedSummaries.hatenaBookmark ||
-        parsedSummaries;
+      const summaries = parseBlogSummariesJson(summariesJson);
       body = generateBlogBodyWithSummaries(blogData, summaries) +
         generateMention();
       console.log("Using blog summaries JSON");

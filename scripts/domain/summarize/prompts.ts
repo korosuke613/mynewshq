@@ -66,7 +66,7 @@ export function getDailyBlogPrompt(filePath: string): string {
   - entries: カテゴリ内の記事リスト
     - url: 記事のURL
     - title: 記事のタイトル
-    - comment: 記事へのコメント（1文で簡潔に、技術的なポイントを強調）
+    - comment: 記事へのコメント（2-3文で、技術的なポイントを強調し、読者にとっての価値を説明）
   - categoryComment: カテゴリ全体のまとめコメント（1-2文で、そのカテゴリの今日のトレンドを説明）
 
 \`matchedCategories\` が空でない記事がない場合は categories を空配列 \`[]\` としてください。`;
@@ -107,8 +107,37 @@ export const DAILY_BLOG_SCHEMA = {
       },
       "required": ["categories"],
     },
+    "hackerNews": {
+      "type": "object",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": { "type": "string" },
+              "entries": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "url": { "type": "string" },
+                    "title": { "type": "string" },
+                    "comment": { "type": "string" },
+                  },
+                  "required": ["url", "title", "comment"],
+                },
+              },
+              "categoryComment": { "type": "string" },
+            },
+            "required": ["category", "entries", "categoryComment"],
+          },
+        },
+      },
+      "required": ["categories"],
+    },
   },
-  "required": ["hatenaBookmark"],
+  "required": [],
 };
 
 /**
@@ -266,7 +295,7 @@ ${provider}の週次分析を行い、カテゴリ別に記事を要約します
 - entries: カテゴリ内の記事リスト
   - url: 記事のURL
   - title: 記事のタイトル
-  - comment: 記事へのコメント（1-2文で簡潔に、技術的なポイントを強調）
+  - comment: 記事へのコメント（2-3文で、技術的なポイントを強調し、読者にとっての価値を説明）
 - categoryComment: カテゴリ全体のまとめコメント（2-3文で、そのカテゴリの今週のトレンドを説明）
 
 \`matchedCategories\` が空でない記事がない場合は categories を空配列 \`[]\` としてください。`;

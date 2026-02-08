@@ -7,6 +7,7 @@ import type {
   SummaryData,
   WeeklySummaryData,
 } from "./domain/types.ts";
+import { parseBlogSummariesJson } from "./infrastructure/blog-summary-parser.ts";
 import {
   generateBodyWithSummaries,
   generateDefaultBody,
@@ -290,7 +291,7 @@ async function previewBlog(
   let summaries: BlogSummaryData = DUMMY_BLOG_SUMMARIES;
   if (summariesJson) {
     try {
-      summaries = JSON.parse(summariesJson);
+      summaries = parseBlogSummariesJson(summariesJson);
       console.log(`📝 要約JSON を使用してボディを生成`);
     } catch (error) {
       console.error(`Failed to parse summaries JSON:`, error);

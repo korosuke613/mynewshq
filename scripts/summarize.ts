@@ -43,7 +43,8 @@ interface CliArgs {
     | "linear"
     | "hatenaBookmark"
     | "githubBlog"
-    | "awsBlog";
+    | "awsBlog"
+    | "hackerNews";
   "past-discussions"?: string;
   help?: boolean;
 }
@@ -58,7 +59,7 @@ Options:
   --weekly                    週次モード（プロバイダー指定必須）
   --provider=PROVIDER         週次モード用プロバイダー
                               Changelog: github | aws | claudeCode | linear
-                              Blog: hatenaBookmark | githubBlog | awsBlog
+                              Blog: hatenaBookmark | githubBlog | awsBlog | hackerNews
   --past-discussions=PATH     過去Discussionファイルパス（週次Changelog用、オプション）
   --output=PATH               出力ファイルパス（指定しない場合は標準出力）
   --dry-run                   プロンプトを表示するだけで実行しない
@@ -79,6 +80,7 @@ Examples:
   deno task summarize --date=2026-02-01 --weekly --provider=hatenaBookmark
   deno task summarize --date=2026-02-01 --weekly --provider=githubBlog
   deno task summarize --date=2026-02-01 --weekly --provider=awsBlog
+  deno task summarize --date=2026-02-01 --weekly --provider=hackerNews
 
   # 週次Changelog要約（過去Discussion参照あり）
   deno task summarize --date=2026-02-01 --weekly --provider=github \\
@@ -128,7 +130,7 @@ async function main() {
         );
       } else {
         console.error(
-          "Available providers: hatenaBookmark, githubBlog, awsBlog",
+          "Available providers: hatenaBookmark, githubBlog, awsBlog, hackerNews",
         );
       }
       Deno.exit(1);
@@ -136,7 +138,12 @@ async function main() {
 
     // プロバイダーとカテゴリの整合性チェック
     const changelogProviders = ["github", "aws", "claudeCode", "linear"];
-    const blogProviders = ["hatenaBookmark", "githubBlog", "awsBlog"];
+    const blogProviders = [
+      "hatenaBookmark",
+      "githubBlog",
+      "awsBlog",
+      "hackerNews",
+    ];
 
     if (
       category === "changelog" && !changelogProviders.includes(args.provider)
@@ -155,7 +162,7 @@ async function main() {
         `Error: Provider '${args.provider}' is not valid for blog category`,
       );
       console.error(
-        "Available providers: hatenaBookmark, githubBlog, awsBlog",
+        "Available providers: hatenaBookmark, githubBlog, awsBlog, hackerNews",
       );
       Deno.exit(1);
     }
