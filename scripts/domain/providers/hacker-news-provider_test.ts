@@ -1,6 +1,10 @@
 // Hacker News Provider のテスト
 import { assertEquals, assertExists } from "@std/assert";
-import { extractPoints, hackerNewsProvider } from "./hacker-news-provider.ts";
+import {
+  extractPoints,
+  hackerNewsProvider,
+  truncateDescription,
+} from "./hacker-news-provider.ts";
 
 // =============================================================================
 // プロバイダー設定値の確認
@@ -57,4 +61,29 @@ Deno.test("extractPoints - 異常系: undefined入力 → undefined", () => {
 
 Deno.test("extractPoints - 異常系: 不正フォーマット Points:abc → undefined", () => {
   assertEquals(extractPoints("Points: abc"), undefined);
+});
+
+// =============================================================================
+// truncateDescription関数のユニットテスト
+// =============================================================================
+
+Deno.test("truncateDescription - 300文字以下はそのまま返す", () => {
+  const short = "短いdescription";
+  assertEquals(truncateDescription(short), short);
+});
+
+Deno.test("truncateDescription - ちょうど300文字はそのまま返す", () => {
+  const exact = "a".repeat(300);
+  assertEquals(truncateDescription(exact), exact);
+});
+
+Deno.test("truncateDescription - 301文字以上は300文字+...に切り詰め", () => {
+  const long = "a".repeat(500);
+  const result = truncateDescription(long);
+  assertEquals(result, "a".repeat(300) + "...");
+  assertEquals(result.length, 303); // 300 + "..."
+});
+
+Deno.test("truncateDescription - 空文字列はそのまま返す", () => {
+  assertEquals(truncateDescription(""), "");
 });

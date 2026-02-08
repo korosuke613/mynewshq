@@ -6,6 +6,12 @@ import type { BlogEntry } from "../types.ts";
 import type { ProviderConfig } from "./types.ts";
 import { isWithinDays } from "../date-filter.ts";
 
+/** 1回のfetchで返す最大記事数（Points上位のみ残す） */
+const MAX_ENTRIES_PER_FETCH = 5;
+
+/** descriptionの最大文字数（Show HN等の全文投稿を抑制） */
+const MAX_DESCRIPTION_LENGTH = 300;
+
 // rss-parser にカスタムフィールドを定義
 type HackerNewsFeed = {
   items: HackerNewsItem[];
@@ -44,7 +50,18 @@ export function extractPoints(
 }
 
 /**
+ * descriptionを最大文字数で切り詰める
+ */
+export function truncateDescription(description: string): string {
+  if (description.length <= MAX_DESCRIPTION_LENGTH) {
+    return description;
+  }
+  return description.substring(0, MAX_DESCRIPTION_LENGTH) + "...";
+}
+
+/**
  * Hacker News のフロントページ記事を取得
+ * Points降順でソートし、上位N件のみ返す
  */
 async function fetchHackerNews(
   targetDate: Date,
@@ -68,14 +85,18 @@ async function fetchHackerNews(
       entries.push({
         title: item.title,
         url: item.link,
-        description: item.contentSnippet || "",
+        description: truncateDescription(item.contentSnippet || ""),
         pubDate: pubDate,
         bookmarkCount: extractPoints(item.contentSnippet),
       });
     }
   }
 
-  return entries;
+  // Points降順でソート（undefinedは最後に配置）
+  entries.sort((a, b) => (b.bookmarkCount ?? 0) - (a.bookmarkCount ?? 0));
+
+  // 上位N件のみ返す
+  return entries.slice(0, MAX_ENTRIES_PER_FETCH);
 }
 
 /**
