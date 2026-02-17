@@ -1,10 +1,6 @@
 name: Daily Changelog and Blog
 
 on:
-  schedule:
-    # 毎日 12:00 JST (UTC 3:00) = PST 19:00 / PDT 20:00
-    # アメリカ西海岸時間の夜（18:00以降）の更新をカバー
-    - cron: "59 2 * * *"
   workflow_dispatch: # 手動実行も可能
     inputs:
       date:
