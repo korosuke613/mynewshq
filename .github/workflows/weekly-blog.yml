@@ -9,6 +9,11 @@ on:
         description: "終了日 (YYYY-MM-DD形式、空欄で今日)"
         required: false
         type: string
+      use_manual_category:
+        description: "manual triggerカテゴリに投稿する（手動実行時のみ選択）"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -219,7 +224,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
           CATEGORY_CONFIG_ISSUE_NUMBER: "104"
-          WORKFLOW_TRIGGER: ${{ github.event_name }}
+          WORKFLOW_TRIGGER: ${{ inputs.use_manual_category && 'workflow_dispatch' || 'schedule' }}
         run: |
           # 要約ファイルの内容を確認
           echo "Summary content:"

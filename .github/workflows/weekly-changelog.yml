@@ -9,6 +9,11 @@ on:
         description: "終了日 (YYYY-MM-DD形式、空欄で今日)"
         required: false
         type: string
+      use_manual_category:
+        description: "manual triggerカテゴリに投稿する（手動実行時のみ選択）"
+        required: false
+        type: boolean
+        default: false
       run_github:
         description: "GitHub Changelogを実行"
         required: false
@@ -300,7 +305,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
           CATEGORY_CONFIG_ISSUE_NUMBER: "104"
-          WORKFLOW_TRIGGER: ${{ github.event_name }}
+          WORKFLOW_TRIGGER: ${{ inputs.use_manual_category && 'workflow_dispatch' || 'schedule' }}
         run: |
           # 要約ファイルを統合
           echo "Merging summaries..."
@@ -332,9 +337,9 @@ jobs:
           echo "Merged summaries:"
           cat /tmp/all-summaries.json
 
-          # autoCloseフラグを設定（workflow_dispatch時のみ）
+          # autoCloseフラグを設定（manual triggerカテゴリ使用時のみ）
           AUTO_CLOSE_FLAG=""
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "${{ inputs.use_manual_category }}" == "true" ]; then
             AUTO_CLOSE_FLAG="--auto-close"
           fi
 

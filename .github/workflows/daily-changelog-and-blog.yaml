@@ -10,6 +10,11 @@ on:
         description: "対象日付 (YYYY-MM-DD形式、空欄で今日)"
         required: false
         type: string
+      use_manual_category:
+        description: "manual triggerカテゴリに投稿する（手動実行時のみ選択）"
+        required: false
+        type: boolean
+        default: false
       run_changelog:
         description: "Changelogを実行"
         required: false
@@ -147,7 +152,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
           CATEGORY_CONFIG_ISSUE_NUMBER: "104"
-          WORKFLOW_TRIGGER: ${{ github.event_name }}
+          WORKFLOW_TRIGGER: ${{ inputs.use_manual_category && 'workflow_dispatch' || 'schedule' }}
         run: |
           # Claude Code の structured_output をファイルに書き出し
           cat <<'EOF' > /tmp/changelog-summaries.json
@@ -206,7 +211,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.login-gh-app.outputs.token }}
           CATEGORY_CONFIG_ISSUE_NUMBER: "104"
-          WORKFLOW_TRIGGER: ${{ github.event_name }}
+          WORKFLOW_TRIGGER: ${{ inputs.use_manual_category && 'workflow_dispatch' || 'schedule' }}
         run: |
           # Claude Code の structured_output をファイルに書き出し
           cat <<'EOF' > /tmp/blog-summaries.json
