@@ -1,9 +1,8 @@
 name: Weekly Changelog
 
 on:
-  schedule:
-    # 毎週水曜日 01:00 UTC (10:00 JST)
-    - cron: "0 1 * * 3"
+  # 毎週水曜日 01:00 UTC (10:00 JST)
+  # gh-cron-trigger: "0 10 * * 3"
   workflow_dispatch:
     inputs:
       end_date:

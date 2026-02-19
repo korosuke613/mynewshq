@@ -1,10 +1,9 @@
 name: Daily Changelog and Blog
 
 on:
-  schedule:
-    # 毎日 10:50 JST (UTC 1:50) = PST 17:50 / PDT 18:50
-    # アメリカ西海岸時間の夜（18:00くらい）の更新をカバー
-    - cron: 50 1 * * *
+  # 毎日 11:59 JST (UTC 2:59) = PST 18:59 / PDT 19:59
+  # アメリカ西海岸時間の夜（18:00くらい）の更新をカバー
+  # gh-cron-trigger: "59 11 * * *"
   workflow_dispatch: # 手動実行も可能
     inputs:
       date:
