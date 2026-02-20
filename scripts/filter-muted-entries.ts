@@ -58,7 +58,7 @@ export function filterMutedFromChangelog(data: ChangelogData): ChangelogData {
     github: filterMutedChangelogEntries(data.github),
     aws: filterMutedChangelogEntries(data.aws),
     claudeCode: filterMutedReleaseEntries(data.claudeCode),
-    githubCli: filterMutedReleaseEntries(data.githubCli ?? []),
+    githubCli: filterMutedReleaseEntries(data.githubCli),
     linear: filterMutedChangelogEntries(data.linear),
   };
 }
@@ -182,6 +182,8 @@ async function main(): Promise<void> {
     let data: ChangelogData;
     try {
       data = JSON.parse(rawContent) as ChangelogData;
+      // 後方互換性: githubCli フィールドが存在しない古いJSONデータに対応
+      if (!data.githubCli) data.githubCli = [];
     } catch (error) {
       console.error(`入力ファイルのJSONパースに失敗: ${input}`);
       console.error(error instanceof Error ? error.message : String(error));
@@ -203,8 +205,8 @@ async function main(): Promise<void> {
         after: filteredData.claudeCode.length,
       },
       githubCli: {
-        before: (data.githubCli ?? []).length,
-        after: (filteredData.githubCli ?? []).length,
+        before: data.githubCli.length,
+        after: filteredData.githubCli.length,
       },
       linear: { before: data.linear.length, after: filteredData.linear.length },
     };

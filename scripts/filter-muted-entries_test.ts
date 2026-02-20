@@ -208,7 +208,7 @@ Deno.test("filterMutedFromChangelog", async (t) => {
     assertEquals(result.claudeCode.length, 1);
 
     // githubCli: 1件残る
-    assertEquals(result.githubCli?.length, 1);
+    assertEquals(result.githubCli.length, 1);
 
     // linear: 0件（全てミュート）
     assertEquals(result.linear.length, 0);

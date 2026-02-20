@@ -1,12 +1,5 @@
 import type { ChangelogData, ChangelogEntry, ReleaseEntry } from "../types.ts";
 
-export type WeeklyChangelogProviderId =
-  | "github"
-  | "aws"
-  | "claudeCode"
-  | "githubCli"
-  | "linear";
-
 export function getWeeklyProviderData(
   changelogData: ChangelogData,
   providerId: string,
@@ -19,7 +12,7 @@ export function getWeeklyProviderData(
     case "claudeCode":
       return changelogData.claudeCode;
     case "githubCli":
-      return changelogData.githubCli ?? [];
+      return changelogData.githubCli;
     case "linear":
       return changelogData.linear;
     default:

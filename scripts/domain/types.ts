@@ -37,7 +37,7 @@ export interface ChangelogEntry {
   labels?: Record<string, string[]>;
 }
 
-// リリースエントリの型（Claude Code用）
+// リリースエントリの型（Claude Code / GitHub CLI等のGitHub Releases用）
 export interface ReleaseEntry {
   version: string;
   url: string;
@@ -68,7 +68,7 @@ export interface ChangelogData {
   github: ChangelogEntry[];
   aws: ChangelogEntry[];
   claudeCode: ReleaseEntry[];
-  githubCli?: ReleaseEntry[];
+  githubCli: ReleaseEntry[];
   linear: ChangelogEntry[];
 }
 
@@ -88,7 +88,7 @@ export interface SummaryData {
   github: Record<string, string>;
   aws: Record<string, string>;
   claudeCode: Record<string, string>;
-  githubCli?: Record<string, string>;
+  githubCli: Record<string, string>;
   linear: Record<string, string>;
 }
 
@@ -106,7 +106,7 @@ export interface CategorySummaries {
   github: string;
   aws: string;
   claudeCode: string;
-  githubCli?: string;
+  githubCli: string;
   linear: string;
 }
 
@@ -197,7 +197,7 @@ export interface WeeklySummaryDataV2 {
   github: ProviderWeeklySummary;
   aws: ProviderWeeklySummary;
   claudeCode: ProviderWeeklySummary;
-  githubCli?: ProviderWeeklySummary;
+  githubCli: ProviderWeeklySummary;
   linear: ProviderWeeklySummary;
 }
 

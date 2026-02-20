@@ -122,7 +122,7 @@ export function generateDefaultBody(data: ChangelogData): string {
     }
   }
 
-  if (data.githubCli && data.githubCli.length > 0) {
+  if (data.githubCli.length > 0) {
     const activeEntries = data.githubCli.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
       body += `## ${getProviderDisplayName("githubCli")}\n`;
@@ -236,7 +236,7 @@ export function generateBodyWithSummaries(
     }
   }
 
-  if (data.githubCli && data.githubCli.length > 0) {
+  if (data.githubCli.length > 0) {
     const activeEntries = data.githubCli.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
       body += `## ${getProviderDisplayName("githubCli")}\n\n`;

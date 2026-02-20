@@ -103,6 +103,8 @@ async function main() {
   // 週次データを読み込む
   const changelogPath = `data/changelogs/weekly/${date}.json`;
   const changelogData = await loadJsonFile<ChangelogData>(changelogPath);
+  // 後方互換性: githubCli フィールドが存在しない古いJSONデータに対応
+  if (!changelogData.githubCli) changelogData.githubCli = [];
 
   // プロバイダーのデータを取得
   const providerData = getWeeklyProviderData(changelogData, provider);

@@ -415,7 +415,7 @@ Deno.test("toChangelogData - 日次データを正しく変換する", () => {
   assertEquals(data.github.length, 2);
   assertEquals(data.aws.length, 1);
   assertEquals(data.claudeCode.length, 1);
-  assertEquals(data.githubCli?.length, 0);
+  assertEquals(data.githubCli.length, 0);
   assertEquals(data.linear.length, 0);
 });
 
@@ -438,6 +438,6 @@ Deno.test("toChangelogData - 存在しないキーはデフォルトで空配列
   assertEquals(data.github.length, 0);
   assertEquals(data.aws.length, 0);
   assertEquals(data.claudeCode.length, 0);
-  assertEquals(data.githubCli?.length, 0);
+  assertEquals(data.githubCli.length, 0);
   assertEquals(data.linear.length, 0);
 });

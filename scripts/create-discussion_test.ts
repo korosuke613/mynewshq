@@ -35,6 +35,7 @@ const mockData = {
     body: "",
     publishedAt: "2026-01-17T16:00:00Z",
   }],
+  githubCli: [],
   linear: [{
     title: "Linear Feature C",
     url: "https://example.com/d",
@@ -80,6 +81,7 @@ Deno.test("generateDefaultBody", async (t) => {
         }],
         aws: [],
         claudeCode: [],
+        githubCli: [],
         linear: [],
       };
       const body = generateDefaultBody(dataWithGhLabels);
@@ -104,6 +106,7 @@ Deno.test("generateDefaultBody", async (t) => {
         }],
         aws: [],
         claudeCode: [],
+        githubCli: [],
         linear: [],
       };
       const body = generateDefaultBody(dataWithoutGhLabels);
@@ -126,6 +129,7 @@ Deno.test("generateDefaultBody", async (t) => {
         }],
         aws: [],
         claudeCode: [],
+        githubCli: [],
         linear: [],
       };
       const body = generateDefaultBody(dataWithUndefinedLabels);
@@ -525,6 +529,7 @@ Deno.test("generateDefaultBody with muted entries", async (t) => {
       ],
       aws: [],
       claudeCode: [],
+      githubCli: [],
       linear: [],
     };
 
@@ -553,6 +558,7 @@ Deno.test("generateDefaultBody with muted entries", async (t) => {
         ],
         aws: [],
         claudeCode: [],
+        githubCli: [],
         linear: [],
       };
 
@@ -586,6 +592,7 @@ Deno.test("generateDefaultBody with muted entries", async (t) => {
         },
       ],
       claudeCode: [],
+      githubCli: [],
       linear: [],
     };
 
@@ -714,6 +721,7 @@ Deno.test("generateBodyWithSummaries", async (t) => {
         publishedAt: "2026-01-17T16:00:00Z",
       },
     ],
+    githubCli: [],
     linear: [],
   };
 
@@ -730,6 +738,7 @@ Deno.test("generateBodyWithSummaries", async (t) => {
       "https://github.com/anthropics/claude-code/releases/v2.1.12":
         "Claude Code v2.1.12がリリースされました。パフォーマンス改善とバグ修正が含まれています。",
     },
+    githubCli: {},
     linear: {},
   };
 
@@ -802,6 +811,7 @@ Deno.test("generateBodyWithSummaries", async (t) => {
       },
       aws: {},
       claudeCode: {},
+      githubCli: {},
       linear: {},
     };
 
@@ -817,6 +827,7 @@ Deno.test("generateBodyWithSummaries", async (t) => {
       github: {},
       aws: {},
       claudeCode: {},
+      githubCli: {},
       linear: {},
     };
 
@@ -879,6 +890,7 @@ Deno.test("generateTitle", async (t) => {
       github: [],
       aws: [],
       claudeCode: [],
+      githubCli: [],
       linear: [],
     };
     const result = generateTitle(data);
@@ -893,6 +905,7 @@ Deno.test("generateTitle", async (t) => {
       github: [],
       aws: [],
       claudeCode: [],
+      githubCli: [],
       linear: [],
     };
     const result = generateTitle(data);
@@ -945,6 +958,7 @@ const mockWeeklyData = {
     pubDate: "2026-01-19T11:00:00Z",
   }],
   claudeCode: [],
+  githubCli: [],
   linear: [],
 };
 
@@ -970,6 +984,7 @@ Deno.test("generateBodyWithSummaries with weekly data", async (t) => {
       "https://example.com/b": "AWS更新Bの要約です。",
     },
     claudeCode: {},
+    githubCli: {},
     linear: {},
   };
 
@@ -1024,6 +1039,7 @@ Deno.test("generateWeeklyBodyWithSummaries", async (t) => {
       github: "今週はCopilot関連の更新が集中し、AI支援開発の進化が顕著でした。",
       aws: "リージョン拡張とクロスアカウント機能が目立ちました。",
       claudeCode: "複数のマイナーリリースがあり、安定性向上が中心でした。",
+      githubCli: "今週の更新はありませんでした。",
       linear: "今週の更新はありませんでした。",
     },
     trendAnalysis: {
@@ -1056,6 +1072,7 @@ Deno.test("generateWeeklyBodyWithSummaries", async (t) => {
     github: [],
     aws: [],
     claudeCode: [],
+    githubCli: [],
     linear: [],
   };
 

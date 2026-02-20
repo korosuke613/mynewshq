@@ -132,6 +132,8 @@ async function previewChangelog(
 
   // JSONファイルを読み込み
   const data = await loadJsonFile<ChangelogData>(changelogPath);
+  // 後方互換性: githubCli フィールドが存在しない古いJSONデータに対応
+  if (!data.githubCli) data.githubCli = [];
 
   // タイトルを生成
   const title = generateTitle(data);
@@ -159,8 +161,8 @@ async function previewChangelog(
     `Claude Code: ${claudeActive} 件 (ミュート: ${claudeMuted} 件)`,
   );
 
-  const githubCliActive = (data.githubCli ?? []).filter((e) => !e.muted).length;
-  const githubCliMuted = (data.githubCli ?? []).filter((e) => e.muted).length;
+  const githubCliActive = data.githubCli.filter((e) => !e.muted).length;
+  const githubCliMuted = data.githubCli.filter((e) => e.muted).length;
   console.log(
     `GitHub CLI: ${githubCliActive} 件 (ミュート: ${githubCliMuted} 件)`,
   );

@@ -57,10 +57,8 @@ export function generateWeeklyBodyWithSummaries(
   body += `${summaries.categorySummaries.aws}\n\n`;
   body += `### ${getProviderDisplayName("claudeCode")}\n`;
   body += `${summaries.categorySummaries.claudeCode}\n\n`;
-  if (summaries.categorySummaries.githubCli) {
-    body += `### ${getProviderDisplayName("githubCli")}\n`;
-    body += `${summaries.categorySummaries.githubCli}\n\n`;
-  }
+  body += `### ${getProviderDisplayName("githubCli")}\n`;
+  body += `${summaries.categorySummaries.githubCli}\n\n`;
   body += `### ${getProviderDisplayName("linear")}\n`;
   body += `${summaries.categorySummaries.linear}\n\n`;
 
