@@ -1,4 +1,4 @@
-// シンプルアダプタ（Claude Code/Linear用）
+// シンプルアダプタ（Claude Code/GitHub CLI/Linear用）
 // カテゴリなし、entriesリスト形式に対応
 
 import type {
@@ -81,6 +81,37 @@ export class ClaudeCodeAdapter extends BaseAdapter {
       github: [],
       aws: [],
       claudeCode: providerData as ReleaseEntry[],
+      githubCli: [],
+      linear: [],
+    };
+  }
+}
+
+/**
+ * GitHub CLI用アダプタ
+ */
+export class GitHubCliAdapter extends BaseAdapter {
+  readonly providerId = "githubCli";
+
+  getSummarizeConfig(): SummarizeConfig {
+    return {
+      jsonSchema: SIMPLE_SUMMARY_SCHEMA,
+      promptTemplate: SIMPLE_PROMPT_TEMPLATE,
+    };
+  }
+
+  protected buildChangelogDataFromProviderData(
+    providerData: ChangelogEntry[] | ReleaseEntry[],
+    ctx: WeeklyContext,
+  ): ChangelogData {
+    return {
+      date: ctx.endDate,
+      startDate: ctx.startDate,
+      endDate: ctx.endDate,
+      github: [],
+      aws: [],
+      claudeCode: [],
+      githubCli: providerData as ReleaseEntry[],
       linear: [],
     };
   }
@@ -110,6 +141,7 @@ export class LinearAdapter extends BaseAdapter {
       github: [],
       aws: [],
       claudeCode: [],
+      githubCli: [],
       linear: providerData as ChangelogEntry[],
     };
   }
@@ -125,6 +157,8 @@ export function getSimpleAdapter(
   switch (providerId) {
     case "claudeCode":
       return new ClaudeCodeAdapter(markdownGenerator);
+    case "githubCli":
+      return new GitHubCliAdapter(markdownGenerator);
     case "linear":
       return new LinearAdapter(markdownGenerator);
     default:

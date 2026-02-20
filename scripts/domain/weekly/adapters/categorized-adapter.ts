@@ -77,6 +77,7 @@ export class GitHubAdapter extends BaseAdapter {
       github: providerData as ChangelogEntry[],
       aws: [],
       claudeCode: [],
+      githubCli: [],
       linear: [],
     };
   }
@@ -106,6 +107,7 @@ export class AWSAdapter extends BaseAdapter {
       github: [],
       aws: providerData as ChangelogEntry[],
       claudeCode: [],
+      githubCli: [],
       linear: [],
     };
   }

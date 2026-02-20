@@ -61,6 +61,8 @@ export function getProviderDataFromChangelog(
       return changelogData.aws;
     case "claudeCode":
       return changelogData.claudeCode;
+    case "githubCli":
+      return changelogData.githubCli ?? [];
     case "linear":
       return changelogData.linear;
     default:

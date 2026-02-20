@@ -37,7 +37,7 @@ function parseArgs(args: string[]): PreviewWeeklyProviderArgs {
     Deno.exit(1);
   }
 
-  const validProviders = ["github", "aws", "claudeCode", "linear"];
+  const validProviders = ["github", "aws", "claudeCode", "githubCli", "linear"];
   if (!validProviders.includes(provider)) {
     console.error(`Error: Invalid provider "${provider}"`);
     console.error(`Valid providers: ${validProviders.join(", ")}`);
@@ -87,7 +87,7 @@ function generateDummySummary(
       },
     ];
   } else {
-    // Claude Code/Linearの場合はエントリリスト
+    // Claude Code/GitHub CLI/Linearの場合はエントリリスト
     summary.entries = entries;
     summary.overallComment = "[プレビュー] 全体コメントがここに入ります";
     summary.historicalContext = "[プレビュー] 過去との比較がここに入ります";
@@ -104,12 +104,12 @@ async function main() {
   const changelogData = await loadJsonFile<ChangelogData>(changelogPath);
 
   // プロバイダーのデータを取得
-  const providerData = changelogData[
+  const providerData = (changelogData[
     provider as keyof Pick<
       ChangelogData,
-      "github" | "aws" | "claudeCode" | "linear"
+      "github" | "aws" | "claudeCode" | "githubCli" | "linear"
     >
-  ] as ChangelogEntry[] | ReleaseEntry[];
+  ] ?? []) as ChangelogEntry[] | ReleaseEntry[];
 
   // 要約データを読み込む（ない場合はダミーを生成）
   let summary: ProviderWeeklySummary;

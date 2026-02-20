@@ -23,17 +23,23 @@ Deno.test("getAdapter should return correct adapter for claudeCode", () => {
   assertEquals(adapter?.providerId, "claudeCode");
 });
 
+Deno.test("getAdapter should return correct adapter for githubCli", () => {
+  const adapter = getAdapter("githubCli", testMarkdownGenerator);
+  assertEquals(adapter?.providerId, "githubCli");
+});
+
 Deno.test("getAdapter should return undefined for unknown provider", () => {
   const adapter = getAdapter("unknown", testMarkdownGenerator);
   assertEquals(adapter, undefined);
 });
 
-Deno.test("getAllAdapters should return 4 adapters", () => {
+Deno.test("getAllAdapters should return 5 adapters", () => {
   const adapters = getAllAdapters(testMarkdownGenerator);
-  assertEquals(adapters.size, 4);
+  assertEquals(adapters.size, 5);
   assertEquals(adapters.has("github"), true);
   assertEquals(adapters.has("aws"), true);
   assertEquals(adapters.has("claudeCode"), true);
+  assertEquals(adapters.has("githubCli"), true);
   assertEquals(adapters.has("linear"), true);
 });
 
@@ -53,6 +59,7 @@ Deno.test("prepareSummarizeRequests should skip providers with no entries", () =
     github: [],
     aws: [],
     claudeCode: [],
+    githubCli: [],
     linear: [],
   };
 
@@ -88,19 +95,29 @@ Deno.test("prepareSummarizeRequests should create requests for providers with en
         publishedAt: "2026-01-24",
       },
     ],
+    githubCli: [
+      {
+        version: "2.0.0",
+        url: "https://github.com/cli/cli/releases/tag/v2.0.0",
+        body: "Release notes",
+        publishedAt: "2026-01-24",
+      },
+    ],
     linear: [],
   };
 
   const requests = orchestrator.prepareSummarizeRequests(changelogData, {});
 
-  // github と claudeCode の2つのリクエストが作成される
-  assertEquals(requests.length, 2);
+  // github と claudeCode と githubCli の3つのリクエストが作成される
+  assertEquals(requests.length, 3);
 
   const githubRequest = requests.find((r) => r.providerId === "github");
   const claudeCodeRequest = requests.find((r) => r.providerId === "claudeCode");
+  const githubCliRequest = requests.find((r) => r.providerId === "githubCli");
 
   assertEquals(githubRequest?.currentData.length, 1);
   assertEquals(claudeCodeRequest?.currentData.length, 1);
+  assertEquals(githubCliRequest?.currentData.length, 1);
 });
 
 Deno.test("prepareSummarizeRequests should filter muted entries", () => {
@@ -127,6 +144,7 @@ Deno.test("prepareSummarizeRequests should filter muted entries", () => {
     ],
     aws: [],
     claudeCode: [],
+    githubCli: [],
     linear: [],
   };
 

@@ -12,6 +12,7 @@ import type {
 import { githubProvider } from "./github-provider.ts";
 import { awsProvider } from "./aws-provider.ts";
 import { claudeCodeProvider } from "./claude-code-provider.ts";
+import { githubCliProvider } from "./github-cli-provider.ts";
 import { linearProvider } from "./linear-provider.ts";
 import { hatenaBookmarkProvider } from "./hatena-bookmark-provider.ts";
 import { githubBlogProvider } from "./github-blog-provider.ts";
@@ -35,6 +36,7 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
   githubProvider,
   awsProvider,
   claudeCodeProvider,
+  githubCliProvider,
   linearProvider,
   // Blog プロバイダー
   hatenaBookmarkProvider,
@@ -198,6 +200,7 @@ export function toChangelogData(
     github: (results.github ?? []) as ChangelogEntry[],
     aws: (results.aws ?? []) as ChangelogEntry[],
     claudeCode: (results.claudeCode ?? []) as ReleaseEntry[],
+    githubCli: (results.githubCli ?? []) as ReleaseEntry[],
     linear: (results.linear ?? []) as ChangelogEntry[],
   };
 

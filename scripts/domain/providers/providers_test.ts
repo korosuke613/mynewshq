@@ -18,19 +18,21 @@ import type { AnyEntry } from "./types.ts";
 import { githubProvider } from "./github-provider.ts";
 import { awsProvider } from "./aws-provider.ts";
 import { claudeCodeProvider } from "./claude-code-provider.ts";
+import { githubCliProvider } from "./github-cli-provider.ts";
 import { linearProvider } from "./linear-provider.ts";
 import { hatenaBookmarkProvider } from "./hatena-bookmark-provider.ts";
 import { githubBlogProvider } from "./github-blog-provider.ts";
 import { awsBlogProvider } from "./aws-blog-provider.ts";
 import { hackerNewsProvider } from "./hacker-news-provider.ts";
 
-Deno.test("PROVIDER_CONFIGS - 全8プロバイダーが定義されている", () => {
-  assertEquals(PROVIDER_CONFIGS.length, 8);
+Deno.test("PROVIDER_CONFIGS - 全9プロバイダーが定義されている", () => {
+  assertEquals(PROVIDER_CONFIGS.length, 9);
   const ids = PROVIDER_CONFIGS.map((c) => c.id);
   assertEquals(ids, [
     "github",
     "aws",
     "claudeCode",
+    "githubCli",
     "linear",
     "hatenaBookmark",
     "githubBlog",
@@ -53,10 +55,11 @@ Deno.test("PROVIDER_CONFIGS - 各プロバイダーの必須フィールドが�
 });
 
 Deno.test("PROVIDER_REGISTRY - Mapで高速にアクセスできる", () => {
-  assertEquals(PROVIDER_REGISTRY.size, 8);
+  assertEquals(PROVIDER_REGISTRY.size, 9);
   assertExists(PROVIDER_REGISTRY.get("github"));
   assertExists(PROVIDER_REGISTRY.get("aws"));
   assertExists(PROVIDER_REGISTRY.get("claudeCode"));
+  assertExists(PROVIDER_REGISTRY.get("githubCli"));
   assertExists(PROVIDER_REGISTRY.get("linear"));
   assertExists(PROVIDER_REGISTRY.get("hatenaBookmark"));
   assertExists(PROVIDER_REGISTRY.get("githubBlog"));
@@ -91,6 +94,13 @@ Deno.test("getProviderConfig - 存在するIDで設定を取得できる", () =>
   assertExists(linear);
   assertEquals(linear.displayName, "Linear Changelog");
   assertEquals(linear.emoji, "\u{1F4D0}");
+
+  const githubCli = getProviderConfig("githubCli");
+  assertExists(githubCli);
+  assertEquals(githubCli.displayName, "GitHub CLI");
+  assertEquals(githubCli.emoji, "⌨️");
+  assertEquals(githubCli.titleField, "version");
+  assertEquals(githubCli.pubDateField, "publishedAt");
 });
 
 Deno.test("getProviderConfig - 存在しないIDでundefinedを返す", () => {
@@ -102,6 +112,7 @@ Deno.test("getProviderEmoji - 各プロバイダーの絵文字を取得でき�
   assertEquals(getProviderEmoji("github"), "\u{1F419}");
   assertEquals(getProviderEmoji("aws"), "\u2601\uFE0F");
   assertEquals(getProviderEmoji("claudeCode"), "\u{1F916}");
+  assertEquals(getProviderEmoji("githubCli"), "⌨️");
   assertEquals(getProviderEmoji("linear"), "\u{1F4D0}");
 });
 
@@ -113,6 +124,7 @@ Deno.test("getProviderDisplayName - 各プロバイダーの表示名を取得�
   assertEquals(getProviderDisplayName("github"), "GitHub Changelog");
   assertEquals(getProviderDisplayName("aws"), "AWS What's New");
   assertEquals(getProviderDisplayName("claudeCode"), "Claude Code");
+  assertEquals(getProviderDisplayName("githubCli"), "GitHub CLI");
   assertEquals(getProviderDisplayName("linear"), "Linear Changelog");
 });
 
@@ -124,6 +136,7 @@ Deno.test("getProviderLabelName - 各プロバイダーのラベル名を取得�
   assertEquals(getProviderLabelName("github"), "github");
   assertEquals(getProviderLabelName("aws"), "aws");
   assertEquals(getProviderLabelName("claudeCode"), "claude-code");
+  assertEquals(getProviderLabelName("githubCli"), "github-cli");
   assertEquals(getProviderLabelName("linear"), "linear");
 });
 
@@ -137,6 +150,7 @@ Deno.test("getProviderIds - 全プロバイダーIDを取得できる", () => {
     "github",
     "aws",
     "claudeCode",
+    "githubCli",
     "linear",
     "hatenaBookmark",
     "githubBlog",
@@ -200,6 +214,18 @@ Deno.test("linearProvider - 設定が正しい", () => {
   assertExists(linearProvider.fetch);
 });
 
+Deno.test("githubCliProvider - 設定が正しい", () => {
+  assertEquals(githubCliProvider.id, "githubCli");
+  assertEquals(githubCliProvider.displayName, "GitHub CLI");
+  assertEquals(githubCliProvider.emoji, "⌨️");
+  assertEquals(githubCliProvider.labelName, "github-cli");
+  assertEquals(githubCliProvider.category, "changelog");
+  assertEquals(githubCliProvider.labelPrefix, undefined);
+  assertEquals(githubCliProvider.titleField, "version");
+  assertEquals(githubCliProvider.pubDateField, "publishedAt");
+  assertExists(githubCliProvider.fetch);
+});
+
 Deno.test("hatenaBookmarkProvider - 設定が正しい", () => {
   assertEquals(hatenaBookmarkProvider.id, "hatenaBookmark");
   assertEquals(hatenaBookmarkProvider.displayName, "Hatena Bookmark");
@@ -254,9 +280,9 @@ Deno.test("hackerNewsProvider - 設定が正しい", () => {
 
 Deno.test("getProvidersByCategory - changelogカテゴリのプロバイダーを取得", () => {
   const providers = getProvidersByCategory("changelog");
-  assertEquals(providers.length, 4);
+  assertEquals(providers.length, 5);
   const ids = providers.map((p) => p.id);
-  assertEquals(ids, ["github", "aws", "claudeCode", "linear"]);
+  assertEquals(ids, ["github", "aws", "claudeCode", "githubCli", "linear"]);
 });
 
 Deno.test("getProvidersByCategory - blogカテゴリのプロバイダーを取得", () => {
@@ -268,7 +294,7 @@ Deno.test("getProvidersByCategory - blogカテゴリのプロバイダーを取�
 
 Deno.test("getProviderIdsByCategory - changelogカテゴリのIDを取得", () => {
   const ids = getProviderIdsByCategory("changelog");
-  assertEquals(ids, ["github", "aws", "claudeCode", "linear"]);
+  assertEquals(ids, ["github", "aws", "claudeCode", "githubCli", "linear"]);
 });
 
 Deno.test("getProviderIdsByCategory - blogカテゴリのIDを取得", () => {
@@ -280,6 +306,7 @@ Deno.test("各プロバイダーのcategoryフィールドが正しく設定さ�
   assertEquals(githubProvider.category, "changelog");
   assertEquals(awsProvider.category, "changelog");
   assertEquals(claudeCodeProvider.category, "changelog");
+  assertEquals(githubCliProvider.category, "changelog");
   assertEquals(linearProvider.category, "changelog");
   assertEquals(hatenaBookmarkProvider.category, "blog");
 });
@@ -321,13 +348,14 @@ function createMockResults(): Record<string, AnyEntry[]> {
         publishedAt: "2024-01-01",
       },
     ],
+    githubCli: [],
     linear: [],
   };
 }
 
 Deno.test("getTotalEntryCount - 全エントリの合計を正しくカウントする", () => {
   const results = createMockResults();
-  assertEquals(getTotalEntryCount(results), 4); // github: 2 + aws: 1 + claudeCode: 1 + linear: 0
+  assertEquals(getTotalEntryCount(results), 4); // github: 2 + aws: 1 + claudeCode: 1 + githubCli: 0 + linear: 0
 });
 
 Deno.test("getTotalEntryCount - 空の結果で0を返す", () => {
@@ -335,6 +363,7 @@ Deno.test("getTotalEntryCount - 空の結果で0を返す", () => {
     github: [],
     aws: [],
     claudeCode: [],
+    githubCli: [],
     linear: [],
   };
   assertEquals(getTotalEntryCount(results), 0);
@@ -350,6 +379,7 @@ Deno.test("hasNoEntries - 全て空の場合はtrueを返す", () => {
     github: [],
     aws: [],
     claudeCode: [],
+    githubCli: [],
     linear: [],
   };
   assertEquals(hasNoEntries(results), true);
@@ -385,6 +415,7 @@ Deno.test("toChangelogData - 日次データを正しく変換する", () => {
   assertEquals(data.github.length, 2);
   assertEquals(data.aws.length, 1);
   assertEquals(data.claudeCode.length, 1);
+  assertEquals(data.githubCli?.length, 0);
   assertEquals(data.linear.length, 0);
 });
 
@@ -407,5 +438,6 @@ Deno.test("toChangelogData - 存在しないキーはデフォルトで空配列
   assertEquals(data.github.length, 0);
   assertEquals(data.aws.length, 0);
   assertEquals(data.claudeCode.length, 0);
+  assertEquals(data.githubCli?.length, 0);
   assertEquals(data.linear.length, 0);
 });

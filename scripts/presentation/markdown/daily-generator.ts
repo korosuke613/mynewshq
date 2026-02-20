@@ -122,6 +122,21 @@ export function generateDefaultBody(data: ChangelogData): string {
     }
   }
 
+  if (data.githubCli && data.githubCli.length > 0) {
+    const activeEntries = data.githubCli.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += `## ${getProviderDisplayName("githubCli")}\n`;
+      for (const item of activeEntries) {
+        body += `### [${item.version}](${item.url})\n`;
+        body += `*Published: ${item.publishedAt}*\n\n`;
+      }
+    }
+    body += generateMutedSection(data.githubCli);
+    if (activeEntries.length > 0 || data.githubCli.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
+  }
+
   if (data.linear && data.linear.length > 0) {
     const activeEntries = data.linear.filter((e) => !e.muted);
     if (activeEntries.length > 0) {
@@ -217,6 +232,24 @@ export function generateBodyWithSummaries(
     }
     body += generateMutedSection(data.claudeCode);
     if (activeEntries.length > 0 || data.claudeCode.some((e) => e.muted)) {
+      body += "---\n\n";
+    }
+  }
+
+  if (data.githubCli && data.githubCli.length > 0) {
+    const activeEntries = data.githubCli.filter((e) => !e.muted);
+    if (activeEntries.length > 0) {
+      body += `## ${getProviderDisplayName("githubCli")}\n\n`;
+      for (const item of activeEntries) {
+        body += `### [${item.version}](${item.url})\n\n`;
+        const summary = findSummary(summaries.githubCli, item.url);
+        if (summary) {
+          body += `**要約**: ${summary}\n\n`;
+        }
+      }
+    }
+    body += generateMutedSection(data.githubCli);
+    if (activeEntries.length > 0 || data.githubCli.some((e) => e.muted)) {
       body += "---\n\n";
     }
   }

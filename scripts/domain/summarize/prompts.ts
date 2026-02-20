@@ -16,7 +16,7 @@ export function getDailyChangelogPrompt(filePath: string): string {
 - 技術者向けにわかりやすく、重要なポイントを強調してください
 
 ## 出力形式
-各カテゴリ（github, aws, claudeCode, linear）について、エントリのURLをキー、要約文を値とするオブジェクトを返してください。
+各カテゴリ（github, aws, claudeCode, githubCli, linear）について、エントリのURLをキー、要約文を値とするオブジェクトを返してください。
 該当するエントリがないカテゴリは空オブジェクト \`{}\` としてください。`;
 }
 
@@ -38,12 +38,16 @@ export const DAILY_CHANGELOG_SCHEMA = {
       "type": "object",
       "additionalProperties": { "type": "string" },
     },
+    "githubCli": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+    },
     "linear": {
       "type": "object",
       "additionalProperties": { "type": "string" },
     },
   },
-  "required": ["github", "aws", "claudeCode", "linear"],
+  "required": ["github", "aws", "claudeCode", "githubCli", "linear"],
 };
 
 /**

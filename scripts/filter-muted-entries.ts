@@ -58,6 +58,7 @@ export function filterMutedFromChangelog(data: ChangelogData): ChangelogData {
     github: filterMutedChangelogEntries(data.github),
     aws: filterMutedChangelogEntries(data.aws),
     claudeCode: filterMutedReleaseEntries(data.claudeCode),
+    githubCli: filterMutedReleaseEntries(data.githubCli ?? []),
     linear: filterMutedChangelogEntries(data.linear),
   };
 }
@@ -200,6 +201,10 @@ async function main(): Promise<void> {
       claudeCode: {
         before: data.claudeCode.length,
         after: filteredData.claudeCode.length,
+      },
+      githubCli: {
+        before: (data.githubCli ?? []).length,
+        after: (filteredData.githubCli ?? []).length,
       },
       linear: { before: data.linear.length, after: filteredData.linear.length },
     };
