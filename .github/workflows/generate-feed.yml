@@ -1,8 +1,8 @@
 name: Generate Feed
 
 on:
-  schedule:
-    - cron: "0 * * * *" # 毎時
+  # 3時間に1回
+  # gh-cron-trigger: "0 */3 * * *"
   discussion:
     types: [created, edited]
   workflow_dispatch:
