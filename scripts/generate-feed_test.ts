@@ -171,4 +171,24 @@ Deno.test("generateAtomFeed", async (t) => {
       "<title>Test &lt;Special&gt; &amp; &quot;Chars&quot;</title>",
     );
   });
+
+  await t.step("URLに&を含む場合もhrefとidが正しくエスケープされる", () => {
+    const nodesWithAmpUrl: DiscussionNode[] = [
+      {
+        title: "Entry with query params",
+        url: "https://example.com/page?foo=1&bar=2",
+        createdAt: "2026-01-01T00:00:00Z",
+        category: { slug: "daily-changelog" },
+      },
+    ];
+    const xml = generateAtomFeed(nodesWithAmpUrl, feedUrl, siteUrl);
+    assertStringIncludes(
+      xml,
+      'href="https://example.com/page?foo=1&amp;bar=2"',
+    );
+    assertStringIncludes(
+      xml,
+      "<id>https://example.com/page?foo=1&amp;bar=2</id>",
+    );
+  });
 });

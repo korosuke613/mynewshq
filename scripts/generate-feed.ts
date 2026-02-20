@@ -88,11 +88,11 @@ export function generateAtomFeed(
       (node) =>
         `  <entry>
     <title>${escapeXml(node.title)}</title>
-    <link href="${node.url}" rel="alternate" type="text/html"/>
-    <id>${node.url}</id>
+    <link href="${escapeXml(node.url)}" rel="alternate" type="text/html"/>
+    <id>${escapeXml(node.url)}</id>
     <published>${node.createdAt}</published>
     <updated>${node.createdAt}</updated>
-    <category term="${node.category.slug}"/>
+    <category term="${escapeXml(node.category.slug)}"/>
   </entry>`,
     )
     .join("\n");
@@ -100,8 +100,8 @@ export function generateAtomFeed(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>mynewshq Discussions Feed</title>
-  <link href="${feedUrl}" rel="self" type="application/atom+xml"/>
-  <link href="${siteUrl}" rel="alternate" type="text/html"/>
+  <link href="${escapeXml(feedUrl)}" rel="self" type="application/atom+xml"/>
+  <link href="${escapeXml(siteUrl)}" rel="alternate" type="text/html"/>
   <id>https://github.com/korosuke613/mynewshq</id>
   <updated>${updated}</updated>
 ${entries}
@@ -116,12 +116,14 @@ export async function main() {
   const output = parseArgWithDefault(args, "output", "feed.xml");
   const owner = parseArgWithDefault(args, "owner", "korosuke613");
   const repo = parseArgWithDefault(args, "repo", "mynewshq");
-  const limit = parseInt(parseArgWithDefault(args, "limit", "50"));
+  const defaultLimit = 50;
+  const limit = Number.parseInt(parseArgWithDefault(args, "limit", "50"), 10);
+  const safeLimit = Number.isNaN(limit) ? defaultLimit : limit;
 
   const feedUrl = "https://korosuke613.github.io/mynewshq/feed.xml";
   const siteUrl = "https://github.com/korosuke613/mynewshq/discussions";
 
-  const nodes = await fetchDiscussions(token, owner, repo, limit);
+  const nodes = await fetchDiscussions(token, owner, repo, safeLimit);
   const filtered = filterByCategories(nodes, TARGET_CATEGORY_SLUGS);
   const entries = filtered.slice(0, 15);
   const xml = generateAtomFeed(entries, feedUrl, siteUrl);
