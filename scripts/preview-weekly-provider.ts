@@ -6,6 +6,7 @@ import type {
   ProviderWeeklySummary,
   ReleaseEntry,
 } from "./domain/types.ts";
+import { getWeeklyProviderData } from "./domain/weekly/provider-data.ts";
 import {
   generateProviderWeeklyBody,
   generateProviderWeeklyTitle,
@@ -104,12 +105,7 @@ async function main() {
   const changelogData = await loadJsonFile<ChangelogData>(changelogPath);
 
   // プロバイダーのデータを取得
-  const providerData = (changelogData[
-    provider as keyof Pick<
-      ChangelogData,
-      "github" | "aws" | "claudeCode" | "githubCli" | "linear"
-    >
-  ] ?? []) as ChangelogEntry[] | ReleaseEntry[];
+  const providerData = getWeeklyProviderData(changelogData, provider);
 
   // 要約データを読み込む（ない場合はダミーを生成）
   let summary: ProviderWeeklySummary;

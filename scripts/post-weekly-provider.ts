@@ -2,11 +2,11 @@
 
 import { Octokit } from "@octokit/rest";
 import type {
-  ChangelogData,
   ChangelogEntry,
   ProviderWeeklySummary,
   ReleaseEntry,
 } from "./domain/types.ts";
+import { getWeeklyProviderData } from "./domain/weekly/provider-data.ts";
 import { createProviderWeeklyDiscussion } from "./create-discussion.ts";
 import {
   DEFAULT_CATEGORY_CONFIG,
@@ -120,12 +120,7 @@ async function main() {
   }
 
   // プロバイダーのデータを取得
-  const providerData = (changelogData[
-    provider as keyof Pick<
-      ChangelogData,
-      "github" | "aws" | "claudeCode" | "githubCli" | "linear"
-    >
-  ] ?? []) as ChangelogEntry[] | ReleaseEntry[];
+  const providerData = getWeeklyProviderData(changelogData, provider);
 
   // mutedでないエントリのみをフィルタ
   // 型を維持するため、プロバイダーごとに処理
