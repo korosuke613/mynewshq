@@ -19,7 +19,10 @@ export async function loadChangelogData(
 
   try {
     const content = await Deno.readTextFile(changelogPath);
-    return JSON.parse(content) as ChangelogData;
+    const data = JSON.parse(content);
+    // 後方互換性: githubCli フィールドが存在しない古いJSONデータに対応
+    if (!data.githubCli) data.githubCli = [];
+    return data as ChangelogData;
   } catch (error) {
     console.error(`Failed to read ${changelogPath}:`, error);
     Deno.exit(1);

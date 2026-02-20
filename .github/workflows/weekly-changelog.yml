@@ -29,6 +29,11 @@ on:
         required: false
         type: boolean
         default: true
+      run_githubCli:
+        description: "GitHub CLIを実行"
+        required: false
+        type: boolean
+        default: true
       run_linear:
         description: "Linear Changelogを実行"
         required: false
@@ -48,6 +53,7 @@ jobs:
       has_github: ${{ steps.fetch.outputs.has_github }}
       has_aws: ${{ steps.fetch.outputs.has_aws }}
       has_claudeCode: ${{ steps.fetch.outputs.has_claudeCode }}
+      has_githubCli: ${{ steps.fetch.outputs.has_githubCli }}
       has_linear: ${{ steps.fetch.outputs.has_linear }}
       end_date: ${{ steps.target-date.outputs.end_date }}
       start_date: ${{ steps.target-date.outputs.start_date }}
@@ -102,7 +108,7 @@ jobs:
             echo "has_data=false" >> $GITHUB_OUTPUT
             echo "No data file created (no updates found)"
           fi
-          # 注: has_github, has_aws, has_claudeCode, has_linear は
+          # 注: has_github, has_aws, has_claudeCode, has_githubCli, has_linear は
           # fetch-changelogs.ts から直接 GITHUB_OUTPUT に書き込まれる
 
       - name: Fetch all past discussions (parallel)
@@ -130,10 +136,12 @@ jobs:
             --run-github=${{ inputs.run_github }} \
             --run-aws=${{ inputs.run_aws }} \
             --run-claudeCode=${{ inputs.run_claudeCode }} \
+            --run-githubCli=${{ inputs.run_githubCli }} \
             --run-linear=${{ inputs.run_linear }} \
             --has-github=${{ steps.fetch.outputs.has_github }} \
             --has-aws=${{ steps.fetch.outputs.has_aws }} \
             --has-claudeCode=${{ steps.fetch.outputs.has_claudeCode }} \
+            --has-githubCli=${{ steps.fetch.outputs.has_githubCli }} \
             --has-linear=${{ steps.fetch.outputs.has_linear }})
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           echo "Generated matrix: $MATRIX"
@@ -215,11 +223,11 @@ jobs:
 
             ### 2. 詳細データ
             - GitHub/AWS: `categories` でカテゴリ別にグループ化（labels.changelog-label または labels.products）
-            - Claude Code/Linear: `entries` でリスト形式
+            - Claude Code/GitHub CLI/Linear: `entries` でリスト形式
 
             ### 3. コメント
             - GitHub/AWS: 各カテゴリに `comment`（2-5文）と `historicalContext`（1-2文）
-            - Claude Code/Linear: `overallComment`（2-5文）と `historicalContext`（1-2文）
+            - Claude Code/GitHub CLI/Linear: `overallComment`（2-5文）と `historicalContext`（1-2文）
 
       - name: Save summary to file
         run: |
@@ -294,6 +302,14 @@ jobs:
           path: /tmp/summaries/
         continue-on-error: true
 
+      - name: Download GitHub CLI summary
+        if: (github.event_name != 'workflow_dispatch' || inputs.run_githubCli) && needs.fetch-data.outputs.has_githubCli == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: summary-githubCli
+          path: /tmp/summaries/
+        continue-on-error: true
+
       - name: Download Linear summary
         if: (github.event_name != 'workflow_dispatch' || inputs.run_linear) && needs.fetch-data.outputs.has_linear == 'true'
         uses: actions/download-artifact@v4
@@ -317,7 +333,7 @@ jobs:
           FIRST=true
 
           # NOTE: このリストは scripts/domain/weekly/types.ts の WEEKLY_PROVIDER_IDS と同期が必要
-          for provider in github aws claudeCode linear; do
+          for provider in github aws claudeCode githubCli linear; do
             FILE="/tmp/summaries/${provider}.json"
             if [ -f "$FILE" ]; then
               # jqで有効なJSONかつnullでないことを確認

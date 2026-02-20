@@ -14,7 +14,7 @@ DRY_RUN="--dry-run"
 SKIP_FETCH=false
 SKIP_SUMMARIZE=false
 MODE="daily"  # daily or weekly
-PROVIDER=""  # github, aws, claudeCode, linear
+PROVIDER=""  # github, aws, claudeCode, githubCli, linear
 
 # ヘルプメッセージ
 show_help() {
@@ -28,7 +28,7 @@ Options:
   --category=TYPE        カテゴリ（changelog | blog）デフォルト: changelog
   --weekly               週次モード（デフォルト: 日次）
   --provider=PROVIDER    週次モード用プロバイダー
-                         Changelog: github | aws | claudeCode | linear
+                         Changelog: github | aws | claudeCode | githubCli | linear
                          Blog: hatenaBookmark | githubBlog | awsBlog | hackerNews
   --skip-fetch           データ取得をスキップ（既存データを使用）
   --skip-summarize       要約生成をスキップ
@@ -121,7 +121,7 @@ if [ "$MODE" = "weekly" ]; then
   if [ -z "$PROVIDER" ]; then
     echo -e "${RED}Error: --provider is required for weekly mode${NC}"
     if [ "$CATEGORY" = "changelog" ]; then
-      echo -e "${RED}Available providers: github, aws, claudeCode, linear${NC}"
+      echo -e "${RED}Available providers: github, aws, claudeCode, githubCli, linear${NC}"
     else
       echo -e "${RED}Available providers: hatenaBookmark, githubBlog, awsBlog, hackerNews${NC}"
     fi
@@ -130,9 +130,9 @@ if [ "$MODE" = "weekly" ]; then
 
   # プロバイダーとカテゴリの整合性チェック
   if [ "$CATEGORY" = "changelog" ]; then
-    if [[ ! " github aws claudeCode linear " =~ " $PROVIDER " ]]; then
+    if [[ ! " github aws claudeCode githubCli linear " =~ " $PROVIDER " ]]; then
       echo -e "${RED}Error: Provider '$PROVIDER' is not valid for changelog category${NC}"
-      echo -e "${RED}Available providers: github, aws, claudeCode, linear${NC}"
+      echo -e "${RED}Available providers: github, aws, claudeCode, githubCli, linear${NC}"
       exit 1
     fi
   else

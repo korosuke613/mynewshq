@@ -40,6 +40,7 @@ interface CliArgs {
     | "github"
     | "aws"
     | "claudeCode"
+    | "githubCli"
     | "linear"
     | "hatenaBookmark"
     | "githubBlog"
@@ -58,7 +59,7 @@ Options:
   --category=TYPE             カテゴリ（changelog | blog）デフォルト: changelog
   --weekly                    週次モード（プロバイダー指定必須）
   --provider=PROVIDER         週次モード用プロバイダー
-                              Changelog: github | aws | claudeCode | linear
+                              Changelog: github | aws | claudeCode | githubCli | linear
                               Blog: hatenaBookmark | githubBlog | awsBlog | hackerNews
   --past-discussions=PATH     過去Discussionファイルパス（週次Changelog用、オプション）
   --output=PATH               出力ファイルパス（指定しない場合は標準出力）
@@ -126,7 +127,7 @@ async function main() {
       console.error("Error: --provider is required for weekly mode");
       if (category === "changelog") {
         console.error(
-          "Available providers: github, aws, claudeCode, linear",
+          "Available providers: github, aws, claudeCode, githubCli, linear",
         );
       } else {
         console.error(
@@ -137,7 +138,13 @@ async function main() {
     }
 
     // プロバイダーとカテゴリの整合性チェック
-    const changelogProviders = ["github", "aws", "claudeCode", "linear"];
+    const changelogProviders = [
+      "github",
+      "aws",
+      "claudeCode",
+      "githubCli",
+      "linear",
+    ];
     const blogProviders = [
       "hatenaBookmark",
       "githubBlog",
@@ -152,7 +159,7 @@ async function main() {
         `Error: Provider '${args.provider}' is not valid for changelog category`,
       );
       console.error(
-        "Available providers: github, aws, claudeCode, linear",
+        "Available providers: github, aws, claudeCode, githubCli, linear",
       );
       Deno.exit(1);
     }
@@ -233,7 +240,7 @@ async function main() {
 
       // プロバイダーに応じてスキーマを選択
       // github, aws: CATEGORIZED_SCHEMA
-      // claudeCode, linear: SIMPLE_SCHEMA
+      // claudeCode, githubCli, linear: SIMPLE_SCHEMA
       schema = (provider === "github" || provider === "aws")
         ? WEEKLY_CATEGORIZED_SCHEMA
         : WEEKLY_SIMPLE_SCHEMA;

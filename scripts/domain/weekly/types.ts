@@ -86,7 +86,7 @@ export interface OrchestratorResult<T> {
 /**
  * プロバイダーの種類
  * - categorized: カテゴリ分類あり（GitHub, AWS）
- * - simple: カテゴリなし（Claude Code, Linear）
+ * - simple: カテゴリなし（Claude Code, GitHub CLI, Linear）
  */
 export type ProviderType = "categorized" | "simple";
 
@@ -113,6 +113,7 @@ export const WEEKLY_PROVIDER_CONFIGS: WeeklyProviderConfig[] = [
   },
   { providerId: "aws", type: "categorized", displayName: "AWS What's New" },
   { providerId: "claudeCode", type: "simple", displayName: "Claude Code" },
+  { providerId: "githubCli", type: "simple", displayName: "GitHub CLI" },
   { providerId: "linear", type: "simple", displayName: "Linear Changelog" },
 ];
 
@@ -177,7 +178,7 @@ export const CATEGORIZED_SUMMARY_SCHEMA = {
 } as const;
 
 /**
- * シンプルプロバイダーのJSONスキーマ（Claude Code/Linear用）
+ * シンプルプロバイダーのJSONスキーマ（Claude Code/GitHub CLI/Linear用）
  */
 export const SIMPLE_SUMMARY_SCHEMA = {
   type: "object",

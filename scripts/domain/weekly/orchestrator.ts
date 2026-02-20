@@ -19,6 +19,7 @@ import type {
 import { WEEKLY_PROVIDER_IDS } from "./types.ts";
 import { getCategorizedAdapter } from "./adapters/categorized-adapter.ts";
 import { getSimpleAdapter } from "./adapters/simple-adapter.ts";
+import { getWeeklyProviderData } from "./provider-data.ts";
 
 /**
  * プロバイダーIDからアダプタを取得
@@ -54,18 +55,7 @@ export function getProviderDataFromChangelog(
   changelogData: ChangelogData,
   providerId: string,
 ): ChangelogEntry[] | ReleaseEntry[] {
-  switch (providerId) {
-    case "github":
-      return changelogData.github;
-    case "aws":
-      return changelogData.aws;
-    case "claudeCode":
-      return changelogData.claudeCode;
-    case "linear":
-      return changelogData.linear;
-    default:
-      return [];
-  }
+  return getWeeklyProviderData(changelogData, providerId);
 }
 
 /**

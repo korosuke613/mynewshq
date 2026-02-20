@@ -219,6 +219,7 @@ const mockData = {
     body: "",
     publishedAt: "2026-01-17T16:00:00Z",
   }],
+  githubCli: [],
   linear: [{
     title: "Linear Feature C",
     url: "https://example.com/d",

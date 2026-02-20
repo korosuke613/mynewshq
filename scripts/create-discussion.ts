@@ -251,7 +251,7 @@ export async function fetchAllPastWeeklyDiscussions(
   repo: string,
   limit: number = 2,
 ): Promise<Record<string, PastWeeklyDiscussion[]>> {
-  const providerIds = ["github", "aws", "claudeCode", "linear"];
+  const providerIds = ["github", "aws", "claudeCode", "githubCli", "linear"];
 
   const results = await Promise.all(
     providerIds.map(async (providerId) => {
@@ -335,6 +335,9 @@ export async function createProviderWeeklyDiscussion(
     github: providerId === "github" ? (providerData as ChangelogEntry[]) : [],
     aws: providerId === "aws" ? (providerData as ChangelogEntry[]) : [],
     claudeCode: providerId === "claudeCode"
+      ? (providerData as ReleaseEntry[])
+      : [],
+    githubCli: providerId === "githubCli"
       ? (providerData as ReleaseEntry[])
       : [],
     linear: providerId === "linear" ? (providerData as ChangelogEntry[]) : [],

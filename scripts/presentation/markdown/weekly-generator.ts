@@ -57,6 +57,8 @@ export function generateWeeklyBodyWithSummaries(
   body += `${summaries.categorySummaries.aws}\n\n`;
   body += `### ${getProviderDisplayName("claudeCode")}\n`;
   body += `${summaries.categorySummaries.claudeCode}\n\n`;
+  body += `### ${getProviderDisplayName("githubCli")}\n`;
+  body += `${summaries.categorySummaries.githubCli}\n\n`;
   body += `### ${getProviderDisplayName("linear")}\n`;
   body += `${summaries.categorySummaries.linear}\n\n`;
 
@@ -131,9 +133,10 @@ export function generateProviderWeeklyBody(
     }
   } else {
     // カテゴリなしプロバイダー（Claude Code/Linear）
-    const sectionTitle = providerId === "claudeCode"
-      ? "リリース一覧"
-      : "エントリ一覧";
+    const sectionTitle =
+      providerId === "claudeCode" || providerId === "githubCli"
+        ? "リリース一覧"
+        : "エントリ一覧";
     body += `## 📊 ${sectionTitle}\n\n`;
 
     // summary.entriesがある場合はそれを使用、なければproviderDataから生成

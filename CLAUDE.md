@@ -33,7 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 技術系Changelogを自動収集・AI要約・GitHub Discussionsに投稿するシステム。
 
 **対象サービス**:
-- Changelog: GitHub Changelog, AWS What's New, Claude Code, Linear Changelog
+- Changelog: GitHub Changelog, AWS What's New, Claude Code, GitHub CLI, Linear Changelog
 - Blog: はてなブックマーク（テクノロジーカテゴリ）
 
 **スケジュール**:
@@ -161,6 +161,7 @@ mynewshq/
 │   │   │   ├── github-provider.ts  # GitHub Changelog取得
 │   │   │   ├── aws-provider.ts     # AWS What's New取得
 │   │   │   ├── claude-code-provider.ts # Claude Code取得
+│   │   │   ├── github-cli-provider.ts # GitHub CLI取得
 │   │   │   ├── linear-provider.ts  # Linear Changelog取得
 │   │   │   └── hatena-bookmark-provider.ts # はてなブックマーク取得
 │   │   └── weekly/                 # 週次処理ロジック
@@ -223,6 +224,16 @@ mynewshq/
       "mutedBy": "keyword"
     }
   ],
+  "githubCli": [
+    {
+      "version": "...",
+      "url": "...",
+      "body": "...",
+      "publishedAt": "...",
+      "muted": false,
+      "mutedBy": "keyword"
+    }
+  ],
   "linear": [...]
 }
 ```
@@ -236,6 +247,7 @@ mynewshq/
   "github": { "エントリのURL": "要約文", ... },
   "aws": { "エントリのURL": "要約文", ... },
   "claudeCode": { "エントリのURL": "要約文", ... },
+  "githubCli": { "エントリのURL": "要約文", ... },
   "linear": { "エントリのURL": "要約文", ... }
 }
 ```
@@ -351,6 +363,9 @@ deno run --allow-read --allow-env scripts/create-discussion.ts \
 # 週次Changelog: Claude Codeデータでテスト
 ./test-workflow.sh --weekly --provider=claudeCode
 
+# 週次Changelog: GitHub CLIデータでテスト
+./test-workflow.sh --weekly --provider=githubCli
+
 # 週次Changelog: Linearデータでテスト
 ./test-workflow.sh --weekly --provider=linear
 
@@ -371,7 +386,7 @@ deno run --allow-read --allow-env scripts/create-discussion.ts \
 | `--date=YYYY-MM-DD` | 対象日付（指定しない場合は今日） |
 | `--category=TYPE` | カテゴリ（`changelog` \| `blog`）デフォルト: `changelog` |
 | `--weekly` | 週次モード（デフォルト: 日次） |
-| `--provider=PROVIDER` | 週次モード用プロバイダー<br>Changelog: `github` \| `aws` \| `claudeCode` \| `linear`<br>Blog: `hatenaBookmark` \| `githubBlog` \| `awsBlog` |
+| `--provider=PROVIDER` | 週次モード用プロバイダー<br>Changelog: `github` \| `aws` \| `claudeCode` \| `githubCli` \| `linear`<br>Blog: `hatenaBookmark` \| `githubBlog` \| `awsBlog` |
 | `--skip-fetch` | データ取得をスキップ（既存データを使用） |
 | `--skip-summarize` | 要約生成をスキップ |
 | `--post` | dry-runなしで実際に投稿する（⚠️注意！） |

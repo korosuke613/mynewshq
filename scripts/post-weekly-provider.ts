@@ -2,11 +2,11 @@
 
 import { Octokit } from "@octokit/rest";
 import type {
-  ChangelogData,
   ChangelogEntry,
   ProviderWeeklySummary,
   ReleaseEntry,
 } from "./domain/types.ts";
+import { getWeeklyProviderData } from "./domain/weekly/provider-data.ts";
 import { createProviderWeeklyDiscussion } from "./create-discussion.ts";
 import {
   DEFAULT_CATEGORY_CONFIG,
@@ -50,7 +50,7 @@ function parseArgs(args: string[]): PostWeeklyProviderArgs {
     Deno.exit(1);
   }
 
-  const validProviders = ["github", "aws", "claudeCode", "linear"];
+  const validProviders = ["github", "aws", "claudeCode", "githubCli", "linear"];
   if (!validProviders.includes(provider)) {
     console.error(`Error: Invalid provider "${provider}"`);
     console.error(`Valid providers: ${validProviders.join(", ")}`);
@@ -120,17 +120,12 @@ async function main() {
   }
 
   // プロバイダーのデータを取得
-  const providerData = changelogData[
-    provider as keyof Pick<
-      ChangelogData,
-      "github" | "aws" | "claudeCode" | "linear"
-    >
-  ];
+  const providerData = getWeeklyProviderData(changelogData, provider);
 
   // mutedでないエントリのみをフィルタ
   // 型を維持するため、プロバイダーごとに処理
   let activeData: ChangelogEntry[] | ReleaseEntry[];
-  if (provider === "claudeCode") {
+  if (provider === "claudeCode" || provider === "githubCli") {
     activeData = (providerData as ReleaseEntry[]).filter((entry) =>
       !entry.muted
     );

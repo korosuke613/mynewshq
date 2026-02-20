@@ -106,6 +106,8 @@ const DUMMY_WEEKLY_SUMMARIES: WeeklySummaryData = {
     aws: "【ダミー】AWS What's Newの週間傾向がここに表示されます。",
     claudeCode:
       "【ダミー】Claude Codeの週間アップデート傾向がここに表示されます。",
+    githubCli:
+      "【ダミー】GitHub CLIの週間アップデート傾向がここに表示されます。",
     linear: "【ダミー】今週の更新はありませんでした。",
   },
   trendAnalysis: {
@@ -130,6 +132,8 @@ async function previewChangelog(
 
   // JSONファイルを読み込み
   const data = await loadJsonFile<ChangelogData>(changelogPath);
+  // 後方互換性: githubCli フィールドが存在しない古いJSONデータに対応
+  if (!data.githubCli) data.githubCli = [];
 
   // タイトルを生成
   const title = generateTitle(data);
@@ -157,12 +161,20 @@ async function previewChangelog(
     `Claude Code: ${claudeActive} 件 (ミュート: ${claudeMuted} 件)`,
   );
 
+  const githubCliActive = data.githubCli.filter((e) => !e.muted).length;
+  const githubCliMuted = data.githubCli.filter((e) => e.muted).length;
+  console.log(
+    `GitHub CLI: ${githubCliActive} 件 (ミュート: ${githubCliMuted} 件)`,
+  );
+
   const linearActive = data.linear.filter((e) => !e.muted).length;
   const linearMuted = data.linear.filter((e) => e.muted).length;
   console.log(`Linear: ${linearActive} 件 (ミュート: ${linearMuted} 件)`);
 
-  const totalActive = githubActive + awsActive + claudeActive + linearActive;
-  const totalMuted = githubMuted + awsMuted + claudeMuted + linearMuted;
+  const totalActive = githubActive + awsActive + claudeActive +
+    githubCliActive + linearActive;
+  const totalMuted = githubMuted + awsMuted + claudeMuted + githubCliMuted +
+    linearMuted;
   console.log(`合計: ${totalActive} 件 (ミュート: ${totalMuted} 件)`);
   console.log();
 

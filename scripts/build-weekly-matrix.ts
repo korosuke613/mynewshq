@@ -9,6 +9,7 @@ const PROVIDERS: ProviderConfig[] = [
   { provider: "github", schemaType: "categorized" },
   { provider: "aws", schemaType: "categorized" },
   { provider: "claudeCode", schemaType: "simple" },
+  { provider: "githubCli", schemaType: "simple" },
   { provider: "linear", schemaType: "simple" },
 ];
 

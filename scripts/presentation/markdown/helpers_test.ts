@@ -10,6 +10,7 @@ Deno.test("getCategoryEmoji", async (t) => {
     assertEquals(getCategoryEmoji("github"), "🐙");
     assertEquals(getCategoryEmoji("aws"), "☁️");
     assertEquals(getCategoryEmoji("claudeCode"), "🤖");
+    assertEquals(getCategoryEmoji("githubCli"), "⌨️");
     assertEquals(getCategoryEmoji("linear"), "📐");
   });
 

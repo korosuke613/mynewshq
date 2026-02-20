@@ -135,7 +135,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: "kiba-gh-cron-trigger"
           claude_args: >-
-            --json-schema '{"type":"object","properties":{"github":{"type":"object","additionalProperties":{"type":"string"}},"aws":{"type":"object","additionalProperties":{"type":"string"}},"claudeCode":{"type":"object","additionalProperties":{"type":"string"}},"linear":{"type":"object","additionalProperties":{"type":"string"}}},"required":["github","aws","claudeCode","linear"]}'
+            --json-schema '{"type":"object","properties":{"github":{"type":"object","additionalProperties":{"type":"string"}},"aws":{"type":"object","additionalProperties":{"type":"string"}},"claudeCode":{"type":"object","additionalProperties":{"type":"string"}},"githubCli":{"type":"object","additionalProperties":{"type":"string"}},"linear":{"type":"object","additionalProperties":{"type":"string"}}},"required":["github","aws","claudeCode","githubCli","linear"]}'
           prompt: |
             data/changelogs/daily/${{ steps.fetch.outputs.target_date }}.json を読み込み、各エントリの要約を生成してください。
 
@@ -145,7 +145,7 @@ jobs:
             - 技術者向けにわかりやすく、重要なポイントを強調してください
 
             ## 出力形式
-            各カテゴリ（github, aws, claudeCode, linear）について、エントリのURLをキー、要約文を値とするオブジェクトを返してください。
+            各カテゴリ（github, aws, claudeCode, githubCli, linear）について、エントリのURLをキー、要約文を値とするオブジェクトを返してください。
             該当するエントリがないカテゴリは空オブジェクト `{}` としてください。
 
       - name: Post Changelog to Discussion

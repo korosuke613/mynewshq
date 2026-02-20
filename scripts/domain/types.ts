@@ -37,7 +37,7 @@ export interface ChangelogEntry {
   labels?: Record<string, string[]>;
 }
 
-// リリースエントリの型（Claude Code用）
+// リリースエントリの型（Claude Code / GitHub CLI等のGitHub Releases用）
 export interface ReleaseEntry {
   version: string;
   url: string;
@@ -68,6 +68,7 @@ export interface ChangelogData {
   github: ChangelogEntry[];
   aws: ChangelogEntry[];
   claudeCode: ReleaseEntry[];
+  githubCli: ReleaseEntry[];
   linear: ChangelogEntry[];
 }
 
@@ -87,6 +88,7 @@ export interface SummaryData {
   github: Record<string, string>;
   aws: Record<string, string>;
   claudeCode: Record<string, string>;
+  githubCli: Record<string, string>;
   linear: Record<string, string>;
 }
 
@@ -94,7 +96,7 @@ export interface SummaryData {
 export interface WeeklyHighlight {
   url: string;
   title: string;
-  category: string; // "github" | "aws" | "claudeCode" | "linear"
+  category: string; // "github" | "aws" | "claudeCode" | "githubCli" | "linear"
   reason: string; // 選定理由
   impact: string; // 技術者への影響
 }
@@ -104,6 +106,7 @@ export interface CategorySummaries {
   github: string;
   aws: string;
   claudeCode: string;
+  githubCli: string;
   linear: string;
 }
 
@@ -172,7 +175,7 @@ export interface CategoryGroup {
 
 // プロバイダー単位の週次要約
 export interface ProviderWeeklySummary {
-  /** プロバイダーID（"github", "aws", "claudeCode", "linear"） */
+  /** プロバイダーID（"github", "aws", "claudeCode", "githubCli", "linear"） */
   providerId: string;
   /** ハイライト（3-5行の箇条書き文） */
   highlights: string[];
@@ -194,6 +197,7 @@ export interface WeeklySummaryDataV2 {
   github: ProviderWeeklySummary;
   aws: ProviderWeeklySummary;
   claudeCode: ProviderWeeklySummary;
+  githubCli: ProviderWeeklySummary;
   linear: ProviderWeeklySummary;
 }
 

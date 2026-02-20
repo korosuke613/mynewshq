@@ -10,12 +10,18 @@ import {
   WEEKLY_PROVIDER_IDS,
 } from "./types.ts";
 
-Deno.test("WEEKLY_PROVIDER_CONFIGS should contain 4 providers", () => {
-  assertEquals(WEEKLY_PROVIDER_CONFIGS.length, 4);
+Deno.test("WEEKLY_PROVIDER_CONFIGS should contain 5 providers", () => {
+  assertEquals(WEEKLY_PROVIDER_CONFIGS.length, 5);
 });
 
 Deno.test("WEEKLY_PROVIDER_IDS should contain correct provider IDs", () => {
-  assertEquals(WEEKLY_PROVIDER_IDS, ["github", "aws", "claudeCode", "linear"]);
+  assertEquals(WEEKLY_PROVIDER_IDS, [
+    "github",
+    "aws",
+    "claudeCode",
+    "githubCli",
+    "linear",
+  ]);
 });
 
 Deno.test("getWeeklyProviderConfig should return correct config for github", () => {
@@ -30,6 +36,13 @@ Deno.test("getWeeklyProviderConfig should return correct config for claudeCode",
   assertEquals(config?.providerId, "claudeCode");
   assertEquals(config?.type, "simple");
   assertEquals(config?.displayName, "Claude Code");
+});
+
+Deno.test("getWeeklyProviderConfig should return correct config for githubCli", () => {
+  const config = getWeeklyProviderConfig("githubCli");
+  assertEquals(config?.providerId, "githubCli");
+  assertEquals(config?.type, "simple");
+  assertEquals(config?.displayName, "GitHub CLI");
 });
 
 Deno.test("getWeeklyProviderConfig should return undefined for unknown provider", () => {

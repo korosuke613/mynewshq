@@ -161,6 +161,22 @@ Deno.test("filterMutedFromChangelog", async (t) => {
           publishedAt: "2026-01-18T10:00:00Z",
         },
       ],
+      githubCli: [
+        {
+          version: "v2.0.0",
+          url: "https://github.com/cli/cli/releases/tag/v2.0.0",
+          body: "",
+          publishedAt: "2026-01-18T10:00:00Z",
+        },
+        {
+          version: "v2.0.1-muted",
+          url: "https://github.com/cli/cli/releases/tag/v2.0.1",
+          body: "",
+          publishedAt: "2026-01-18T11:00:00Z",
+          muted: true,
+          mutedBy: "keyword",
+        },
+      ],
       linear: [
         {
           title: "Linear Muted",
@@ -191,6 +207,9 @@ Deno.test("filterMutedFromChangelog", async (t) => {
     // claudeCode: 1件残る（ミュートなし）
     assertEquals(result.claudeCode.length, 1);
 
+    // githubCli: 1件残る
+    assertEquals(result.githubCli.length, 1);
+
     // linear: 0件（全てミュート）
     assertEquals(result.linear.length, 0);
   });
@@ -201,6 +220,7 @@ Deno.test("filterMutedFromChangelog", async (t) => {
       github: [],
       aws: [],
       claudeCode: [],
+      githubCli: [],
       linear: [],
     };
 
@@ -208,6 +228,7 @@ Deno.test("filterMutedFromChangelog", async (t) => {
     assertEquals(result.github, []);
     assertEquals(result.aws, []);
     assertEquals(result.claudeCode, []);
+    assertEquals(result.githubCli, []);
     assertEquals(result.linear, []);
   });
 });
