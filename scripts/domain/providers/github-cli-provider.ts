@@ -6,8 +6,6 @@ import type { ReleaseEntry } from "../types.ts";
 import type { ProviderConfig } from "./types.ts";
 import { isWithinDays } from "../date-filter.ts";
 
-const octokit = new Octokit();
-
 /**
  * GitHub CLI Releasesを取得
  */
@@ -15,6 +13,9 @@ async function fetchGitHubCliReleases(
   targetDate: Date,
   days: number = 1,
 ): Promise<ReleaseEntry[]> {
+  const token = Deno.env.get("GITHUB_TOKEN");
+  const octokit = new Octokit(token ? { auth: token } : undefined);
+
   const { data: releases } = await octokit.repos.listReleases({
     owner: "cli",
     repo: "cli",
