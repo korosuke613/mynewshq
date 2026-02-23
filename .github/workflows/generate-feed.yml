@@ -2,7 +2,7 @@ name: Generate Feed
 
 on:
   # 3時間に1回
-  # gh-cron-trigger: "0 */3 * * *"
+  # ghacron: "TZ=Asia/Tokyo 0 */3 * * *"
   discussion:
     types: [created, edited]
   workflow_dispatch:
