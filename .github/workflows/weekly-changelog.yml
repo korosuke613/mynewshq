@@ -148,7 +148,7 @@ jobs:
 
       - name: Upload changelog data
         if: steps.fetch.outputs.has_data == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: changelog-data
           path: |
@@ -156,7 +156,6 @@ jobs:
             data/changelogs/weekly/${{ steps.target-date.outputs.end_date }}-filtered.json
             data/past-discussions.json
           retention-days: 1
-          archive: false
 
   # Phase 2: 要約生成（matrix戦略で並列実行）
   # matrixは fetch-data で動的に生成され、実行対象のプロバイダーのみが含まれる
@@ -174,7 +173,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download changelog data
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: changelog-data
           path: data/
@@ -242,12 +241,11 @@ jobs:
           cat /tmp/summaries/${{ matrix.provider }}.json
 
       - name: Upload summary artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: summary-${{ matrix.provider }}
           path: /tmp/summaries/${{ matrix.provider }}.json
           retention-days: 1
-          archive: false
 
   # Phase 3: Discussion投稿（並列実行）
   post-discussions:
@@ -274,7 +272,7 @@ jobs:
           repositories: ${{ github.event.repository.name }}
 
       - name: Download changelog data
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: changelog-data
           path: data/
@@ -282,7 +280,7 @@ jobs:
       # 各要約ファイルをダウンロード（存在する場合のみ）
       - name: Download GitHub summary
         if: (github.event_name != 'workflow_dispatch' || inputs.run_github) && needs.fetch-data.outputs.has_github == 'true'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: summary-github
           path: /tmp/summaries/
@@ -290,7 +288,7 @@ jobs:
 
       - name: Download AWS summary
         if: (github.event_name != 'workflow_dispatch' || inputs.run_aws) && needs.fetch-data.outputs.has_aws == 'true'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: summary-aws
           path: /tmp/summaries/
@@ -298,7 +296,7 @@ jobs:
 
       - name: Download Claude Code summary
         if: (github.event_name != 'workflow_dispatch' || inputs.run_claudeCode) && needs.fetch-data.outputs.has_claudeCode == 'true'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: summary-claudeCode
           path: /tmp/summaries/
@@ -306,7 +304,7 @@ jobs:
 
       - name: Download GitHub CLI summary
         if: (github.event_name != 'workflow_dispatch' || inputs.run_githubCli) && needs.fetch-data.outputs.has_githubCli == 'true'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: summary-githubCli
           path: /tmp/summaries/
@@ -314,7 +312,7 @@ jobs:
 
       - name: Download Linear summary
         if: (github.event_name != 'workflow_dispatch' || inputs.run_linear) && needs.fetch-data.outputs.has_linear == 'true'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: summary-linear
           path: /tmp/summaries/
