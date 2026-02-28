@@ -1,8 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { resolveReplyToId } from "./reply-discussion.ts";
 
-// deno-lint-ignore no-explicit-any
-type MockGraphql = (...args: any[]) => Promise<any>;
+type MockGraphql = (...args: unknown[]) => Promise<unknown>;
 
 Deno.test("resolveReplyToId", async (t) => {
   await t.step(

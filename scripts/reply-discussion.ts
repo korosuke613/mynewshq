@@ -65,7 +65,7 @@ const GET_DISCUSSION_QUERY = `
 `;
 
 export async function resolveReplyToId(
-  graphqlWithAuth: ReturnType<typeof graphql.defaults>,
+  graphqlWithAuth: typeof graphql,
   replyToId: string,
 ): Promise<string> {
   try {
