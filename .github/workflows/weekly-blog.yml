@@ -88,7 +88,7 @@ jobs:
 
       - name: Upload blog data
         if: steps.fetch.outputs.has_data == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: blog-data
           path: |
@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download blog data
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: blog-data
           path: data/blogs/weekly/
@@ -178,16 +178,12 @@ jobs:
           echo "Summary for hatenaBookmark:"
           cat /tmp/summaries/hatenaBookmark.json
 
-      - name: Rename summary file to match artifact name
-        run: mv /tmp/summaries/hatenaBookmark.json /tmp/summaries/summary-blog.json
-
       - name: Upload summary artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: summary-blog
-          path: /tmp/summaries/summary-blog.json
+          path: /tmp/summaries/hatenaBookmark.json
           retention-days: 1
-          archive: false
 
   # Phase 3: Discussion投稿
   post-discussion:
@@ -214,13 +210,13 @@ jobs:
           repositories: ${{ github.event.repository.name }}
 
       - name: Download blog data
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: blog-data
           path: data/blogs/weekly/
 
       - name: Download summary
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: summary-blog
           path: /tmp/summaries/
@@ -233,12 +229,12 @@ jobs:
         run: |
           # 要約ファイルの内容を確認
           echo "Summary content:"
-          cat /tmp/summaries/summary-blog.json
+          cat /tmp/summaries/hatenaBookmark.json
 
           # Discussion投稿
           deno task post \
             --weekly \
             --category=blog \
             --date=${{ needs.fetch-data.outputs.end_date }} \
-            --summaries-file=/tmp/summaries/summary-blog.json \
+            --summaries-file=/tmp/summaries/hatenaBookmark.json \
             korosuke613 mynewshq
