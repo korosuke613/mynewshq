@@ -1,5 +1,11 @@
 import { graphql } from "@octokit/graphql";
 
+interface GetCommentParentResult {
+  node: {
+    replyTo: { id: string } | null;
+  } | null;
+}
+
 interface AddDiscussionCommentInput {
   discussionId: string;
   body: string;
@@ -24,6 +30,18 @@ interface GetDiscussionResult {
   };
 }
 
+const GET_COMMENT_PARENT_QUERY = `
+  query GetCommentParent($id: ID!) {
+    node(id: $id) {
+      ... on DiscussionComment {
+        replyTo {
+          id
+        }
+      }
+    }
+  }
+`;
+
 const ADD_DISCUSSION_COMMENT_MUTATION = `
   mutation AddDiscussionComment($input: AddDiscussionCommentInput!) {
     addDiscussionComment(input: $input) {
@@ -45,6 +63,31 @@ const GET_DISCUSSION_QUERY = `
     }
   }
 `;
+
+export async function resolveReplyToId(
+  graphqlWithAuth: typeof graphql,
+  replyToId: string,
+): Promise<string> {
+  try {
+    const result = await graphqlWithAuth<GetCommentParentResult>(
+      GET_COMMENT_PARENT_QUERY,
+      { id: replyToId },
+    );
+    if (result.node?.replyTo) {
+      console.log(
+        `Comment ${replyToId} is a threaded reply. Using parent comment ${result.node.replyTo.id} as replyToId.`,
+      );
+      return result.node.replyTo.id;
+    }
+    return replyToId;
+  } catch (error) {
+    console.warn(
+      `Warning: Failed to resolve replyToId ${replyToId}, using original value:`,
+      error,
+    );
+    return replyToId;
+  }
+}
 
 async function replyToDiscussion(
   owner: string,
@@ -75,19 +118,25 @@ async function replyToDiscussion(
     const discussionId = discussionResult.repository.discussion.id;
     console.log(`Discussion ID: ${discussionId}`);
 
+    // replyToId が Level 2 コメントの場合、親コメントのIDに解決する
+    let resolvedReplyToId = replyToId;
+    if (replyToId) {
+      resolvedReplyToId = await resolveReplyToId(graphqlWithAuth, replyToId);
+    }
+
     // コメントを投稿
-    const isReply = replyToId !== undefined;
+    const isReply = resolvedReplyToId !== undefined;
     console.log(
       isReply
-        ? `Adding reply to comment ${replyToId}...`
+        ? `Adding reply to comment ${resolvedReplyToId}...`
         : "Adding comment to discussion...",
     );
     const input: AddDiscussionCommentInput = {
       discussionId,
       body: replyBody,
     };
-    if (replyToId) {
-      input.replyToId = replyToId;
+    if (resolvedReplyToId) {
+      input.replyToId = resolvedReplyToId;
     }
     const result = await graphqlWithAuth<AddDiscussionCommentResult>(
       ADD_DISCUSSION_COMMENT_MUTATION,
