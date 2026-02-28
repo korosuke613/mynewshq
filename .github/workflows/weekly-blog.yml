@@ -179,10 +179,11 @@ jobs:
           cat /tmp/summaries/hatenaBookmark.json
 
       - name: Upload summary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: summary-blog
           path: /tmp/summaries/hatenaBookmark.json
+          archive: false
           retention-days: 1
 
   # Phase 3: Discussion投稿
@@ -216,7 +217,7 @@ jobs:
           path: data/blogs/weekly/
 
       - name: Download summary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: summary-blog
           path: /tmp/summaries/
