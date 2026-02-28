@@ -119,7 +119,7 @@ jobs:
           fi
           COMMENT_ID="${{ inputs.comment_id }}"
           if [ -n "$COMMENT_ID" ]; then
-            deno task reply-discussion ${{ inputs.discussion_number }} "$BODY" "$COMMENT_ID"
+            deno run --allow-net --allow-env scripts/reply-discussion.ts ${{ inputs.discussion_number }} "$BODY" "$COMMENT_ID"
           else
-            deno task reply-discussion ${{ inputs.discussion_number }} "$BODY"
+            deno run --allow-net --allow-env scripts/reply-discussion.ts ${{ inputs.discussion_number }} "$BODY"
           fi
