@@ -1,8 +1,8 @@
 name: Weekly Blog
 
 on:
-  # 毎週水曜日 01:00 UTC (10:00 JST)
-  # ghacron: "TZ=Asia/Tokyo 0 10 * * 3"
+  # 毎週水曜日 01:00 UTC (10:00 JST) - 一時停止中（Blog読み消化が追いつかないため）
+  # ghacron-paused: "TZ=Asia/Tokyo 0 10 * * 3"
   workflow_dispatch:
     inputs:
       end_date:
