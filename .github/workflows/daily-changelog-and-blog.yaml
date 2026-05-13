@@ -60,11 +60,13 @@ jobs:
           CATEGORY_CONFIG_ISSUE_NUMBER: "104"
           CATEGORY_FILTER_ISSUE_NUMBER: "118"
           # case関数でカテゴリを決定
-          # - schedule時はBlogを一時停止中のため'changelog'固定
-          # - workflow_dispatch時はinputsの値に応じて分岐（Blogも手動実行可能）
+          # - kiba-ghacron[bot]による自動起動時はBlogを一時停止中のため'changelog'固定
+          # - 人間によるworkflow_dispatch時はinputsの値に応じて分岐（Blogも手動実行可能）
+          # 注: このリポジトリのcronは on.schedule ではなく kiba-ghacron が
+          #     workflow_dispatch を叩く方式のため、event_name ではなく actor で判別する
           CATEGORY: |-
             ${{ case(
-              github.event_name == 'schedule', 'changelog',
+              github.actor == 'kiba-ghacron[bot]', 'changelog',
               inputs.run_changelog != false && inputs.run_blog != false, 'all',
               inputs.run_changelog != false, 'changelog',
               inputs.run_blog != false, 'blog',
