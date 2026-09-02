@@ -263,11 +263,10 @@ schedule:
   - cron: "0 3 * * *" # UTC 3:00 = JST 12:00 = PST 19:00/PDT 20:00
 ```
 
-`.github/workflows/weekly-changelog.yml` の `cron` を編集：
+`.github/workflows/weekly-changelog.yml` の `ghacron` コメントを編集：
 
 ```yaml
-schedule:
-  - cron: "0 6 * * 4" # 毎週木曜日 UTC 6:00 = JST 15:00
+# ghacron: "TZ=Asia/Tokyo 0 15 * * 4"
 ```
 
 ### 要約フォーマットの変更
