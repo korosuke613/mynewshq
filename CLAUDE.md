@@ -38,7 +38,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **スケジュール**:
 - 日次: 毎日 12:00 JST
-- 週次: 毎週水曜日 10:00 JST
+- 週次: 毎週木曜日 15:00 JST
 
 **仕様書**: `spec/` ディレクトリに配置
 
@@ -136,7 +136,7 @@ scripts/
 mynewshq/
 ├── .github/workflows/
 │   ├── daily-changelog.yml         # 日次ワークフロー（収集→要約→投稿）
-│   ├── weekly-changelog.yml        # 週次ワークフロー（毎週水曜日）
+│   ├── weekly-changelog.yml        # 週次ワークフロー（毎週木曜日）
 │   ├── discussion-claude-answer.yml # Claudeによる質問回答
 │   ├── discussion-claude-mention.yml # @claudeメンションのトリガー
 │   └── quality-check.yml           # コード品質チェック
@@ -263,11 +263,10 @@ schedule:
   - cron: "0 3 * * *" # UTC 3:00 = JST 12:00 = PST 19:00/PDT 20:00
 ```
 
-`.github/workflows/weekly-changelog.yml` の `cron` を編集：
+`.github/workflows/weekly-changelog.yml` の `ghacron` コメントを編集：
 
 ```yaml
-schedule:
-  - cron: "0 1 * * 3" # 毎週水曜日 UTC 1:00 = JST 10:00
+# ghacron: "TZ=Asia/Tokyo 0 15 * * 4"
 ```
 
 ### 要約フォーマットの変更

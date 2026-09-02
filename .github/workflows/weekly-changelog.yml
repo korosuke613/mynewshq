@@ -1,8 +1,8 @@
 name: Weekly Changelog
 
 on:
-  # 毎週水曜日 01:00 UTC (10:00 JST)
-  # ghacron: "TZ=Asia/Tokyo 0 10 * * 3"
+  # 毎週木曜日 06:00 UTC (15:00 JST)
+  # ghacron: "TZ=Asia/Tokyo 0 15 * * 4"
   workflow_dispatch:
     inputs:
       end_date:
